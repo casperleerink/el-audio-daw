@@ -57,11 +57,7 @@ function EmptyMedia({
 
 function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div
-      data-slot="empty-title"
-      className={cn("text-sm font-medium", className)}
-      {...props}
-    />
+    <div data-slot="empty-title" className={cn("text-sm font-medium", className)} {...props} />
   );
 }
 
@@ -91,11 +87,4 @@ function EmptyContent({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-export {
-  Empty,
-  EmptyHeader,
-  EmptyTitle,
-  EmptyDescription,
-  EmptyContent,
-  EmptyMedia,
-};
+export { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyContent, EmptyMedia };
