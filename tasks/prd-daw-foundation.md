@@ -26,7 +26,7 @@ Build the foundational architecture for a collaborative DAW (Digital Audio Works
 - [x] Build project dashboard page (`/`)
 - [x] Build DAW editor page (`/project/:id`)
 - [x] Implement timeline canvas with zoom/scroll
-- [ ] Implement track list with TanStack Virtual
+- [x] Implement track list with TanStack Virtual
 - [x] Implement transport controls (play/stop, clock display)
 - [x] Implement track controls (mute/solo/gain)
 - [x] Implement master track with gain

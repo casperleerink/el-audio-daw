@@ -1,6 +1,7 @@
 import { api } from "@el-audio-daw/backend/convex/_generated/api";
 import { AudioEngine, type TrackState } from "@el-audio-daw/audio";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
@@ -13,7 +14,7 @@ import {
   Trash2,
   VolumeX,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import SignInForm from "@/components/sign-in-form";
@@ -79,8 +80,10 @@ function ProjectEditor() {
   const [masterGain, setMasterGain] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
+  const [scrollTop, setScrollTop] = useState(0);
 
   const engineRef = useRef<AudioEngine | null>(null);
+  const trackListRef = useRef<HTMLDivElement>(null);
 
   // Initialize audio engine
   const initializeEngine = useCallback(async () => {
@@ -380,26 +383,18 @@ function ProjectEditor() {
         {/* Track List */}
         <div className="flex w-64 shrink-0 flex-col border-r">
           {/* Track Headers */}
-          <div className="flex-1 overflow-y-auto">
-            {tracks.length === 0 ? (
-              <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-                No tracks yet
-              </div>
-            ) : (
-              tracks.map((track) => (
-                <TrackHeader
-                  key={track._id}
-                  track={track}
-                  onMuteChange={(muted) => handleUpdateTrackMute(track._id, muted)}
-                  onSoloChange={(solo) => handleUpdateTrackSolo(track._id, solo)}
-                  onGainChange={(gain) => handleUpdateTrackGain(track._id, gain)}
-                  onNameChange={(name) => handleUpdateTrackName(track._id, name)}
-                  onDelete={() => handleDeleteTrack(track._id)}
-                  formatGain={formatGain}
-                />
-              ))
-            )}
-          </div>
+          <VirtualizedTrackList
+            ref={trackListRef}
+            tracks={tracks}
+            scrollTop={scrollTop}
+            onScrollChange={setScrollTop}
+            onMuteChange={handleUpdateTrackMute}
+            onSoloChange={handleUpdateTrackSolo}
+            onGainChange={handleUpdateTrackGain}
+            onNameChange={handleUpdateTrackName}
+            onDelete={handleDeleteTrack}
+            formatGain={formatGain}
+          />
 
           {/* Master Track */}
           <div className="shrink-0 border-t bg-muted/30 p-2">
@@ -423,6 +418,8 @@ function ProjectEditor() {
           <TimelineCanvas
             tracks={tracks}
             playheadTime={playheadTime}
+            scrollTop={scrollTop}
+            onScrollChange={setScrollTop}
             onSeek={(time) => {
               engineRef.current?.setPlayhead(time);
               setPlayheadTime(time);
@@ -433,6 +430,118 @@ function ProjectEditor() {
     </div>
   );
 }
+
+const TRACK_HEADER_HEIGHT = 60;
+
+interface VirtualizedTrackListProps {
+  tracks: {
+    _id: string;
+    name: string;
+    muted: boolean;
+    solo: boolean;
+    gain: number;
+  }[];
+  scrollTop: number;
+  onScrollChange: (scrollTop: number) => void;
+  onMuteChange: (trackId: string, muted: boolean) => void;
+  onSoloChange: (trackId: string, solo: boolean) => void;
+  onGainChange: (trackId: string, gain: number) => void;
+  onNameChange: (trackId: string, name: string) => void;
+  onDelete: (trackId: string) => void;
+  formatGain: (db: number) => string;
+}
+
+const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackListProps>(
+  function VirtualizedTrackList(
+    {
+      tracks,
+      scrollTop,
+      onScrollChange,
+      onMuteChange,
+      onSoloChange,
+      onGainChange,
+      onNameChange,
+      onDelete,
+      formatGain,
+    },
+    ref,
+  ) {
+    const parentRef = useRef<HTMLDivElement>(null);
+
+    // Sync scroll position from parent
+    useEffect(() => {
+      if (parentRef.current && Math.abs(parentRef.current.scrollTop - scrollTop) > 1) {
+        parentRef.current.scrollTop = scrollTop;
+      }
+    }, [scrollTop]);
+
+    const virtualizer = useVirtualizer({
+      count: tracks.length,
+      getScrollElement: () => parentRef.current,
+      estimateSize: () => TRACK_HEADER_HEIGHT,
+      overscan: 5,
+    });
+
+    const handleScroll = useCallback(
+      (e: React.UIEvent<HTMLDivElement>) => {
+        onScrollChange(e.currentTarget.scrollTop);
+      },
+      [onScrollChange],
+    );
+
+    // Forward ref
+    React.useImperativeHandle(ref, () => parentRef.current as HTMLDivElement, []);
+
+    if (tracks.length === 0) {
+      return (
+        <div className="flex h-32 flex-1 items-center justify-center text-sm text-muted-foreground">
+          No tracks yet
+        </div>
+      );
+    }
+
+    return (
+      <div ref={parentRef} className="flex-1 overflow-y-auto" onScroll={handleScroll}>
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const track = tracks[virtualRow.index];
+            if (!track) return null;
+
+            return (
+              <div
+                key={track._id}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <TrackHeader
+                  track={track}
+                  onMuteChange={(muted) => onMuteChange(track._id, muted)}
+                  onSoloChange={(solo) => onSoloChange(track._id, solo)}
+                  onGainChange={(gain) => onGainChange(track._id, gain)}
+                  onNameChange={(name) => onNameChange(track._id, name)}
+                  onDelete={() => onDelete(track._id)}
+                  formatGain={formatGain}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  },
+);
 
 interface TrackHeaderProps {
   track: {
@@ -481,9 +590,9 @@ function TrackHeader({
   };
 
   return (
-    <div className="border-b p-2">
+    <div className="box-border h-[60px] border-b p-2">
       {/* Track Name Row */}
-      <div className="mb-2 flex items-center gap-1">
+      <div className="mb-1 flex items-center gap-1">
         {isEditing ? (
           <Input
             ref={inputRef}
@@ -558,6 +667,8 @@ function TrackHeader({
 interface TimelineCanvasProps {
   tracks: { _id: string; name: string }[];
   playheadTime: number;
+  scrollTop: number;
+  onScrollChange: (scrollTop: number) => void;
   onSeek: (time: number) => void;
 }
 
@@ -567,7 +678,13 @@ const DEFAULT_PIXELS_PER_SECOND = 20;
 const MIN_PIXELS_PER_SECOND = 2;
 const MAX_PIXELS_PER_SECOND = 200;
 
-function TimelineCanvas({ tracks, playheadTime, onSeek }: TimelineCanvasProps) {
+function TimelineCanvas({
+  tracks,
+  playheadTime,
+  scrollTop,
+  onScrollChange,
+  onSeek,
+}: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -593,22 +710,34 @@ function TimelineCanvas({ tracks, playheadTime, onSeek }: TimelineCanvasProps) {
     return () => observer.disconnect();
   }, []);
 
-  // Handle wheel for zoom and scroll
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
+  // Calculate max vertical scroll
+  const totalTrackHeight = tracks.length * TRACK_HEIGHT;
+  const viewportHeight = dimensions.height - RULER_HEIGHT;
+  const maxScrollTop = Math.max(0, totalTrackHeight - viewportHeight);
 
-    if (e.ctrlKey || e.metaKey) {
-      // Zoom with ctrl/cmd + scroll
-      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      setPixelsPerSecond((prev) =>
-        Math.min(MAX_PIXELS_PER_SECOND, Math.max(MIN_PIXELS_PER_SECOND, prev * zoomFactor)),
-      );
-    } else if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-      // Horizontal scroll with shift or horizontal gesture
-      const delta = e.shiftKey ? e.deltaY : e.deltaX;
-      setScrollLeft((prev) => Math.max(0, prev + delta));
-    }
-  }, []);
+  // Handle wheel for zoom and scroll
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+
+      if (e.ctrlKey || e.metaKey) {
+        // Zoom with ctrl/cmd + scroll
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        setPixelsPerSecond((prev) =>
+          Math.min(MAX_PIXELS_PER_SECOND, Math.max(MIN_PIXELS_PER_SECOND, prev * zoomFactor)),
+        );
+      } else if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        // Horizontal scroll with shift or horizontal gesture
+        const delta = e.shiftKey ? e.deltaY : e.deltaX;
+        setScrollLeft((prev) => Math.max(0, prev + delta));
+      } else {
+        // Vertical scroll - sync with track list
+        const newScrollTop = Math.min(maxScrollTop, Math.max(0, scrollTop + e.deltaY));
+        onScrollChange(newScrollTop);
+      }
+    },
+    [maxScrollTop, scrollTop, onScrollChange],
+  );
 
   // Handle click for seeking
   const handleClick = useCallback(
@@ -681,9 +810,11 @@ function TimelineCanvas({ tracks, playheadTime, onSeek }: TimelineCanvasProps) {
       ctx.fillText(`${mins}:${secs.toString().padStart(2, "0")}`, x, 12);
     }
 
-    // Draw track lanes
+    // Draw track lanes (accounting for vertical scroll)
     for (let i = 0; i < tracks.length; i++) {
-      const y = RULER_HEIGHT + i * TRACK_HEIGHT;
+      const y = RULER_HEIGHT + i * TRACK_HEIGHT - scrollTop;
+      // Skip tracks that are outside the visible area
+      if (y + TRACK_HEIGHT < RULER_HEIGHT || y > dimensions.height) continue;
       ctx.fillStyle = borderColor;
       ctx.fillRect(0, y + TRACK_HEIGHT - 1, dimensions.width, 1);
     }
@@ -694,7 +825,7 @@ function TimelineCanvas({ tracks, playheadTime, onSeek }: TimelineCanvasProps) {
       ctx.fillStyle = mutedColor;
       ctx.fillRect(playheadX, 0, 1, dimensions.height);
     }
-  }, [dimensions, tracks, playheadTime, scrollLeft, pixelsPerSecond]);
+  }, [dimensions, tracks, playheadTime, scrollLeft, scrollTop, pixelsPerSecond]);
 
   return (
     <div

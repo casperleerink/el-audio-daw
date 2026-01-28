@@ -168,3 +168,40 @@ Implemented the full DAW editor page at `/project/$id` route.
 **Remaining tasks:**
 1. Implement track virtualization with TanStack Virtual (for 50+ tracks performance)
 2. Implement track reordering via drag-and-drop
+
+## 2026-01-27: Track List Virtualization with TanStack Virtual
+
+Implemented virtualized track list using `@tanstack/react-virtual` (FR-38).
+
+**Files modified:**
+- `apps/web/src/routes/project.$id.tsx` - Added VirtualizedTrackList component
+- `apps/web/package.json` - Added `@tanstack/react-virtual` dependency
+
+**Implementation details:**
+
+1. **VirtualizedTrackList component**
+   - Uses `useVirtualizer` from TanStack Virtual
+   - Fixed track header height of 60px (TRACK_HEADER_HEIGHT constant)
+   - Overscan of 5 items for smooth scrolling
+   - Absolute positioning with transforms for virtual items
+   - Synced scroll position with timeline canvas via shared `scrollTop` state
+
+2. **Synchronized vertical scrolling (FR-27)**
+   - Added `scrollTop` state to parent `ProjectEditor` component
+   - Both track list and timeline canvas share the same scroll offset
+   - Vertical scroll on timeline canvas syncs to track headers
+   - Vertical scroll on track headers syncs to timeline canvas
+   - Track lanes on canvas now render with scroll offset
+
+3. **TrackHeader component updates**
+   - Fixed height of 60px with `box-border` to include padding/borders
+   - Adjusted spacing to fit within fixed height
+
+**Notes for next developer:**
+- The virtualizer uses `estimateSize: () => TRACK_HEADER_HEIGHT` with fixed 60px height
+- Scroll sync works bidirectionally between track list and timeline
+- The timeline canvas uses wheel events for vertical scroll when no modifiers pressed
+- Only visible tracks are rendered, enabling smooth performance with 50+ tracks
+
+**Remaining task:**
+1. Implement track reordering via drag-and-drop (FR-45)
