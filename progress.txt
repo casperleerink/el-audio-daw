@@ -20,3 +20,40 @@ Next priority tasks:
 1. Create packages/audio with Elementary Audio engine
 2. Build project dashboard page (/)
 3. Build DAW editor page (/project/:id)
+
+## 2026-01-27: Audio Engine Package Implementation
+
+Created `packages/audio` with Elementary Audio engine (web-renderer + core).
+
+**Package structure:**
+- `src/index.ts` - Main exports
+- `src/engine.ts` - AudioEngine class
+- `src/utils.ts` - dB/gain conversion utilities
+
+**AudioEngine class implements all required functionality (FR-1 through FR-13):**
+- `initialize()` - Creates AudioContext and initializes Elementary renderer
+- `play()` / `stop()` - Transport controls, resumes suspended AudioContext
+- `setPlayhead(seconds)` / `getPlayhead()` - Playhead position management
+- `onPlayheadUpdate(callback)` - Subscribe to playhead updates (uses requestAnimationFrame)
+- `setTracks(tracks[])` - Update track states (id, muted, solo, gain in dB)
+- `setMasterGain(dB)` - Set master gain
+- `dispose()` - Clean up resources
+
+**Audio routing implemented:**
+- Track signals → per-track gain → sum → master gain → stereo output
+- Solo logic: when any track is soloed, only soloed tracks produce audio
+- Gain range: -60dB to +12dB (complete silence below -60dB)
+- Smooth gain transitions using el.sm() to avoid clicks
+- Each track has keyed nodes for efficient Elementary Audio graph updates
+
+**Notes for next developer:**
+- In v1, tracks produce silence (no clips yet) but full routing works
+- AudioEngine must be initialized after a user gesture (browser autoplay policy)
+- Playhead position is local state (not synced to Convex)
+- The package uses DOM lib (not node) for AudioContext types
+- Pre-existing type errors in web app are unrelated (missing route generation)
+
+Next priority tasks:
+1. Build project dashboard page (/)
+2. Build DAW editor page (/project/:id)
+3. Implement timeline canvas with zoom/scroll

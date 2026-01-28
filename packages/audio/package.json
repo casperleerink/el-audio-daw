@@ -1,0 +1,20 @@
+{
+  "name": "@el-audio-daw/audio",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@elemaudio/core": "^4.0.1",
+    "@elemaudio/web-renderer": "^4.0.3"
+  },
+  "devDependencies": {
+    "@el-audio-daw/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

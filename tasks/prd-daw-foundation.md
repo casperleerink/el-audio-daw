@@ -20,8 +20,8 @@ Build the foundational architecture for a collaborative DAW (Digital Audio Works
 
 ## Tasks
 
-- [ ] Create `packages/audio` with Elementary Audio (web-renderer + core)
-- [ ] Set up audio engine with master output and track routing
+- [x] Create `packages/audio` with Elementary Audio (web-renderer + core)
+- [x] Set up audio engine with master output and track routing
 - [x] Create Convex schema (Project, Track, ProjectUser)
 - [ ] Build project dashboard page (`/`)
 - [ ] Build DAW editor page (`/project/:id`)
