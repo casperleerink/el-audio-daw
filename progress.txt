@@ -60,3 +60,22 @@
 - The loading states are per-operation: adding a track disables only the Add Track button, deleting a track disables only that track's delete button
 - Reorder operations already have visual feedback via the drop indicator lines - no additional loading state was needed
 - The PRD also noted "Add loading spinner to project creation button" as incomplete, but it was already implemented in `apps/web/src/routes/index.tsx` - marked as complete
+
+## 2026-01-27: Project Loading Skeleton
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Add loading overlay during project load** - Show skeleton while project data loads
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added import for `Skeleton` component from `@/components/ui/skeleton`
+  - Created new `ProjectEditorSkeleton` component that mirrors the editor layout structure
+  - Skeleton includes: header (back button, project name, settings), transport controls (play/stop, time, add track), track list with 3 placeholder tracks, master track controls, and timeline with ruler
+  - Replaced the simple centered `Loader2` spinner with the full skeleton layout
+  - Loading state now shows the skeleton until both `project` and `tracks` queries resolve
+
+### Notes for Next Developer
+- The skeleton component is intentionally simple - it shows 3 placeholder track rows which works for most use cases
+- The skeleton uses the existing `Skeleton` component from `@/components/ui/skeleton` which has `animate-pulse` built in
+- If the editor layout changes significantly, remember to update the skeleton to match
+- The skeleton renders immediately while Convex queries are undefined, providing instant visual feedback

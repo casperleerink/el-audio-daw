@@ -26,7 +26,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [x] **Add loading states to track operations** - Show feedback when adding, deleting, reordering tracks
   - Acceptance: Add track button shows spinner while creating; delete shows brief disabled state; reorder shows drop animation
 
-- [ ] **Add loading overlay during project load** - Show skeleton or spinner while project data loads
+- [x] **Add loading overlay during project load** - Show skeleton or spinner while project data loads
   - Acceptance: Editor page shows loading skeleton until project and tracks queries resolve
 
 - [ ] **Add optimistic updates for track mute/solo/gain** - Instant UI feedback before server confirms
