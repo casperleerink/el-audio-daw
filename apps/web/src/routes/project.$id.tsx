@@ -169,8 +169,29 @@ function ProjectEditor() {
   const [isAddingTrack, setIsAddingTrack] = useState(false);
   const [deletingTrackId, setDeletingTrackId] = useState<string | null>(null);
 
+  // Optimistic updates for track controls
+  // Map of trackId -> { muted?, solo?, gain? }
+  const [optimisticUpdates, setOptimisticUpdates] = useState<
+    Map<string, { muted?: boolean; solo?: boolean; gain?: number }>
+  >(new Map());
+
   const engineRef = useRef<AudioEngine | null>(null);
   const trackListRef = useRef<HTMLDivElement>(null);
+
+  // Merge server tracks with optimistic updates
+  const tracksWithOptimisticUpdates = React.useMemo(() => {
+    if (!tracks) return undefined;
+    return tracks.map((track) => {
+      const optimistic = optimisticUpdates.get(track._id);
+      if (!optimistic) return track;
+      return {
+        ...track,
+        muted: optimistic.muted ?? track.muted,
+        solo: optimistic.solo ?? track.solo,
+        gain: optimistic.gain ?? track.gain,
+      };
+    });
+  }, [tracks, optimisticUpdates]);
 
   // Initialize audio engine (called lazily on first transport action)
   const initializeEngine = useCallback(async () => {
@@ -198,11 +219,11 @@ function ProjectEditor() {
     }
   }, []);
 
-  // Sync tracks to audio engine
+  // Sync tracks to audio engine (uses optimistic updates for instant feedback)
   useEffect(() => {
-    if (!engineRef.current || !tracks) return;
+    if (!engineRef.current || !tracksWithOptimisticUpdates) return;
 
-    const trackStates: TrackState[] = tracks.map((t) => ({
+    const trackStates: TrackState[] = tracksWithOptimisticUpdates.map((t) => ({
       id: t._id,
       muted: t.muted,
       solo: t.solo,
@@ -210,7 +231,7 @@ function ProjectEditor() {
     }));
 
     engineRef.current.setTracks(trackStates);
-  }, [tracks]);
+  }, [tracksWithOptimisticUpdates]);
 
   // Sync master gain to audio engine
   useEffect(() => {
@@ -270,37 +291,94 @@ function ProjectEditor() {
     }
   }, [createTrack, id]);
 
+  // Helper to apply optimistic update and rollback on failure
+  const applyOptimisticUpdate = useCallback(
+    (trackId: string, update: { muted?: boolean; solo?: boolean; gain?: number }) => {
+      setOptimisticUpdates((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(trackId) || {};
+        next.set(trackId, { ...existing, ...update });
+        return next;
+      });
+    },
+    [],
+  );
+
+  const clearOptimisticUpdate = useCallback(
+    (trackId: string, keys: ("muted" | "solo" | "gain")[]) => {
+      setOptimisticUpdates((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(trackId);
+        if (!existing) return prev;
+
+        const updated = { ...existing };
+        for (const key of keys) {
+          delete updated[key];
+        }
+
+        if (Object.keys(updated).length === 0) {
+          next.delete(trackId);
+        } else {
+          next.set(trackId, updated);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
   const handleUpdateTrackMute = useCallback(
     async (trackId: string, muted: boolean) => {
+      // Apply optimistic update immediately
+      applyOptimisticUpdate(trackId, { muted });
+
       try {
         await updateTrack({ id: trackId as any, muted });
+        // Clear optimistic update on success (server data will match)
+        clearOptimisticUpdate(trackId, ["muted"]);
       } catch {
+        // Rollback optimistic update on failure
+        clearOptimisticUpdate(trackId, ["muted"]);
         toast.error("Failed to update track");
       }
     },
-    [updateTrack],
+    [updateTrack, applyOptimisticUpdate, clearOptimisticUpdate],
   );
 
   const handleUpdateTrackSolo = useCallback(
     async (trackId: string, solo: boolean) => {
+      // Apply optimistic update immediately
+      applyOptimisticUpdate(trackId, { solo });
+
       try {
         await updateTrack({ id: trackId as any, solo });
+        // Clear optimistic update on success
+        clearOptimisticUpdate(trackId, ["solo"]);
       } catch {
+        // Rollback optimistic update on failure
+        clearOptimisticUpdate(trackId, ["solo"]);
         toast.error("Failed to update track");
       }
     },
-    [updateTrack],
+    [updateTrack, applyOptimisticUpdate, clearOptimisticUpdate],
   );
 
   const handleUpdateTrackGain = useCallback(
     async (trackId: string, gain: number) => {
+      // Apply optimistic update immediately
+      applyOptimisticUpdate(trackId, { gain });
+
       try {
         await updateTrack({ id: trackId as any, gain });
+        // Clear optimistic update on success
+        clearOptimisticUpdate(trackId, ["gain"]);
       } catch {
+        // Rollback optimistic update on failure
+        clearOptimisticUpdate(trackId, ["gain"]);
         toast.error("Failed to update track");
       }
     },
-    [updateTrack],
+    [updateTrack, applyOptimisticUpdate, clearOptimisticUpdate],
   );
 
   const handleUpdateTrackName = useCallback(
@@ -501,7 +579,7 @@ function ProjectEditor() {
           {/* Track Headers */}
           <VirtualizedTrackList
             ref={trackListRef}
-            tracks={tracks}
+            tracks={tracksWithOptimisticUpdates ?? []}
             scrollTop={scrollTop}
             onScrollChange={setScrollTop}
             onMuteChange={handleUpdateTrackMute}

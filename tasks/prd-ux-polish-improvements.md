@@ -29,7 +29,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [x] **Add loading overlay during project load** - Show skeleton or spinner while project data loads
   - Acceptance: Editor page shows loading skeleton until project and tracks queries resolve
 
-- [ ] **Add optimistic updates for track mute/solo/gain** - Instant UI feedback before server confirms
+- [x] **Add optimistic updates for track mute/solo/gain** - Instant UI feedback before server confirms
   - Acceptance: Clicking mute/solo instantly toggles visual state; gain slider moves instantly; rolls back on error
 
 - [ ] **Show saving indicator for project name changes** - Indicate when project name is being saved

@@ -79,3 +79,30 @@
 - The skeleton uses the existing `Skeleton` component from `@/components/ui/skeleton` which has `animate-pulse` built in
 - If the editor layout changes significantly, remember to update the skeleton to match
 - The skeleton renders immediately while Convex queries are undefined, providing instant visual feedback
+
+## 2026-01-27: Track Mute/Solo/Gain Optimistic Updates
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Add optimistic updates for track mute/solo/gain** - Instant UI feedback before server confirms
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added `optimisticUpdates` state (Map of trackId -> { muted?, solo?, gain? })
+  - Created `tracksWithOptimisticUpdates` memo that merges server data with optimistic values
+  - Added `applyOptimisticUpdate()` helper to set optimistic values instantly
+  - Added `clearOptimisticUpdate()` helper to remove optimistic values after mutation completes/fails
+  - Updated `handleUpdateTrackMute/Solo/Gain` handlers to:
+    1. Apply optimistic update immediately (before await)
+    2. Call Convex mutation
+    3. Clear optimistic update on success (server data will be authoritative)
+    4. Roll back optimistic update on failure + show error toast
+  - Updated audio engine sync to use `tracksWithOptimisticUpdates` for instant audio feedback
+  - Updated VirtualizedTrackList to receive `tracksWithOptimisticUpdates`
+
+### Notes for Next Developer
+- Optimistic updates are stored separately from server data to enable clean rollback
+- The merge happens in `tracksWithOptimisticUpdates` memo - optimistic values override server values
+- On mutation success, we clear the optimistic value because Convex will sync the new server value
+- On mutation failure, we clear the optimistic value to rollback to previous server state
+- The audio engine also uses optimistic data, so mute/solo/gain changes are heard instantly
+- Gain slider sends many updates rapidly - each is optimistically applied, preventing lag
