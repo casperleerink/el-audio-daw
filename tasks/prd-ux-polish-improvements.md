@@ -68,7 +68,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [x] **Add hover states to timeline** - Show time position on mouse hover
   - Acceptance: Hovering timeline shows vertical line + tooltip with time at cursor position
 
-- [ ] **Improve zoom controls** - Add visible zoom in/out buttons alongside scroll-zoom
+- [x] **Improve zoom controls** - Add visible zoom in/out buttons alongside scroll-zoom
   - Acceptance: Timeline header has +/- buttons; clicking zooms in/out by 2x; scroll-zoom still works
 
 - [x] **Add keyboard shortcut hints** - Show shortcut hints in tooltips

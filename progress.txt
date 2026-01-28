@@ -341,3 +341,26 @@
 - The dragged item retains `opacity-50` plus new shadow and scale effects
 - Transition makes the drag state changes smooth rather than jarring
 - Both "before" and "after" indicators use identical styling since they now highlight the whole row
+
+## 2026-01-27: Timeline Zoom Controls
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Improve zoom controls** - Add visible zoom in/out buttons alongside scroll-zoom
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added `ZoomIn` and `ZoomOut` imports from lucide-react
+  - Added `handleZoomIn` callback that multiplies pixelsPerSecond by 2 (clamped to max)
+  - Added `handleZoomOut` callback that divides pixelsPerSecond by 2 (clamped to min)
+  - Added `canZoomIn` and `canZoomOut` computed values to disable buttons at limits
+  - Added zoom button controls in top-right corner of timeline (overlaying ruler area)
+  - Buttons use `icon-xs` size and `ghost` variant for minimal visual footprint
+  - Buttons have tooltips with 500ms delay showing "Zoom In" and "Zoom Out"
+  - Buttons are disabled when at min/max zoom levels
+
+### Notes for Next Developer
+- The zoom buttons work alongside existing scroll-zoom (ctrl/cmd + wheel) and Safari gesture zoom
+- Zoom factor is 2x per click, matching common behavior in DAWs
+- Buttons are positioned in top-right of timeline area at `right-2 top-0.5`
+- The PRD mentioned showing zoom level percentage - this was NOT implemented as it was listed as an open question
+- Min zoom is 2 pixels/second, max is 200 pixels/second (unchanged from existing implementation)

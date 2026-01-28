@@ -22,6 +22,8 @@ import {
   Square,
   Trash2,
   VolumeX,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -1212,6 +1214,16 @@ function TimelineCanvas({
     setHoverTime(null);
   }, []);
 
+  // Zoom in by 2x
+  const handleZoomIn = useCallback(() => {
+    setPixelsPerSecond((prev) => Math.min(MAX_PIXELS_PER_SECOND, prev * 2));
+  }, []);
+
+  // Zoom out by 2x
+  const handleZoomOut = useCallback(() => {
+    setPixelsPerSecond((prev) => Math.max(MIN_PIXELS_PER_SECOND, prev / 2));
+  }, []);
+
   // Draw canvas
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1309,6 +1321,10 @@ function TimelineCanvas({
     return `${mins}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
   };
 
+  // Check if at zoom limits
+  const canZoomIn = pixelsPerSecond < MAX_PIXELS_PER_SECOND;
+  const canZoomOut = pixelsPerSecond > MIN_PIXELS_PER_SECOND;
+
   return (
     <div
       ref={containerRef}
@@ -1323,6 +1339,29 @@ function TimelineCanvas({
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       />
+      {/* Zoom controls */}
+      <div className="absolute right-2 top-0.5 z-10 flex items-center gap-0.5">
+        <Tooltip delay={500}>
+          <TooltipTrigger
+            render={
+              <Button variant="ghost" size="icon-xs" onClick={handleZoomOut} disabled={!canZoomOut}>
+                <ZoomOut className="size-3" />
+              </Button>
+            }
+          />
+          <TooltipContent>Zoom Out</TooltipContent>
+        </Tooltip>
+        <Tooltip delay={500}>
+          <TooltipTrigger
+            render={
+              <Button variant="ghost" size="icon-xs" onClick={handleZoomIn} disabled={!canZoomIn}>
+                <ZoomIn className="size-3" />
+              </Button>
+            }
+          />
+          <TooltipContent>Zoom In</TooltipContent>
+        </Tooltip>
+      </div>
       {/* Hover time tooltip */}
       {hoverX !== null && hoverTime !== null && (
         <div
