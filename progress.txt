@@ -57,3 +57,32 @@ Next priority tasks:
 1. Build project dashboard page (/)
 2. Build DAW editor page (/project/:id)
 3. Implement timeline canvas with zoom/scroll
+
+## 2026-01-27: Project Dashboard Implementation
+
+Implemented the project dashboard page at "/" route (FR-20, FR-22, FR-23, FR-24, FR-25).
+
+**Files created/modified:**
+- `apps/web/src/routes/index.tsx` - Dashboard with project list and creation
+- `apps/web/src/routes/project.$id.tsx` - Placeholder for DAW editor route
+
+**Features implemented:**
+- Authentication guards: Shows sign-in/sign-up for unauthenticated users (FR-22)
+- Project list: Displays all user projects (owned and collaborated) in a grid (FR-23)
+- "New Project" button: Creates project with "Untitled Project" name and navigates to editor (FR-24)
+- Project cards: Show name, role (if collaborator), and last updated date with "Open" action (FR-25)
+- Empty state: Helpful UI when user has no projects
+- Loading states: Spinners while fetching data
+- Toast notifications: Success/error feedback on project creation
+
+**Notes for next developer:**
+- The `/project/$id` route is a placeholder - DAW editor implementation is the next task
+- Uses Convex `api.projects.getUserProjects` query with real-time subscriptions
+- Uses Convex `api.projects.createProject` mutation
+- TanStack Router generates `routeTree.gen.ts` during build (run `bun run build` if type errors about routes)
+- Components used: Card, Button, Empty (Shadcn/UI), Lucide icons
+
+Next priority tasks:
+1. Build DAW editor page (/project/:id)
+2. Implement timeline canvas with zoom/scroll
+3. Implement track list with TanStack Virtual

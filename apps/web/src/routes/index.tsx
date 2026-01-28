@@ -1,50 +1,162 @@
 import { api } from "@el-audio-daw/backend/convex/_generated/api";
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
+import { FolderOpen, Loader2, Music, Plus } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import SignInForm from "@/components/sign-in-form";
+import SignUpForm from "@/components/sign-up-form";
+import { Button } from "@/components/ui/button";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export const Route = createFileRoute("/")({
-  component: HomeComponent,
+  component: DashboardComponent,
 });
 
-const TITLE_TEXT = `
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
-
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
- `;
-
-function HomeComponent() {
-  const healthCheck = useQuery(api.healthCheck.get);
+function DashboardComponent() {
+  const [showSignIn, setShowSignIn] = useState(false);
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-2">
-      <pre className="overflow-x-auto font-mono text-sm">{TITLE_TEXT}</pre>
-      <div className="grid gap-6">
-        <section className="rounded-lg border p-4">
-          <h2 className="mb-2 font-medium">API Status</h2>
-          <div className="flex items-center gap-2">
-            <div
-              className={`h-2 w-2 rounded-full ${healthCheck === "OK" ? "bg-green-500" : healthCheck === undefined ? "bg-orange-400" : "bg-red-500"}`}
+    <>
+      <Authenticated>
+        <ProjectDashboard />
+      </Authenticated>
+      <Unauthenticated>
+        {showSignIn ? (
+          <SignInForm onSwitchToSignUp={() => setShowSignIn(false)} />
+        ) : (
+          <SignUpForm onSwitchToSignIn={() => setShowSignIn(true)} />
+        )}
+      </Unauthenticated>
+      <AuthLoading>
+        <div className="flex h-full items-center justify-center">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      </AuthLoading>
+    </>
+  );
+}
+
+function ProjectDashboard() {
+  const projects = useQuery(api.projects.getUserProjects);
+  const createProject = useMutation(api.projects.createProject);
+  const navigate = useNavigate();
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleCreateProject = async () => {
+    setIsCreating(true);
+    try {
+      const projectId = await createProject({ name: "Untitled Project" });
+      toast.success("Project created");
+      navigate({ to: "/project/$id", params: { id: projectId } });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create project");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <div className="container mx-auto max-w-4xl px-4 py-8">
+      <header className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">Projects</h1>
+          <p className="text-sm text-muted-foreground">Your music projects</p>
+        </div>
+        <Button onClick={handleCreateProject} disabled={isCreating}>
+          {isCreating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+          New Project
+        </Button>
+      </header>
+
+      {projects === undefined ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : projects.length === 0 ? (
+        <Empty className="border">
+          <EmptyMedia variant="icon">
+            <Music />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>No projects yet</EmptyTitle>
+            <EmptyDescription>
+              Create your first project to get started making music.
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button onClick={handleCreateProject} disabled={isCreating}>
+            {isCreating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            Create Project
+          </Button>
+        </Empty>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {projects.map((project) => (
+            <ProjectCard
+              key={project._id}
+              project={project}
+              onOpen={() => navigate({ to: "/project/$id", params: { id: project._id } })}
             />
-            <span className="text-sm text-muted-foreground">
-              {healthCheck === undefined
-                ? "Checking..."
-                : healthCheck === "OK"
-                  ? "Connected"
-                  : "Error"}
-            </span>
-          </div>
-        </section>
-      </div>
+          ))}
+        </div>
+      )}
     </div>
+  );
+}
+
+function ProjectCard({
+  project,
+  onOpen,
+}: {
+  project: {
+    _id: string;
+    name: string;
+    createdAt: number;
+    updatedAt: number;
+    role: "owner" | "collaborator";
+  };
+  onOpen: () => void;
+}) {
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+    });
+  };
+
+  return (
+    <Card className="cursor-pointer transition-colors hover:bg-muted/50" onClick={onOpen}>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="truncate">{project.name}</CardTitle>
+            <CardDescription>
+              {project.role === "collaborator" && "Shared · "}
+              Updated {formatDate(project.updatedAt)}
+            </CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen();
+            }}
+          >
+            <FolderOpen className="size-4" />
+          </Button>
+        </div>
+      </CardHeader>
+    </Card>
   );
 }
