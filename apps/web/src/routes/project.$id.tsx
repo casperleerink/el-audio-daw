@@ -958,7 +958,7 @@ function TimelineCanvas({
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full overflow-hidden"
+      className="relative h-full w-full touch-none overflow-hidden"
       onWheel={handleWheel}
     >
       <canvas

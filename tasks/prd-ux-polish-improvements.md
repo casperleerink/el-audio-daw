@@ -77,7 +77,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [ ] **Prevent browser zoom on timeline pinch gesture** - Block default browser zoom when using trackpad pinch in timeline
   - Acceptance: Pinch-to-zoom on trackpad only affects timeline zoom level, not browser zoom; works on Chrome, Safari, Firefox
 
-- [ ] **Disable overscroll globally** - Prevent rubber-band/bounce effects that interfere with panning
+- [x] **Disable overscroll globally** - Prevent rubber-band/bounce effects that interfere with panning
   - Acceptance: No overscroll bounce on any scroll container; horizontal/vertical panning stops at boundaries without elastic effect
 
 ### Quick Wins

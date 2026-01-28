@@ -125,4 +125,9 @@
   html {
     @apply font-sans;
   }
+  /* Disable overscroll bounce/rubber-band effect globally */
+  html,
+  body {
+    overscroll-behavior: none;
+  }
 }

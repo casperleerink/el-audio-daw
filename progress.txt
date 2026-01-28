@@ -22,3 +22,21 @@
 - The `AudioContext` is created on first user gesture (play/seek) per browser autoplay policy.
 - If you add new transport actions (e.g., record), remember to call `initializeEngine()` first.
 - The `engineRef.current?.isInitialized()` check prevents double initialization.
+
+## 2026-01-27: Disable Overscroll Globally
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Disable overscroll globally** - Prevent rubber-band/bounce effects that interfere with panning
+
+### Changes Made
+- Modified `apps/web/src/index.css`:
+  - Added `overscroll-behavior: none` to html and body elements
+  - This prevents the rubber-band/bounce effect on macOS/iOS when scrolling past boundaries
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added `touch-none` Tailwind class to TimelineCanvas container
+  - This prevents browser default touch gestures from interfering with timeline panning/zooming
+
+### Notes for Next Developer
+- The `overscroll-behavior: none` CSS property is well-supported in modern browsers
+- The `touch-action: none` (via Tailwind's `touch-none`) on the timeline prevents mobile browsers from hijacking touch gestures
+- If you need custom touch handling in the timeline (pinch-to-zoom), you'll need to implement it with JavaScript touch events
