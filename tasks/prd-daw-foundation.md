@@ -24,16 +24,16 @@ Build the foundational architecture for a collaborative DAW (Digital Audio Works
 - [x] Set up audio engine with master output and track routing
 - [x] Create Convex schema (Project, Track, ProjectUser)
 - [x] Build project dashboard page (`/`)
-- [ ] Build DAW editor page (`/project/:id`)
-- [ ] Implement timeline canvas with zoom/scroll
+- [x] Build DAW editor page (`/project/:id`)
+- [x] Implement timeline canvas with zoom/scroll
 - [ ] Implement track list with TanStack Virtual
-- [ ] Implement transport controls (play/stop, clock display)
-- [ ] Implement track controls (mute/solo/gain)
-- [ ] Implement master track with gain
+- [x] Implement transport controls (play/stop, clock display)
+- [x] Implement track controls (mute/solo/gain)
+- [x] Implement master track with gain
 - [ ] Implement track reordering via drag-and-drop
-- [ ] Implement project settings modal (rename project)
-- [ ] Implement keyboard shortcuts (spacebar, Cmd+T)
-- [ ] Wire up real-time Convex sync for tracks
+- [x] Implement project settings modal (rename project)
+- [x] Implement keyboard shortcuts (spacebar, Cmd+T)
+- [x] Wire up real-time Convex sync for tracks
 
 ## Functional Requirements
 

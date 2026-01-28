@@ -86,3 +86,85 @@ Next priority tasks:
 1. Build DAW editor page (/project/:id)
 2. Implement timeline canvas with zoom/scroll
 3. Implement track list with TanStack Virtual
+
+## 2026-01-27: DAW Editor Page Implementation
+
+Implemented the full DAW editor page at `/project/$id` route.
+
+**File modified:**
+- `apps/web/src/routes/project.$id.tsx` - Complete DAW editor implementation
+- `apps/web/package.json` - Added `@el-audio-daw/audio` dependency
+
+**Features implemented:**
+
+1. **Authentication & Authorization (FR-21, FR-22)**
+   - Auth guards using Authenticated/Unauthenticated/AuthLoading wrappers
+   - Project access check via Convex query (returns null if no access)
+
+2. **Audio Engine Integration (FR-28)**
+   - "Start Audio" button shown before engine initialization (user gesture requirement)
+   - Engine initialized on user click
+   - Tracks synced to engine via useEffect when track state changes
+   - Master gain synced to engine
+   - Proper cleanup on unmount (engine.dispose())
+
+3. **Layout (FR-26, FR-27)**
+   - Header with back button, project name, and settings
+   - Transport bar with play/stop buttons and clock display
+   - Left panel (256px): Track headers with controls
+   - Right panel: Timeline canvas with time ruler and playhead
+   - Master track pinned at bottom of track list
+
+4. **Timeline Canvas (FR-29-37)**
+   - Canvas 2D rendering with devicePixelRatio support
+   - Time ruler at top showing time markers (0:00, 0:30, etc.)
+   - Marker interval adjusts with zoom level
+   - Horizontal scroll via shift+scroll or horizontal trackpad
+   - Zoom via ctrl/cmd+scroll (min: 2px/s, max: 200px/s)
+   - Click to seek (sets playhead position)
+   - Playhead line rendered at current time
+
+5. **Track Controls (FR-39-46)**
+   - Editable track name (click to edit, Enter/Escape/blur to save)
+   - Mute button with yellow indicator when active (M / VolumeX icon)
+   - Solo button with green indicator when active (S)
+   - Gain slider (-60dB to +12dB) with dB display
+   - Delete button on each track header
+
+6. **Master Track (FR-47-49)**
+   - Fixed at bottom of track list (not in scrollable area)
+   - Label "Master" with gain slider and dB display
+   - Gain range -60dB to +12dB
+
+7. **Transport Controls (FR-50-55)**
+   - Play button (toggles to Pause icon when playing)
+   - Stop button
+   - Clock display in M:SS.mmm format
+   - Clock updates during playback via onPlayheadUpdate callback
+
+8. **Project Settings Modal (FR-56-57)**
+   - Settings button in header opens dialog
+   - Project name input field
+   - Save button updates project via Convex mutation
+
+9. **Keyboard Shortcuts (FR-58-59)**
+   - Spacebar: toggle play/stop (ignored when focus in input)
+   - Cmd+T / Ctrl+T: add new track
+
+10. **Real-time Sync (FR-60, FR-19)**
+    - Track state (name, muted, solo, gain) stored in Convex
+    - useQuery for real-time track list subscription
+    - useMutation for track updates
+    - Changes visible to all collaborators immediately
+
+**Notes for next developer:**
+- Track virtualization (TanStack Virtual) is NOT yet implemented - tracks render normally
+- Track reordering (drag-and-drop) is NOT yet implemented
+- The Slider component uses base-ui with onValueChange that returns either number or number[]
+- The Toggle component uses base-ui with `pressed` prop (not `checked`)
+- DialogTrigger uses `render` prop instead of `asChild` (base-ui pattern)
+- Canvas uses CSS custom properties for colors (--background, --border, --muted-foreground)
+
+**Remaining tasks:**
+1. Implement track virtualization with TanStack Virtual (for 50+ tracks performance)
+2. Implement track reordering via drag-and-drop
