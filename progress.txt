@@ -147,3 +147,28 @@
 - The forms already had `disabled` logic using TanStack React Form's `state.isSubmitting`
 - The change adds visual spinner feedback alongside the text change for better UX
 - Pattern matches other loading states in the app (e.g., Add Track button, Delete button)
+
+## 2026-01-27: Auth Form Error Display
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Add form-level error display for auth forms** - Show auth errors prominently above form
+
+### Changes Made
+- Modified `apps/web/src/components/sign-in-form.tsx`:
+  - Added `formError` state to track server-side auth errors
+  - Added AlertCircle import from lucide-react
+  - Display error message in styled alert box above form fields when auth fails
+  - Error shows with red background, border, and AlertCircle icon
+  - Supports dark mode styling
+  - Clear error when user starts typing in any field
+  - Error is shown in addition to toast (for redundancy and visibility)
+- Modified `apps/web/src/components/sign-up-form.tsx`:
+  - Same changes as sign-in form
+  - All three fields (name, email, password) clear error on change
+
+### Notes for Next Developer
+- The form-level error complements the toast notification - users see the error prominently in the form AND in the toast
+- Error clears on any field change so users know they can retry
+- Error state is set in `onError` callback and cleared in `onSubmit` start and on field change
+- Styling uses Tailwind with dark mode support (dark:border-red-900 dark:bg-red-950 dark:text-red-400)
+- Field-level validation errors (email format, password length) still appear inline under each field

@@ -40,7 +40,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [x] **Disable auth form submit buttons during submission** - Prevent double-submit on sign-in/sign-up
   - Acceptance: Submit button disabled + shows spinner while auth request in flight
 
-- [ ] **Add form-level error display for auth forms** - Show auth errors prominently above form
+- [x] **Add form-level error display for auth forms** - Show auth errors prominently above form
   - Acceptance: Failed login shows error message above form fields, not just toast
 
 - [ ] **Improve inline track name editing** - Better visual affordance for editable names

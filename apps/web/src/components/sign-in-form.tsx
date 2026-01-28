@@ -1,6 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
 
@@ -14,6 +15,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
   const navigate = useNavigate({
     from: "/",
   });
+  const [formError, setFormError] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: {
@@ -21,6 +23,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
       password: "",
     },
     onSubmit: async ({ value }) => {
+      setFormError(null);
       await authClient.signIn.email(
         {
           email: value.email,
@@ -34,7 +37,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
             toast.success("Sign in successful");
           },
           onError: (error) => {
-            toast.error(error.error.message || error.error.statusText);
+            const errorMessage = error.error.message || error.error.statusText;
+            setFormError(errorMessage);
+            toast.error(errorMessage);
           },
         },
       );
@@ -50,6 +55,13 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
   return (
     <div className="mx-auto w-full mt-10 max-w-md p-6">
       <h1 className="mb-6 text-center text-3xl font-bold">Welcome Back</h1>
+
+      {formError && (
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+          <AlertCircle className="size-4 shrink-0" />
+          <span>{formError}</span>
+        </div>
+      )}
 
       <form
         onSubmit={(e) => {
@@ -70,7 +82,10 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
                   type="email"
                   value={field.state.value}
                   onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
+                  onChange={(e) => {
+                    if (formError) setFormError(null);
+                    field.handleChange(e.target.value);
+                  }}
                 />
                 {field.state.meta.errors.map((error) => (
                   <p key={error?.message} className="text-red-500">
@@ -93,7 +108,10 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
                   type="password"
                   value={field.state.value}
                   onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
+                  onChange={(e) => {
+                    if (formError) setFormError(null);
+                    field.handleChange(e.target.value);
+                  }}
                 />
                 {field.state.meta.errors.map((error) => (
                   <p key={error?.message} className="text-red-500">
