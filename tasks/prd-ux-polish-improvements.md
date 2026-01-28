@@ -46,7 +46,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [x] **Improve inline track name editing** - Better visual affordance for editable names
   - Acceptance: Track name shows subtle edit icon on hover; focused state has visible border; escape cancels edit
 
-- [ ] **Add character limit feedback for inputs** - Show remaining characters for project/track names
+- [x] **Add character limit feedback for inputs** - Show remaining characters for project/track names
   - Acceptance: Project name input shows "X/50 characters" counter when near limit
 
 ### Audio Engine Auto-Initialization

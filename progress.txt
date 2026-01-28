@@ -272,3 +272,26 @@
 - Error toasts were already implemented for failure cases - now both success and failure have feedback
 - Pattern is consistent with `toast.success("Project renamed")` already in `handleSaveProjectName()`
 - These toasts are intentionally brief to avoid interrupting workflow
+
+## 2026-01-27: Character Limit Feedback for Inputs
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Add character limit feedback for inputs** - Show remaining characters for project/track names
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added `maxLength={50}` attribute to project name input in settings dialog
+  - Added character counter below project name input that appears when length >= 40 characters
+  - Counter shows "X/50 characters" format, turns red (destructive) at 50 characters
+  - Added `maxLength={50}` attribute to track name inline edit input
+  - Added character counter next to track name input that appears when length >= 40 characters
+  - Track name counter is compact ("X/50" format) due to limited inline space
+  - Counter turns red (destructive) at 50 characters limit
+
+### Notes for Next Developer
+- Character counters only appear when user is within 10 characters of the limit (>= 40 chars)
+- This avoids visual clutter for normal-length names while providing feedback when needed
+- The `maxLength` attribute on inputs enforces the limit at browser level (prevents typing beyond 50)
+- Project name counter uses full format ("X/50 characters") since there's more space in the dialog
+- Track name counter uses compact format ("X/50") since the inline editing area is constrained
+- Color changes from muted to destructive at exactly 50 to signal "limit reached"
