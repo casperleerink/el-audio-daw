@@ -190,3 +190,26 @@
 - The button shows "Saving..." with spinner when active, plain "Save" when idle
 - Loading state is cleared in `finally` block to ensure it clears on both success and error
 - Dialog closes on success but stays open on error so user can retry
+
+## 2026-01-27: Keyboard Shortcut Hints in Tooltips
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Add keyboard shortcut hints** - Show shortcut hints in tooltips
+
+### Changes Made
+- Modified `apps/web/src/components/ui/tooltip.tsx`:
+  - Added `delay` prop to `Tooltip` component to support configurable hover delay
+  - Default delay remains 0 for backwards compatibility
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added imports for `Tooltip`, `TooltipTrigger`, `TooltipContent`, and `Kbd` components
+  - Wrapped Play/Pause button with tooltip showing "Play/Pause" + `Space` keyboard hint
+  - Wrapped Stop button with tooltip showing "Stop"
+  - Wrapped Add Track button with tooltip showing "Add Track" + `⌘T` keyboard hint
+  - All tooltips use 500ms delay per FR-7 requirement
+
+### Notes for Next Developer
+- The `Tooltip` component now accepts a `delay` prop (in milliseconds) for hover delay
+- Kbd component already has special styling for use inside tooltips (`in-data-[slot=tooltip-content]:`)
+- The Play button tooltip content dynamically changes based on `isPlaying` state
+- Base UI's `TooltipTrigger` uses `render` prop pattern to compose with existing Button components
+- If adding more transport actions, wrap them with tooltips following the same pattern

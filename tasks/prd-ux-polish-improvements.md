@@ -71,7 +71,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [ ] **Improve zoom controls** - Add visible zoom in/out buttons alongside scroll-zoom
   - Acceptance: Timeline header has +/- buttons; clicking zooms in/out by 2x; scroll-zoom still works
 
-- [ ] **Add keyboard shortcut hints** - Show shortcut hints in tooltips
+- [x] **Add keyboard shortcut hints** - Show shortcut hints in tooltips
   - Acceptance: Transport buttons show tooltips with shortcuts (e.g., "Play (Space)"); tooltips appear on hover
 
 - [x] **Prevent browser zoom on timeline pinch gesture** - Block default browser zoom when using trackpad pinch in timeline

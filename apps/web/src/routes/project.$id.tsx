@@ -42,6 +42,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Toggle } from "@/components/ui/toggle";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Kbd } from "@/components/ui/kbd";
 
 export const Route = createFileRoute("/project/$id")({
   component: ProjectEditorPage,
@@ -552,41 +554,72 @@ function ProjectEditor() {
       {/* Transport Controls */}
       <div className="flex h-10 shrink-0 items-center gap-4 border-b bg-muted/30 px-4">
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={handleTogglePlayStop}
-            disabled={isEngineInitializing}
-          >
-            {isEngineInitializing ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : isPlaying ? (
-              <Pause className="size-4" />
-            ) : (
-              <Play className="size-4" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={handleStop}
-            disabled={isEngineInitializing}
-          >
-            <Square className="size-3" />
-          </Button>
+          <Tooltip delay={500}>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={handleTogglePlayStop}
+                  disabled={isEngineInitializing}
+                >
+                  {isEngineInitializing ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : isPlaying ? (
+                    <Pause className="size-4" />
+                  ) : (
+                    <Play className="size-4" />
+                  )}
+                </Button>
+              }
+            />
+            <TooltipContent>
+              {isPlaying ? "Pause" : "Play"} <Kbd>Space</Kbd>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip delay={500}>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={handleStop}
+                  disabled={isEngineInitializing}
+                >
+                  <Square className="size-3" />
+                </Button>
+              }
+            />
+            <TooltipContent>Stop</TooltipContent>
+          </Tooltip>
         </div>
 
         <div className="font-mono text-sm tabular-nums">{formatTime(playheadTime)}</div>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleAddTrack} disabled={isAddingTrack}>
-            {isAddingTrack ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Plus className="size-4" />
-            )}
-            Add Track
-          </Button>
+          <Tooltip delay={500}>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddTrack}
+                  disabled={isAddingTrack}
+                >
+                  {isAddingTrack ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Plus className="size-4" />
+                  )}
+                  Add Track
+                </Button>
+              }
+            />
+            <TooltipContent>
+              Add Track <Kbd>⌘</Kbd>
+              <Kbd>T</Kbd>
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
