@@ -256,3 +256,19 @@
 - `shrink-0` on the icon prevents it from being truncated when track name is long
 - The edit input border/ring styling makes it very clear when you're in edit mode
 - The smooth opacity transition (`transition-opacity`) makes the icon appear/disappear gracefully
+
+## 2026-01-27: Success Toasts for Track Operations
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Add toast for successful actions** - Confirm track add/delete completed
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added `toast.success("Track added")` after successful track creation in `handleAddTrack()`
+  - Added `toast.success("Track deleted")` after successful track deletion in `handleDeleteTrack()`
+
+### Notes for Next Developer
+- Success toasts use Sonner's `toast.success()` which displays a brief green-tinted notification
+- Error toasts were already implemented for failure cases - now both success and failure have feedback
+- Pattern is consistent with `toast.success("Project renamed")` already in `handleSaveProjectName()`
+- These toasts are intentionally brief to avoid interrupting workflow

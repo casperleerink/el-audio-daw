@@ -88,7 +88,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [x] **Improve empty state for new projects** - Better messaging when no tracks exist
   - Acceptance: Empty editor shows "No tracks yet" message with prominent "Add Track" button
 
-- [ ] **Add toast for successful actions** - Confirm track add/delete completed
+- [x] **Add toast for successful actions** - Confirm track add/delete completed
   - Acceptance: Adding track shows brief success toast; deleting track shows "Track deleted" toast
 
 ## Functional Requirements

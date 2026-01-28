@@ -295,6 +295,7 @@ function ProjectEditor() {
     setIsAddingTrack(true);
     try {
       await createTrack({ projectId: id as any });
+      toast.success("Track added");
     } catch {
       toast.error("Failed to create track");
     } finally {
@@ -408,6 +409,7 @@ function ProjectEditor() {
       setDeletingTrackId(trackId);
       try {
         await deleteTrack({ id: trackId as any });
+        toast.success("Track deleted");
       } catch {
         toast.error("Failed to delete track");
       } finally {
