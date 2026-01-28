@@ -85,7 +85,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [ ] **Add focus ring to all interactive elements** - Visible focus for keyboard navigation
   - Acceptance: Tab through UI shows clear focus ring on buttons, inputs, sliders. But double check that this doesn't already exist in the underlying ui component
 
-- [ ] **Improve empty state for new projects** - Better messaging when no tracks exist
+- [x] **Improve empty state for new projects** - Better messaging when no tracks exist
   - Acceptance: Empty editor shows "No tracks yet" message with prominent "Add Track" button
 
 - [ ] **Add toast for successful actions** - Confirm track add/delete completed

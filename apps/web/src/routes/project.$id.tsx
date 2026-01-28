@@ -643,6 +643,8 @@ function ProjectEditor() {
             onReorder={handleReorderTracks}
             formatGain={formatGain}
             deletingTrackId={deletingTrackId}
+            onAddTrack={handleAddTrack}
+            isAddingTrack={isAddingTrack}
           />
 
           {/* Master Track */}
@@ -704,6 +706,8 @@ interface VirtualizedTrackListProps {
   onReorder: (trackIds: string[]) => void;
   formatGain: (db: number) => string;
   deletingTrackId: string | null;
+  onAddTrack: () => void;
+  isAddingTrack: boolean;
 }
 
 const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackListProps>(
@@ -720,6 +724,8 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
       onReorder,
       formatGain,
       deletingTrackId,
+      onAddTrack,
+      isAddingTrack,
     },
     ref,
   ) {
@@ -809,8 +815,16 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
 
     if (tracks.length === 0) {
       return (
-        <div className="flex h-32 flex-1 items-center justify-center text-sm text-muted-foreground">
-          No tracks yet
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 text-center">
+          <p className="text-sm text-muted-foreground">No tracks yet</p>
+          <Button onClick={onAddTrack} disabled={isAddingTrack}>
+            {isAddingTrack ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Plus className="size-4" />
+            )}
+            Add Track
+          </Button>
         </div>
       );
     }

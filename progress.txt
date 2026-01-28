@@ -213,3 +213,24 @@
 - The Play button tooltip content dynamically changes based on `isPlaying` state
 - Base UI's `TooltipTrigger` uses `render` prop pattern to compose with existing Button components
 - If adding more transport actions, wrap them with tooltips following the same pattern
+
+## 2026-01-27: Empty State for New Projects
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Improve empty state for new projects** - Better messaging when no tracks exist
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added `onAddTrack` and `isAddingTrack` props to `VirtualizedTrackListProps` interface
+  - Updated `VirtualizedTrackList` component to accept and use these new props
+  - Enhanced the empty state (when `tracks.length === 0`) to show a centered layout with:
+    - "No tracks yet" message
+    - Prominent "Add Track" button with Plus icon
+    - Loading spinner on button during track creation
+  - Passed `handleAddTrack` and `isAddingTrack` from parent `ProjectEditor` component
+
+### Notes for Next Developer
+- The empty state button reuses the same `handleAddTrack` callback as the transport controls
+- Loading state (`isAddingTrack`) is shared between the header button and empty state button
+- The empty state uses flexbox centering to position content in the track list area
+- If you change the Add Track flow, both buttons will automatically inherit the change
