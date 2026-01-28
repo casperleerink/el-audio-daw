@@ -76,7 +76,7 @@ function ProjectEditor() {
   const reorderTracks = useMutation(api.tracks.reorderTracks);
   const updateProject = useMutation(api.projects.updateProject);
 
-  const [isEngineReady, setIsEngineReady] = useState(false);
+  const [isEngineInitializing, setIsEngineInitializing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playheadTime, setPlayheadTime] = useState(0);
   const [masterGain, setMasterGain] = useState(0);
@@ -87,25 +87,29 @@ function ProjectEditor() {
   const engineRef = useRef<AudioEngine | null>(null);
   const trackListRef = useRef<HTMLDivElement>(null);
 
-  // Initialize audio engine
+  // Initialize audio engine (called lazily on first transport action)
   const initializeEngine = useCallback(async () => {
     if (engineRef.current?.isInitialized()) {
-      setIsEngineReady(true);
-      return;
+      return engineRef.current;
     }
 
+    setIsEngineInitializing(true);
     try {
       const engine = new AudioEngine();
       await engine.initialize();
       engineRef.current = engine;
-      setIsEngineReady(true);
 
       engine.onPlayheadUpdate((time: number) => {
         setPlayheadTime(time);
       });
+
+      return engine;
     } catch (err) {
-      toast.error("Failed to initialize audio engine");
+      toast.error("Failed to initialize audio engine. Please try again.");
       console.error(err);
+      return null;
+    } finally {
+      setIsEngineInitializing(false);
     }
   }, []);
 
@@ -146,11 +150,15 @@ function ProjectEditor() {
     }
   }, [project]);
 
-  const handlePlay = useCallback(() => {
-    if (!engineRef.current) return;
-    engineRef.current.play();
+  const handlePlay = useCallback(async () => {
+    let engine = engineRef.current;
+    if (!engine) {
+      engine = await initializeEngine();
+      if (!engine) return;
+    }
+    engine.play();
     setIsPlaying(true);
-  }, []);
+  }, [initializeEngine]);
 
   const handleStop = useCallback(() => {
     if (!engineRef.current) return;
@@ -158,11 +166,11 @@ function ProjectEditor() {
     setIsPlaying(false);
   }, []);
 
-  const handleTogglePlayStop = useCallback(() => {
+  const handleTogglePlayStop = useCallback(async () => {
     if (isPlaying) {
       handleStop();
     } else {
-      handlePlay();
+      await handlePlay();
     }
   }, [isPlaying, handlePlay, handleStop]);
 
@@ -316,20 +324,6 @@ function ProjectEditor() {
     );
   }
 
-  // Show initialize button if engine not ready
-  if (!isEngineReady) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-4">
-        <h2 className="text-lg font-semibold">{project.name}</h2>
-        <p className="text-sm text-muted-foreground">Click to start the audio engine</p>
-        <Button onClick={initializeEngine}>
-          <Play className="size-4" />
-          Start Audio
-        </Button>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -373,10 +367,26 @@ function ProjectEditor() {
       {/* Transport Controls */}
       <div className="flex h-10 shrink-0 items-center gap-4 border-b bg-muted/30 px-4">
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon-sm" onClick={handleTogglePlayStop}>
-            {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={handleTogglePlayStop}
+            disabled={isEngineInitializing}
+          >
+            {isEngineInitializing ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : isPlaying ? (
+              <Pause className="size-4" />
+            ) : (
+              <Play className="size-4" />
+            )}
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={handleStop}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={handleStop}
+            disabled={isEngineInitializing}
+          >
             <Square className="size-3" />
           </Button>
         </div>
@@ -436,8 +446,12 @@ function ProjectEditor() {
             playheadTime={playheadTime}
             scrollTop={scrollTop}
             onScrollChange={setScrollTop}
-            onSeek={(time) => {
-              engineRef.current?.setPlayhead(time);
+            onSeek={async (time) => {
+              let engine = engineRef.current;
+              if (!engine) {
+                engine = await initializeEngine();
+              }
+              engine?.setPlayhead(time);
               setPlayheadTime(time);
             }}
           />
@@ -783,7 +797,7 @@ interface TimelineCanvasProps {
   playheadTime: number;
   scrollTop: number;
   onScrollChange: (scrollTop: number) => void;
-  onSeek: (time: number) => void;
+  onSeek: (time: number) => void | Promise<void>;
 }
 
 const TRACK_HEIGHT = 60;

@@ -51,13 +51,13 @@ Improve user experience across the el-audio-daw application with focus on loadin
 
 ### Audio Engine Auto-Initialization
 
-- [ ] **Remove explicit "Start Audio" button** - Initialize audio on first transport action
+- [x] **Remove explicit "Start Audio" button** - Initialize audio on first transport action
   - Acceptance: No "Start Audio" button visible; audio initializes when user clicks play or interacts with timeline
 
-- [ ] **Add audio initialization loading state** - Show brief loading when audio engine starts
+- [x] **Add audio initialization loading state** - Show brief loading when audio engine starts
   - Acceptance: Play button shows spinner for first click while audio context initializes
 
-- [ ] **Handle audio initialization failure gracefully** - Show user-friendly error if audio fails
+- [x] **Handle audio initialization failure gracefully** - Show user-friendly error if audio fails
   - Acceptance: If AudioContext fails, show toast with "Audio not available" message + retry button
 
 ### Editor Interactions

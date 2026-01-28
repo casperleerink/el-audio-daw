@@ -1,0 +1,24 @@
+## 2026-01-27: Audio Engine Auto-Initialization
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Remove explicit "Start Audio" button** - No longer blocks the entire UI
+- **Add audio initialization loading state** - Play button shows spinner on first click
+- **Handle audio initialization failure gracefully** - Toast error message on failure
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Removed the blocking "Start Audio" screen that prevented users from seeing their tracks
+  - Audio engine now initializes lazily on first play or timeline seek action
+  - Added `isEngineInitializing` state to track initialization
+  - Play button shows Loader2 spinner and is disabled during initialization
+  - Stop button is also disabled during initialization
+  - `initializeEngine()` now returns the engine instance for chaining
+  - `handlePlay()` is now async and initializes engine if needed
+  - `onSeek` handler also initializes engine if needed
+  - Error toast displays on initialization failure
+
+### Notes for Next Developer
+- The audio engine is now lazy-initialized. Users can view/edit tracks before any audio action.
+- The `AudioContext` is created on first user gesture (play/seek) per browser autoplay policy.
+- If you add new transport actions (e.g., record), remember to call `initializeEngine()` first.
+- The `engineRef.current?.isInitialized()` check prevents double initialization.
