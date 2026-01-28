@@ -1,0 +1,3 @@
+{
+  "extends": "@el-audio-daw/config/tsconfig.base.json"
+}
