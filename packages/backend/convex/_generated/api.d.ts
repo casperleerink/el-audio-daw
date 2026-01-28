@@ -12,6 +12,8 @@ import type * as auth from "../auth.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as privateData from "../privateData.js";
+import type * as projects from "../projects.js";
+import type * as tracks from "../tracks.js";
 
 import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
 
@@ -20,6 +22,8 @@ declare const fullApi: ApiFromModules<{
   healthCheck: typeof healthCheck;
   http: typeof http;
   privateData: typeof privateData;
+  projects: typeof projects;
+  tracks: typeof tracks;
 }>;
 
 /**

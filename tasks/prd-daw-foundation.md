@@ -5,9 +5,10 @@
 Build the foundational architecture for a collaborative DAW (Digital Audio Workstation) using Elementary Audio. This version establishes the core timeline, transport controls, track system, and audio routing without audio clips or effects.
 
 **Key constraints:**
+
 - Time-based timeline (no measures/meters) - architecture must support adding tempo/meter later
 - Real-time collaboration via Convex
-- Elementary Audio for all audio processing
+- Elementary Audio for all audio processing use the "elementary-audio" skill for tasks involving audio processing.
 
 ## Goals
 
@@ -21,7 +22,7 @@ Build the foundational architecture for a collaborative DAW (Digital Audio Works
 
 - [ ] Create `packages/audio` with Elementary Audio (web-renderer + core)
 - [ ] Set up audio engine with master output and track routing
-- [ ] Create Convex schema (Project, Track, ProjectUser)
+- [x] Create Convex schema (Project, Track, ProjectUser)
 - [ ] Build project dashboard page (`/`)
 - [ ] Build DAW editor page (`/project/:id`)
 - [ ] Implement timeline canvas with zoom/scroll
@@ -67,16 +68,19 @@ Build the foundational architecture for a collaborative DAW (Digital Audio Works
 ### Convex Schema
 
 **FR-14** `projects` table:
+
 ```
 id, name, createdAt, updatedAt
 ```
 
 **FR-15** `projectUsers` table:
+
 ```
 id, projectId, userId, role ("owner" | "collaborator"), joinedAt
 ```
 
 **FR-16** `tracks` table:
+
 ```
 id, projectId, name, order, muted, solo, gain, createdAt, updatedAt
 ```
@@ -211,6 +215,7 @@ id, projectId, name, order, muted, solo, gain, createdAt, updatedAt
 ## Technical Considerations
 
 ### Tech Stack
+
 - Vite + React
 - TanStack Router
 - TanStack Virtual (track virtualization)
@@ -218,8 +223,10 @@ id, projectId, name, order, muted, solo, gain, createdAt, updatedAt
 - Better-auth (authentication, already configured)
 - Tailwind + Shadcn/UI
 - Bun + Turbo (monorepo)
+- Elementary Audio ("@elemaudio/core": "^4.0.1", "@elemaudio/web-renderer": "^4.0.3",)
 
 ### Package Structure
+
 ```
 packages/
   audio/           # Elementary Audio engine
@@ -244,6 +251,7 @@ apps/
 ### Elementary Audio Architecture
 
 The audio graph structure:
+
 ```
 Track 1 (gain) ──┐
 Track 2 (gain) ──┼──> Sum ──> Master Gain ──> Output

@@ -1,0 +1,22 @@
+## 2026-01-27: Convex Schema Implementation
+
+Created the Convex schema with all three required tables:
+- `projects`: id, name, createdAt, updatedAt
+- `projectUsers`: id, projectId, userId, role ("owner" | "collaborator"), joinedAt
+- `tracks`: id, projectId, name, order, muted, solo, gain, createdAt, updatedAt
+
+Implemented all required mutations and queries:
+- `projects.ts`: createProject, updateProject, deleteProject, getProject, getUserProjects
+- `tracks.ts`: createTrack, updateTrack, deleteTrack, reorderTracks, getProjectTracks
+
+Notes for next developer:
+- The auth user object uses `_id` not `id` for the user identifier
+- All functions include proper authorization checks (only owners/collaborators can access)
+- Real-time subscriptions are supported via Convex's useQuery hook on the client
+- deleteProject cascades to delete all tracks and projectUsers
+- Indexes are set up for efficient queries by project and user
+
+Next priority tasks:
+1. Create packages/audio with Elementary Audio engine
+2. Build project dashboard page (/)
+3. Build DAW editor page (/project/:id)
