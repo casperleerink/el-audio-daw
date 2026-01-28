@@ -395,6 +395,8 @@ function ProjectEditor() {
       <div className="flex min-h-0 flex-1">
         {/* Track List */}
         <div className="flex w-64 shrink-0 flex-col border-r">
+          {/* Spacer to align with timeline ruler */}
+          <div className="h-6 shrink-0 border-b" />
           {/* Track Headers */}
           <VirtualizedTrackList
             ref={trackListRef}
