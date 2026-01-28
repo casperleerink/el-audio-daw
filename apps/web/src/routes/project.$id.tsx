@@ -3,6 +3,13 @@ import { AudioEngine, type TrackState } from "@el-audio-daw/audio";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
+
+// Safari-specific GestureEvent for trackpad pinch-to-zoom
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+interface GestureEvent extends UIEvent {
+  scale: number;
+  rotation: number;
+}
 import {
   ArrowLeft,
   GripVertical,
@@ -1042,6 +1049,49 @@ function TimelineCanvas({
     },
     [maxScrollTop, scrollTop, onScrollChange],
   );
+
+  // Prevent browser zoom on Safari trackpad pinch gestures
+  // Safari fires gesturestart/gesturechange/gestureend for pinch-to-zoom
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Track gesture scale for Safari pinch-to-zoom
+    let lastScale = 1;
+
+    const handleGestureStart = (e: Event) => {
+      e.preventDefault();
+      lastScale = 1;
+    };
+
+    const handleGestureChange = (e: Event) => {
+      e.preventDefault();
+      // GestureEvent is Safari-specific
+      const gestureEvent = e as GestureEvent;
+      const scale = gestureEvent.scale;
+      const zoomFactor = scale / lastScale;
+      lastScale = scale;
+
+      setPixelsPerSecond((prev) =>
+        Math.min(MAX_PIXELS_PER_SECOND, Math.max(MIN_PIXELS_PER_SECOND, prev * zoomFactor)),
+      );
+    };
+
+    const handleGestureEnd = (e: Event) => {
+      e.preventDefault();
+    };
+
+    // Add gesture event listeners (Safari only - other browsers ignore these)
+    container.addEventListener("gesturestart", handleGestureStart);
+    container.addEventListener("gesturechange", handleGestureChange);
+    container.addEventListener("gestureend", handleGestureEnd);
+
+    return () => {
+      container.removeEventListener("gesturestart", handleGestureStart);
+      container.removeEventListener("gesturechange", handleGestureChange);
+      container.removeEventListener("gestureend", handleGestureEnd);
+    };
+  }, []);
 
   // Handle click for seeking
   const handleClick = useCallback(

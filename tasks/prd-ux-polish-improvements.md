@@ -74,7 +74,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [ ] **Add keyboard shortcut hints** - Show shortcut hints in tooltips
   - Acceptance: Transport buttons show tooltips with shortcuts (e.g., "Play (Space)"); tooltips appear on hover
 
-- [ ] **Prevent browser zoom on timeline pinch gesture** - Block default browser zoom when using trackpad pinch in timeline
+- [x] **Prevent browser zoom on timeline pinch gesture** - Block default browser zoom when using trackpad pinch in timeline
   - Acceptance: Pinch-to-zoom on trackpad only affects timeline zoom level, not browser zoom; works on Chrome, Safari, Firefox
 
 - [x] **Disable overscroll globally** - Prevent rubber-band/bounce effects that interfere with panning

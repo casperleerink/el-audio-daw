@@ -106,3 +106,24 @@
 - On mutation failure, we clear the optimistic value to rollback to previous server state
 - The audio engine also uses optimistic data, so mute/solo/gain changes are heard instantly
 - Gain slider sends many updates rapidly - each is optimistically applied, preventing lag
+
+## 2026-01-27: Prevent Browser Zoom on Timeline Pinch Gesture
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Prevent browser zoom on timeline pinch gesture** - Block default browser zoom when using trackpad pinch in timeline
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added `GestureEvent` interface declaration for Safari-specific gesture events
+  - Added `useEffect` in `TimelineCanvas` component to handle Safari trackpad pinch gestures
+  - Listens for `gesturestart`, `gesturechange`, `gestureend` events on the timeline container
+  - All gesture events call `e.preventDefault()` to block browser zoom
+  - `gesturechange` handler calculates zoom factor from gesture scale and applies to `pixelsPerSecond`
+  - Properly cleans up event listeners on unmount
+
+### Notes for Next Developer
+- The existing `handleWheel` with `e.preventDefault()` handles Chrome/Firefox wheel events with ctrlKey/metaKey
+- Safari fires separate gesture events for trackpad pinch-to-zoom instead of wheel events
+- `GestureEvent` is Safari-specific and not in standard DOM types, hence the local interface declaration
+- The `touch-none` CSS class (already present) handles touch events on mobile/tablet
+- Combined approach ensures cross-browser compatibility: wheel events (Chrome, Firefox) + gesture events (Safari)
