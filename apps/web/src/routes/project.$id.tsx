@@ -172,6 +172,7 @@ function ProjectEditor() {
   const [masterGain, setMasterGain] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
+  const [isSavingProjectName, setIsSavingProjectName] = useState(false);
   const [scrollTop, setScrollTop] = useState(0);
   const [isAddingTrack, setIsAddingTrack] = useState(false);
   const [deletingTrackId, setDeletingTrackId] = useState<string | null>(null);
@@ -430,12 +431,15 @@ function ProjectEditor() {
       return;
     }
 
+    setIsSavingProjectName(true);
     try {
       await updateProject({ id: id as any, name: projectName });
       toast.success("Project renamed");
       setSettingsOpen(false);
     } catch {
       toast.error("Failed to rename project");
+    } finally {
+      setIsSavingProjectName(false);
     }
   }, [updateProject, id, projectName, project]);
 
@@ -530,7 +534,16 @@ function ProjectEditor() {
               />
             </div>
             <DialogFooter>
-              <Button onClick={handleSaveProjectName}>Save</Button>
+              <Button onClick={handleSaveProjectName} disabled={isSavingProjectName}>
+                {isSavingProjectName ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

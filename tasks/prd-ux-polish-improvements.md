@@ -32,7 +32,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [x] **Add optimistic updates for track mute/solo/gain** - Instant UI feedback before server confirms
   - Acceptance: Clicking mute/solo instantly toggles visual state; gain slider moves instantly; rolls back on error
 
-- [ ] **Show saving indicator for project name changes** - Indicate when project name is being saved
+- [x] **Show saving indicator for project name changes** - Indicate when project name is being saved
   - Acceptance: Settings dialog shows "Saving..." text or spinner next to save button while mutation runs
 
 ### Form & Input Polish

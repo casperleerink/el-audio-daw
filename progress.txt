@@ -172,3 +172,21 @@
 - Error state is set in `onError` callback and cleared in `onSubmit` start and on field change
 - Styling uses Tailwind with dark mode support (dark:border-red-900 dark:bg-red-950 dark:text-red-400)
 - Field-level validation errors (email format, password length) still appear inline under each field
+
+## 2026-01-27: Project Name Saving Indicator
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Show saving indicator for project name changes** - Indicate when project name is being saved
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added `isSavingProjectName` state to track when project name mutation is in flight
+  - Updated `handleSaveProjectName()` to set loading state before mutation and clear it in finally block
+  - Updated Save button in settings dialog to show Loader2 spinner and "Saving..." text during mutation
+  - Save button is disabled while saving to prevent double-submit
+
+### Notes for Next Developer
+- Pattern matches other loading states in the app (Add Track, Delete Track, Auth forms)
+- The button shows "Saving..." with spinner when active, plain "Save" when idle
+- Loading state is cleared in `finally` block to ensure it clears on both success and error
+- Dialog closes on success but stays open on error so user can retry
