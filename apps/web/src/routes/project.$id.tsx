@@ -83,6 +83,8 @@ function ProjectEditor() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [scrollTop, setScrollTop] = useState(0);
+  const [isAddingTrack, setIsAddingTrack] = useState(false);
+  const [deletingTrackId, setDeletingTrackId] = useState<string | null>(null);
 
   const engineRef = useRef<AudioEngine | null>(null);
   const trackListRef = useRef<HTMLDivElement>(null);
@@ -175,10 +177,13 @@ function ProjectEditor() {
   }, [isPlaying, handlePlay, handleStop]);
 
   const handleAddTrack = useCallback(async () => {
+    setIsAddingTrack(true);
     try {
       await createTrack({ projectId: id as any });
     } catch {
       toast.error("Failed to create track");
+    } finally {
+      setIsAddingTrack(false);
     }
   }, [createTrack, id]);
 
@@ -228,10 +233,13 @@ function ProjectEditor() {
 
   const handleDeleteTrack = useCallback(
     async (trackId: string) => {
+      setDeletingTrackId(trackId);
       try {
         await deleteTrack({ id: trackId as any });
       } catch {
         toast.error("Failed to delete track");
+      } finally {
+        setDeletingTrackId(null);
       }
     },
     [deleteTrack],
@@ -394,8 +402,12 @@ function ProjectEditor() {
         <div className="font-mono text-sm tabular-nums">{formatTime(playheadTime)}</div>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleAddTrack}>
-            <Plus className="size-4" />
+          <Button variant="outline" size="sm" onClick={handleAddTrack} disabled={isAddingTrack}>
+            {isAddingTrack ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Plus className="size-4" />
+            )}
             Add Track
           </Button>
         </div>
@@ -420,6 +432,7 @@ function ProjectEditor() {
             onDelete={handleDeleteTrack}
             onReorder={handleReorderTracks}
             formatGain={formatGain}
+            deletingTrackId={deletingTrackId}
           />
 
           {/* Master Track */}
@@ -480,6 +493,7 @@ interface VirtualizedTrackListProps {
   onDelete: (trackId: string) => void;
   onReorder: (trackIds: string[]) => void;
   formatGain: (db: number) => string;
+  deletingTrackId: string | null;
 }
 
 const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackListProps>(
@@ -495,6 +509,7 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
       onDelete,
       onReorder,
       formatGain,
+      deletingTrackId,
     },
     ref,
   ) {
@@ -633,6 +648,7 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
                 <TrackHeader
                   track={track}
                   isDragging={isDragging}
+                  isDeleting={deletingTrackId === track._id}
                   onDragStart={(e) => handleDragStart(e, track._id)}
                   onDragEnd={handleDragEnd}
                   onMuteChange={(muted) => onMuteChange(track._id, muted)}
@@ -663,6 +679,7 @@ interface TrackHeaderProps {
     gain: number;
   };
   isDragging?: boolean;
+  isDeleting?: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onMuteChange: (muted: boolean) => void;
@@ -676,6 +693,7 @@ interface TrackHeaderProps {
 function TrackHeader({
   track,
   isDragging,
+  isDeleting,
   onDragStart,
   onDragEnd,
   onMuteChange,
@@ -749,8 +767,9 @@ function TrackHeader({
           size="icon-xs"
           className="text-muted-foreground hover:text-destructive"
           onClick={onDelete}
+          disabled={isDeleting}
         >
-          <Trash2 className="size-3" />
+          {isDeleting ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
         </Button>
       </div>
 

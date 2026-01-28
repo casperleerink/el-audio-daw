@@ -40,3 +40,23 @@
 - The `overscroll-behavior: none` CSS property is well-supported in modern browsers
 - The `touch-action: none` (via Tailwind's `touch-none`) on the timeline prevents mobile browsers from hijacking touch gestures
 - If you need custom touch handling in the timeline (pinch-to-zoom), you'll need to implement it with JavaScript touch events
+
+## 2026-01-27: Track Operations Loading States
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Add loading states to track operations** - Show feedback when adding, deleting, reordering tracks
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added `isAddingTrack` state to track when a track is being created
+  - Added `deletingTrackId` state to track which track is being deleted
+  - `handleAddTrack()` now sets loading state and shows spinner on Add Track button
+  - `handleDeleteTrack()` now sets loading state for the specific track being deleted
+  - Add Track button shows Loader2 spinner and is disabled during creation
+  - Delete button shows Loader2 spinner and is disabled during deletion
+  - Added `deletingTrackId` prop to VirtualizedTrackList and `isDeleting` prop to TrackHeader
+
+### Notes for Next Developer
+- The loading states are per-operation: adding a track disables only the Add Track button, deleting a track disables only that track's delete button
+- Reorder operations already have visual feedback via the drop indicator lines - no additional loading state was needed
+- The PRD also noted "Add loading spinner to project creation button" as incomplete, but it was already implemented in `apps/web/src/routes/index.tsx` - marked as complete

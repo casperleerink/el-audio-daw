@@ -20,10 +20,10 @@ Improve user experience across the el-audio-daw application with focus on loadin
 
 ### Loading & Feedback States
 
-- [ ] **Add loading spinner to project creation button** - Disable button and show spinner while creating project
+- [x] **Add loading spinner to project creation button** - Disable button and show spinner while creating project
   - Acceptance: Button shows spinner icon, is disabled during mutation, re-enables on complete/error
 
-- [ ] **Add loading states to track operations** - Show feedback when adding, deleting, reordering tracks
+- [x] **Add loading states to track operations** - Show feedback when adding, deleting, reordering tracks
   - Acceptance: Add track button shows spinner while creating; delete shows brief disabled state; reorder shows drop animation
 
 - [ ] **Add loading overlay during project load** - Show skeleton or spinner while project data loads
