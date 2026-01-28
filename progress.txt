@@ -127,3 +127,23 @@
 - `GestureEvent` is Safari-specific and not in standard DOM types, hence the local interface declaration
 - The `touch-none` CSS class (already present) handles touch events on mobile/tablet
 - Combined approach ensures cross-browser compatibility: wheel events (Chrome, Firefox) + gesture events (Safari)
+
+## 2026-01-27: Auth Form Submit Button Loading States
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Disable auth form submit buttons during submission** - Prevent double-submit on sign-in/sign-up
+
+### Changes Made
+- Modified `apps/web/src/components/sign-in-form.tsx`:
+  - Added Loader2 import from lucide-react
+  - Updated submit button to show spinner icon + "Signing in..." text during submission
+  - Button remains disabled via `!state.canSubmit || state.isSubmitting` (already existed)
+- Modified `apps/web/src/components/sign-up-form.tsx`:
+  - Added Loader2 import from lucide-react
+  - Updated submit button to show spinner icon + "Signing up..." text during submission
+  - Button remains disabled via `!state.canSubmit || state.isSubmitting` (already existed)
+
+### Notes for Next Developer
+- The forms already had `disabled` logic using TanStack React Form's `state.isSubmitting`
+- The change adds visual spinner feedback alongside the text change for better UX
+- Pattern matches other loading states in the app (e.g., Add Track button, Delete button)

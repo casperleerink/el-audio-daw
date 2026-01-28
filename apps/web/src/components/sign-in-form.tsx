@@ -1,5 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import z from "zod";
 
@@ -111,7 +112,14 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
               className="w-full"
               disabled={!state.canSubmit || state.isSubmitting}
             >
-              {state.isSubmitting ? "Submitting..." : "Sign In"}
+              {state.isSubmitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign In"
+              )}
             </Button>
           )}
         </form.Subscribe>

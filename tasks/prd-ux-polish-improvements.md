@@ -37,7 +37,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 
 ### Form & Input Polish
 
-- [ ] **Disable auth form submit buttons during submission** - Prevent double-submit on sign-in/sign-up
+- [x] **Disable auth form submit buttons during submission** - Prevent double-submit on sign-in/sign-up
   - Acceptance: Submit button disabled + shows spinner while auth request in flight
 
 - [ ] **Add form-level error display for auth forms** - Show auth errors prominently above form
