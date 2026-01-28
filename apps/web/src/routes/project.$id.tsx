@@ -878,7 +878,7 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
                 onDragOver={(e) => handleDragOver(e, virtualRow.index)}
               >
                 {showDropIndicatorBefore && (
-                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary" />
+                  <div className="pointer-events-none absolute inset-0 rounded bg-primary/10 ring-2 ring-inset ring-primary/50" />
                 )}
                 <TrackHeader
                   track={track}
@@ -894,7 +894,7 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
                   formatGain={formatGain}
                 />
                 {showDropIndicatorAfter && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                  <div className="pointer-events-none absolute inset-0 rounded bg-primary/10 ring-2 ring-inset ring-primary/50" />
                 )}
               </div>
             );
@@ -961,7 +961,7 @@ function TrackHeader({
 
   return (
     <div
-      className={`box-border h-[60px] border-b p-2 ${isDragging ? "opacity-50" : ""}`}
+      className={`box-border h-[60px] border-b p-2 transition-all duration-150 ${isDragging ? "scale-[0.98] opacity-50 shadow-lg ring-2 ring-primary/30" : ""}`}
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}

@@ -318,3 +318,26 @@
 - When hovering near the right edge (within 60px), tooltip shifts left to stay visible
 - The hover indicator is drawn after the playhead so it appears on top
 - `hoverX` is added to the canvas effect dependencies to trigger redraw on mouse move
+
+## 2026-01-27: Drag-Drop Visual Feedback Improvements
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Improve drag-drop visual feedback** - Clearer drop zone indicators when reordering tracks
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Drop target indicator changed from thin 2px line to full highlighted background
+  - Drop zone now shows `bg-primary/10` background with `ring-2 ring-inset ring-primary/50` border
+  - Added `pointer-events-none` to drop indicator to avoid interfering with drag events
+  - Added `rounded` for subtle border radius on drop target
+  - Dragged item now has `scale-[0.98]` for subtle shrink effect
+  - Dragged item has `shadow-lg` for visual lift/depth
+  - Dragged item has `ring-2 ring-primary/30` for subtle highlight
+  - Added `transition-all duration-150` for smooth animation on drag state changes
+
+### Notes for Next Developer
+- The drop indicator uses `inset-0` to fill the entire track row area, not just a thin line
+- The `pointer-events-none` on the indicator prevents it from blocking drag events
+- The dragged item retains `opacity-50` plus new shadow and scale effects
+- Transition makes the drag state changes smooth rather than jarring
+- Both "before" and "after" indicators use identical styling since they now highlight the whole row
