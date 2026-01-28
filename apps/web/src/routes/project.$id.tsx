@@ -15,6 +15,7 @@ import {
   GripVertical,
   Loader2,
   Pause,
+  Pencil,
   Play,
   Plus,
   Settings,
@@ -966,7 +967,7 @@ function TrackHeader({
         {isEditing ? (
           <Input
             ref={inputRef}
-            className="h-6 flex-1 text-xs"
+            className="h-6 flex-1 border-ring text-xs ring-1 ring-ring/50"
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             onBlur={handleNameSubmit}
@@ -980,10 +981,11 @@ function TrackHeader({
           />
         ) : (
           <button
-            className="flex-1 truncate text-left text-xs font-medium hover:text-foreground/80"
+            className="group flex flex-1 items-center gap-1 truncate text-left text-xs font-medium hover:text-foreground/80"
             onClick={() => setIsEditing(true)}
           >
-            {track.name}
+            <span className="truncate">{track.name}</span>
+            <Pencil className="size-2.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
           </button>
         )}
         <Button

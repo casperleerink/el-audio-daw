@@ -43,7 +43,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [x] **Add form-level error display for auth forms** - Show auth errors prominently above form
   - Acceptance: Failed login shows error message above form fields, not just toast
 
-- [ ] **Improve inline track name editing** - Better visual affordance for editable names
+- [x] **Improve inline track name editing** - Better visual affordance for editable names
   - Acceptance: Track name shows subtle edit icon on hover; focused state has visible border; escape cancels edit
 
 - [ ] **Add character limit feedback for inputs** - Show remaining characters for project/track names

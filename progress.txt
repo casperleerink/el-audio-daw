@@ -234,3 +234,25 @@
 - Loading state (`isAddingTrack`) is shared between the header button and empty state button
 - The empty state uses flexbox centering to position content in the track list area
 - If you change the Add Track flow, both buttons will automatically inherit the change
+
+## 2026-01-27: Inline Track Name Editing Improvements
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Improve inline track name editing** - Better visual affordance for editable names
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added `Pencil` icon import from lucide-react
+  - Updated track name display button to show subtle pencil icon on hover
+  - Icon uses `opacity-0 group-hover:opacity-100` transition for smooth reveal
+  - Icon is styled with `text-muted-foreground` for subtle appearance
+  - Track name text wrapped in `<span>` with `truncate` to preserve ellipsis behavior
+  - Edit mode input now has visible ring styling (`ring-1 ring-ring/50 border-ring`) for clearer focus state
+  - Escape key already cancels edit (was already implemented)
+
+### Notes for Next Developer
+- The hover icon uses Tailwind's `group` pattern for parent-child hover state
+- The icon is `size-2.5` to be subtle and not compete with the track name
+- `shrink-0` on the icon prevents it from being truncated when track name is long
+- The edit input border/ring styling makes it very clear when you're in edit mode
+- The smooth opacity transition (`transition-opacity`) makes the icon appear/disappear gracefully
