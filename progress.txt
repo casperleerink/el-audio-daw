@@ -364,3 +364,26 @@
 - Buttons are positioned in top-right of timeline area at `right-2 top-0.5`
 - The PRD mentioned showing zoom level percentage - this was NOT implemented as it was listed as an open question
 - Min zoom is 2 pixels/second, max is 200 pixels/second (unchanged from existing implementation)
+
+## 2026-01-27: Focus Ring Verification (PRD Complete)
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Add focus ring to all interactive elements** - Already implemented in underlying UI components
+
+### Investigation Findings
+- Focus rings were already present in all major UI components:
+  - **Button**: `focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-1`
+  - **Input**: `focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-1`
+  - **Slider thumb**: `border-ring ring-ring/50 focus-visible:ring-1 focus-visible:outline-hidden`
+  - **Toggle**: `focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]`
+  - **Checkbox, Switch, Radio, Select, Textarea**: All have similar focus-visible ring styles
+- Global CSS in `apps/web/src/index.css` also sets `outline-ring/50` on all elements as a fallback
+
+### Notes for Next Developer
+- The PRD's acceptance criteria specifically asked to "double check that this doesn't already exist in the underlying ui component" - it does!
+- All components use Tailwind's `focus-visible:` pseudo-class for keyboard-only focus indicators
+- Ring colors are defined as CSS variables: `--ring: oklch(0.708 0 0)` (light) and `--ring: oklch(0.556 0 0)` (dark)
+- No code changes were needed - task marked as complete after verification
+
+### PRD STATUS: COMPLETE
+All tasks in prd-ux-polish-improvements.md are now marked as complete.
