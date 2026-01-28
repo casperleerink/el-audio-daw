@@ -1083,6 +1083,9 @@ function TimelineCanvas({
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [scrollLeft, setScrollLeft] = useState(0);
   const [pixelsPerSecond, setPixelsPerSecond] = useState(DEFAULT_PIXELS_PER_SECOND);
+  // Hover state for timeline cursor indicator
+  const [hoverX, setHoverX] = useState<number | null>(null);
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
 
   // Track resize
   useEffect(() => {
@@ -1188,6 +1191,27 @@ function TimelineCanvas({
     [scrollLeft, pixelsPerSecond, onSeek],
   );
 
+  // Handle mouse move for hover indicator
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const canvasX = e.clientX - rect.left;
+      const scrolledX = canvasX + scrollLeft;
+      const time = scrolledX / pixelsPerSecond;
+      setHoverX(canvasX);
+      setHoverTime(Math.max(0, time));
+    },
+    [scrollLeft, pixelsPerSecond],
+  );
+
+  // Handle mouse leave to clear hover state
+  const handleMouseLeave = useCallback(() => {
+    setHoverX(null);
+    setHoverTime(null);
+  }, []);
+
   // Draw canvas
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1261,7 +1285,29 @@ function TimelineCanvas({
       ctx.fillStyle = mutedColor;
       ctx.fillRect(playheadX, 0, 1, dimensions.height);
     }
-  }, [dimensions, tracks, playheadTime, scrollLeft, scrollTop, pixelsPerSecond]);
+
+    // Draw hover indicator line
+    if (hoverX !== null && hoverX >= 0 && hoverX <= dimensions.width) {
+      ctx.strokeStyle = mutedColor;
+      ctx.globalAlpha = 0.4;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(hoverX, 0);
+      ctx.lineTo(hoverX, dimensions.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    }
+  }, [dimensions, tracks, playheadTime, scrollLeft, scrollTop, pixelsPerSecond, hoverX]);
+
+  // Format time for hover tooltip
+  const formatHoverTime = (time: number) => {
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    const ms = Math.floor((time % 1) * 100);
+    return `${mins}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
+  };
 
   return (
     <div
@@ -1274,7 +1320,24 @@ function TimelineCanvas({
         className="absolute inset-0 cursor-crosshair"
         style={{ width: dimensions.width, height: dimensions.height }}
         onClick={handleClick}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
       />
+      {/* Hover time tooltip */}
+      {hoverX !== null && hoverTime !== null && (
+        <div
+          className="pointer-events-none absolute z-10"
+          style={{
+            left: hoverX,
+            top: RULER_HEIGHT + 4,
+            transform: hoverX > dimensions.width - 60 ? "translateX(-100%)" : "translateX(-50%)",
+          }}
+        >
+          <div className="bg-foreground text-background rounded px-1.5 py-0.5 text-xs font-mono whitespace-nowrap">
+            {formatHoverTime(hoverTime)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

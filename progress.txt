@@ -295,3 +295,26 @@
 - Project name counter uses full format ("X/50 characters") since there's more space in the dialog
 - Track name counter uses compact format ("X/50") since the inline editing area is constrained
 - Color changes from muted to destructive at exactly 50 to signal "limit reached"
+
+## 2026-01-27: Timeline Hover States
+
+### Completed Tasks (from prd-ux-polish-improvements.md)
+- **Add hover states to timeline** - Show time position on mouse hover
+
+### Changes Made
+- Modified `apps/web/src/routes/project.$id.tsx`:
+  - Added `hoverX` and `hoverTime` state to track cursor position on timeline
+  - Added `handleMouseMove` callback to calculate cursor position and time from mouse events
+  - Added `handleMouseLeave` callback to clear hover state when cursor leaves timeline
+  - Draw hover indicator line: dashed vertical line with 40% opacity at cursor position
+  - Added time tooltip that appears just below the ruler, showing time in `M:SS.ms` format
+  - Tooltip auto-adjusts position when near right edge to stay within bounds
+  - Canvas now listens to `onMouseMove` and `onMouseLeave` events
+
+### Notes for Next Developer
+- The hover line uses a dashed pattern (`ctx.setLineDash([4, 4])`) to differentiate from the solid playhead
+- Time is displayed with centisecond precision (e.g., "1:23.45") for more precise seeking feedback
+- The tooltip uses `pointer-events-none` to avoid interfering with canvas click events
+- When hovering near the right edge (within 60px), tooltip shifts left to stay visible
+- The hover indicator is drawn after the playhead so it appears on top
+- `hoverX` is added to the canvas effect dependencies to trigger redraw on mouse move

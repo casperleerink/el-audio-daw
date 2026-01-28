@@ -65,7 +65,7 @@ Improve user experience across the el-audio-daw application with focus on loadin
 - [ ] **Improve drag-drop visual feedback** - Clearer drop zone indicators when reordering tracks
   - Acceptance: Drop target shows highlighted background (not just thin line); dragged item has shadow/opacity
 
-- [ ] **Add hover states to timeline** - Show time position on mouse hover
+- [x] **Add hover states to timeline** - Show time position on mouse hover
   - Acceptance: Hovering timeline shows vertical line + tooltip with time at cursor position
 
 - [ ] **Improve zoom controls** - Add visible zoom in/out buttons alongside scroll-zoom
