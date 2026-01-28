@@ -5,6 +5,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
+  GripVertical,
   Loader2,
   Pause,
   Play,
@@ -72,6 +73,7 @@ function ProjectEditor() {
   const createTrack = useMutation(api.tracks.createTrack);
   const updateTrack = useMutation(api.tracks.updateTrack);
   const deleteTrack = useMutation(api.tracks.deleteTrack);
+  const reorderTracks = useMutation(api.tracks.reorderTracks);
   const updateProject = useMutation(api.projects.updateProject);
 
   const [isEngineReady, setIsEngineReady] = useState(false);
@@ -225,6 +227,17 @@ function ProjectEditor() {
       }
     },
     [deleteTrack],
+  );
+
+  const handleReorderTracks = useCallback(
+    async (trackIds: string[]) => {
+      try {
+        await reorderTracks({ projectId: id as any, trackIds: trackIds as any });
+      } catch {
+        toast.error("Failed to reorder tracks");
+      }
+    },
+    [reorderTracks, id],
   );
 
   const handleSaveProjectName = useCallback(async () => {
@@ -393,6 +406,7 @@ function ProjectEditor() {
             onGainChange={handleUpdateTrackGain}
             onNameChange={handleUpdateTrackName}
             onDelete={handleDeleteTrack}
+            onReorder={handleReorderTracks}
             formatGain={formatGain}
           />
 
@@ -448,6 +462,7 @@ interface VirtualizedTrackListProps {
   onGainChange: (trackId: string, gain: number) => void;
   onNameChange: (trackId: string, name: string) => void;
   onDelete: (trackId: string) => void;
+  onReorder: (trackIds: string[]) => void;
   formatGain: (db: number) => string;
 }
 
@@ -462,11 +477,14 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
       onGainChange,
       onNameChange,
       onDelete,
+      onReorder,
       formatGain,
     },
     ref,
   ) {
     const parentRef = useRef<HTMLDivElement>(null);
+    const [draggedTrackId, setDraggedTrackId] = useState<string | null>(null);
+    const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
 
     // Sync scroll position from parent
     useEffect(() => {
@@ -489,6 +507,62 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
       [onScrollChange],
     );
 
+    const handleDragStart = useCallback((e: React.DragEvent, trackId: string) => {
+      setDraggedTrackId(trackId);
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", trackId);
+    }, []);
+
+    const handleDragEnd = useCallback(() => {
+      setDraggedTrackId(null);
+      setDropTargetIndex(null);
+    }, []);
+
+    const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+
+      // Calculate if we're in the top or bottom half of the track
+      const rect = e.currentTarget.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      const insertIndex = e.clientY < midpoint ? index : index + 1;
+
+      setDropTargetIndex(insertIndex);
+    }, []);
+
+    const handleDrop = useCallback(
+      (e: React.DragEvent) => {
+        e.preventDefault();
+
+        if (draggedTrackId === null || dropTargetIndex === null) return;
+
+        const draggedIndex = tracks.findIndex((t) => t._id === draggedTrackId);
+        if (draggedIndex === -1) return;
+
+        // Don't do anything if dropping in the same position
+        if (dropTargetIndex === draggedIndex || dropTargetIndex === draggedIndex + 1) {
+          setDraggedTrackId(null);
+          setDropTargetIndex(null);
+          return;
+        }
+
+        // Build new order of track IDs
+        const newTrackIds = tracks.map((t) => t._id);
+        const [removed] = newTrackIds.splice(draggedIndex, 1);
+        if (!removed) return;
+
+        // Adjust target index if we removed an item before it
+        const adjustedIndex =
+          dropTargetIndex > draggedIndex ? dropTargetIndex - 1 : dropTargetIndex;
+        newTrackIds.splice(adjustedIndex, 0, removed);
+
+        onReorder(newTrackIds);
+        setDraggedTrackId(null);
+        setDropTargetIndex(null);
+      },
+      [draggedTrackId, dropTargetIndex, tracks, onReorder],
+    );
+
     // Forward ref
     React.useImperativeHandle(ref, () => parentRef.current as HTMLDivElement, []);
 
@@ -501,7 +575,13 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
     }
 
     return (
-      <div ref={parentRef} className="flex-1 overflow-y-auto" onScroll={handleScroll}>
+      <div
+        ref={parentRef}
+        className="flex-1 overflow-y-auto"
+        onScroll={handleScroll}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDrop}
+      >
         <div
           style={{
             height: `${virtualizer.getTotalSize()}px`,
@@ -512,6 +592,11 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const track = tracks[virtualRow.index];
             if (!track) return null;
+
+            const isDragging = track._id === draggedTrackId;
+            const showDropIndicatorBefore = dropTargetIndex === virtualRow.index;
+            const showDropIndicatorAfter =
+              dropTargetIndex === virtualRow.index + 1 && virtualRow.index === tracks.length - 1;
 
             return (
               <div
@@ -524,9 +609,16 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
                   height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
+                onDragOver={(e) => handleDragOver(e, virtualRow.index)}
               >
+                {showDropIndicatorBefore && (
+                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary" />
+                )}
                 <TrackHeader
                   track={track}
+                  isDragging={isDragging}
+                  onDragStart={(e) => handleDragStart(e, track._id)}
+                  onDragEnd={handleDragEnd}
                   onMuteChange={(muted) => onMuteChange(track._id, muted)}
                   onSoloChange={(solo) => onSoloChange(track._id, solo)}
                   onGainChange={(gain) => onGainChange(track._id, gain)}
@@ -534,6 +626,9 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
                   onDelete={() => onDelete(track._id)}
                   formatGain={formatGain}
                 />
+                {showDropIndicatorAfter && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                )}
               </div>
             );
           })}
@@ -551,6 +646,9 @@ interface TrackHeaderProps {
     solo: boolean;
     gain: number;
   };
+  isDragging?: boolean;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
   onMuteChange: (muted: boolean) => void;
   onSoloChange: (solo: boolean) => void;
   onGainChange: (gain: number) => void;
@@ -561,6 +659,9 @@ interface TrackHeaderProps {
 
 function TrackHeader({
   track,
+  isDragging,
+  onDragStart,
+  onDragEnd,
   onMuteChange,
   onSoloChange,
   onGainChange,
@@ -590,9 +691,20 @@ function TrackHeader({
   };
 
   return (
-    <div className="box-border h-[60px] border-b p-2">
+    <div
+      className={`box-border h-[60px] border-b p-2 ${isDragging ? "opacity-50" : ""}`}
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+    >
       {/* Track Name Row */}
       <div className="mb-1 flex items-center gap-1">
+        <div
+          className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="size-3" />
+        </div>
         {isEditing ? (
           <Input
             ref={inputRef}

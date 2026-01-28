@@ -205,3 +205,45 @@ Implemented virtualized track list using `@tanstack/react-virtual` (FR-38).
 
 **Remaining task:**
 1. Implement track reordering via drag-and-drop (FR-45)
+
+## 2026-01-27: Track Reordering via Drag-and-Drop
+
+Implemented drag-and-drop track reordering (FR-45).
+
+**Files modified:**
+- `apps/web/src/routes/project.$id.tsx` - Added drag-and-drop to VirtualizedTrackList and TrackHeader
+
+**Implementation details:**
+
+1. **Native HTML5 Drag and Drop API**
+   - Used native drag and drop instead of external library to avoid additional dependencies
+   - Works seamlessly with TanStack Virtual virtualization
+
+2. **VirtualizedTrackList enhancements**
+   - Added `draggedTrackId` and `dropTargetIndex` state for tracking drag state
+   - `handleDragStart`: Sets dragged track ID and configures dataTransfer
+   - `handleDragEnd`: Clears drag state
+   - `handleDragOver`: Calculates drop position (top or bottom half of track)
+   - `handleDrop`: Computes new track order and calls `onReorder` callback
+   - Added `onReorder` prop to trigger the Convex `reorderTracks` mutation
+
+3. **TrackHeader enhancements**
+   - Added drag handle icon (GripVertical) for visual affordance
+   - Made the entire track header draggable
+   - Added `isDragging` prop for visual feedback (opacity: 50% when dragging)
+   - Props: `onDragStart`, `onDragEnd`, `isDragging`
+
+4. **Visual feedback**
+   - Drop indicator line (primary color) shows where track will be inserted
+   - Dragged track has reduced opacity
+   - Cursor changes to grab/grabbing on drag handle
+
+5. **Backend integration**
+   - Uses existing `reorderTracks` mutation from `api.tracks.reorderTracks`
+   - Mutation takes `projectId` and array of `trackIds` in new order
+   - Real-time sync via Convex means all collaborators see reorder immediately
+
+**Notes for next developer:**
+- All PRD tasks are now complete (all tasks marked [x])
+- The drag-and-drop works with virtualization - only visible tracks render but reordering works for all
+- The drop target index accounts for the dragged item's original position when calculating final order

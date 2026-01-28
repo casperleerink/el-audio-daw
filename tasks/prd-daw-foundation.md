@@ -30,7 +30,7 @@ Build the foundational architecture for a collaborative DAW (Digital Audio Works
 - [x] Implement transport controls (play/stop, clock display)
 - [x] Implement track controls (mute/solo/gain)
 - [x] Implement master track with gain
-- [ ] Implement track reordering via drag-and-drop
+- [x] Implement track reordering via drag-and-drop
 - [x] Implement project settings modal (rename project)
 - [x] Implement keyboard shortcuts (spacebar, Cmd+T)
 - [x] Wire up real-time Convex sync for tracks
