@@ -8,7 +8,7 @@ fi
 for ((i=1; i<=$1; i++)); do
   echo "Iteration $i"
   echo "--------------------------------"
-  result=$(claude --dangerously-skip-permissions -p "@tasks/prd-daw-foundation.md @progress.txt \
+  result=$(claude --dangerously-skip-permissions -p "@tasks/prd-ux-polish-improvements.md @progress.txt \
 1. Find the highest-priority task to work on and work only on that task. \
 This should be the one YOU decide has the highest priority - not necessarily the first in the list of tasks. \
 2. Check that the types check via bun run check-types and that the lints pass with bun run check. \
