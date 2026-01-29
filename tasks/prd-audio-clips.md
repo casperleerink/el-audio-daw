@@ -17,9 +17,9 @@ Add ability to drag audio files from computer onto tracks, upload to Convex file
 - [x] Add `color` field to tracks table (or generate deterministically from track order/id)
 - [x] Add `duration` field to projects table (in samples)
 - [x] Add `sampleRate` field to projects table
-- [ ] Create Convex file upload mutation
-- [ ] Create clip CRUD mutations (create, update position, delete)
-- [ ] Create query to get clips for a project
+- [x] Create Convex file upload mutation
+- [x] Create clip CRUD mutations (create, update position, delete)
+- [x] Create query to get clips for a project
 - [ ] Set up Elementary VFS integration in AudioEngine
 - [ ] Add method to load audio buffer into VFS
 - [ ] Update audio graph to render clips at correct positions

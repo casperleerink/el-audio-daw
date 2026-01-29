@@ -23,3 +23,35 @@
 
 ### Files Modified
 - packages/backend/convex/schema.ts
+
+---
+
+## 2026-01-28 - Clip Mutations Complete
+
+### Completed
+- Created `packages/backend/convex/clips.ts` with full clip functionality:
+  - `generateUploadUrl`: Generates Convex storage upload URL for authenticated users (FR-8)
+  - `validateUploadedFile`: Validates file size (100MB max, FR-6) and content type (FR-5, FR-7)
+  - `createClip`: Creates clip with overlap handling (FR-9, FR-12), auto-extends project duration (FR-13)
+  - `updateClipPosition`: Moves clip with overlap handling (FR-34-38), clamps to 0 (FR-38)
+  - `deleteClip`: Deletes clip and associated storage file
+  - `getProjectClips`: Query to get all clips for a project
+  - `getProjectClipUrls`: Query to get storage URLs for VFS loading (FR-17)
+  - `getFileUrl`: Query to get URL for a single stored file
+
+### Implementation Notes
+- All mutations follow existing auth pattern with `checkProjectAccess` helper
+- Clip overlap handling: truncates or deletes existing clips when new/moved clip overlaps
+- Project duration auto-extends to clip end + 10 seconds of samples
+- Supported audio formats: WAV, MP3, AIFF, FLAC, OGG
+- File validation happens after upload to Convex (delete invalid files immediately)
+- Storage ID (`fileId`) is used as VFS key for Elementary Audio integration
+
+### Next Priority Tasks
+1. Set up Elementary VFS integration in AudioEngine
+2. Add method to load audio buffer into VFS
+3. Update audio graph to render clips at correct positions
+4. Implement drag-drop zone on timeline track lanes
+
+### Files Modified
+- packages/backend/convex/clips.ts (new file)
