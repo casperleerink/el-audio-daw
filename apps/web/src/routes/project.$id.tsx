@@ -162,6 +162,7 @@ function ProjectEditor() {
 
   const project = useQuery(api.projects.getProject, { id: id as any });
   const tracks = useQuery(api.tracks.getProjectTracks, { projectId: id as any });
+  const clips = useQuery(api.clips.getProjectClips, { projectId: id as any });
 
   const createTrack = useMutation(api.tracks.createTrack);
   const updateTrack = useMutation(api.tracks.updateTrack);
@@ -685,6 +686,15 @@ function ProjectEditor() {
         <div className="flex flex-1 flex-col">
           <TimelineCanvas
             tracks={tracks}
+            clips={(clips ?? []).map((clip) => ({
+              _id: clip._id,
+              trackId: clip.trackId,
+              fileId: clip.fileId,
+              name: clip.name,
+              startTime: clip.startTime,
+              duration: clip.duration,
+            }))}
+            sampleRate={project?.sampleRate ?? 44100}
             playheadTime={playheadTime}
             scrollTop={scrollTop}
             onScrollChange={setScrollTop}
@@ -1063,8 +1073,20 @@ function TrackHeader({
   );
 }
 
+// Clip data from Convex query
+interface ClipData {
+  _id: string;
+  trackId: string;
+  fileId: string;
+  name: string;
+  startTime: number; // in samples
+  duration: number; // in samples
+}
+
 interface TimelineCanvasProps {
   tracks: { _id: string; name: string }[];
+  clips: ClipData[];
+  sampleRate: number;
   playheadTime: number;
   scrollTop: number;
   onScrollChange: (scrollTop: number) => void;
@@ -1077,8 +1099,18 @@ const DEFAULT_PIXELS_PER_SECOND = 20;
 const MIN_PIXELS_PER_SECOND = 2;
 const MAX_PIXELS_PER_SECOND = 200;
 
+// Generate a track color from its index using HSL
+// Uses a golden angle offset to spread colors evenly around the hue wheel
+function getTrackColor(index: number): string {
+  const goldenAngle = 137.508; // degrees
+  const hue = (index * goldenAngle) % 360;
+  return `hsl(${hue}, 65%, 55%)`;
+}
+
 function TimelineCanvas({
   tracks,
+  clips,
+  sampleRate,
   playheadTime,
   scrollTop,
   onScrollChange,
@@ -1366,6 +1398,88 @@ function TimelineCanvas({
       ctx.fillRect(0, y + TRACK_HEIGHT - 1, dimensions.width, 1);
     }
 
+    // Build track index map for clip rendering
+    const trackIndexMap = new Map<string, number>();
+    tracks.forEach((track, index) => {
+      trackIndexMap.set(track._id, index);
+    });
+
+    // Draw clips (FR-24 through FR-28)
+    const CLIP_PADDING = 2; // padding inside track lane
+    const CLIP_BORDER_RADIUS = 4;
+
+    for (const clip of clips) {
+      const trackIndex = trackIndexMap.get(clip.trackId);
+      if (trackIndex === undefined) continue;
+
+      // Convert clip times from samples to seconds
+      const clipStartSeconds = clip.startTime / sampleRate;
+      const clipDurationSeconds = clip.duration / sampleRate;
+      const clipEndSeconds = clipStartSeconds + clipDurationSeconds;
+
+      // Skip clips that are outside the visible time range
+      if (clipEndSeconds < startTime || clipStartSeconds > endTime) continue;
+
+      // Calculate clip rectangle position and dimensions (FR-26, FR-27)
+      const clipX = (clipStartSeconds - startTime) * pixelsPerSecond;
+      const clipWidth = clipDurationSeconds * pixelsPerSecond;
+      const trackY = RULER_HEIGHT + trackIndex * TRACK_HEIGHT - scrollTop;
+
+      // Skip clips in tracks that are outside the visible area
+      if (trackY + TRACK_HEIGHT < RULER_HEIGHT || trackY > dimensions.height) continue;
+
+      const clipY = trackY + CLIP_PADDING;
+      const clipHeight = TRACK_HEIGHT - CLIP_PADDING * 2 - 1; // -1 for track lane border
+
+      // Get track color (FR-24 - clip color inherited from track)
+      const trackColor = getTrackColor(trackIndex);
+
+      // Draw clip background (FR-24, FR-28 - Normal state: solid color)
+      ctx.fillStyle = trackColor;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.roundRect(clipX, clipY, clipWidth, clipHeight, CLIP_BORDER_RADIUS);
+      ctx.fill();
+
+      // Draw clip border for better visibility
+      ctx.strokeStyle = trackColor;
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(clipX, clipY, clipWidth, clipHeight, CLIP_BORDER_RADIUS);
+      ctx.stroke();
+
+      // Draw clip name (FR-25)
+      if (clipWidth > 30) {
+        // Only draw text if clip is wide enough
+        ctx.fillStyle = "#ffffff";
+        ctx.globalAlpha = 0.9;
+        ctx.font = "11px sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+
+        // Truncate text if it doesn't fit
+        const textPadding = 6;
+        const maxTextWidth = clipWidth - textPadding * 2;
+        let displayName = clip.name;
+
+        // Measure and truncate if needed
+        let textWidth = ctx.measureText(displayName).width;
+        if (textWidth > maxTextWidth) {
+          // Truncate with ellipsis
+          while (textWidth > maxTextWidth && displayName.length > 0) {
+            displayName = displayName.slice(0, -1);
+            textWidth = ctx.measureText(displayName + "…").width;
+          }
+          displayName = displayName + "…";
+        }
+
+        ctx.fillText(displayName, clipX + textPadding, clipY + clipHeight / 2);
+      }
+
+      ctx.globalAlpha = 1;
+    }
+
     // Draw playhead
     const playheadX = (playheadTime - startTime) * pixelsPerSecond;
     if (playheadX >= 0 && playheadX <= dimensions.width) {
@@ -1386,7 +1500,17 @@ function TimelineCanvas({
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
     }
-  }, [dimensions, tracks, playheadTime, scrollLeft, scrollTop, pixelsPerSecond, hoverX]);
+  }, [
+    dimensions,
+    tracks,
+    clips,
+    sampleRate,
+    playheadTime,
+    scrollLeft,
+    scrollTop,
+    pixelsPerSecond,
+    hoverX,
+  ]);
 
   // Format time for hover tooltip
   const formatHoverTime = (time: number) => {

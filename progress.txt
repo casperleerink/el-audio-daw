@@ -131,3 +131,43 @@ Clip 3 (gain) ──> Track Sum ──> Track Gain ─────┼──> Mas
 ### Files Modified
 - packages/audio/src/engine.ts (added ClipState, setClips, updated renderGraph)
 - packages/audio/src/index.ts (exported ClipState type)
+
+---
+
+## 2026-01-28 - Clip Timeline Rendering Complete
+
+### Completed
+- Implemented clip rectangle rendering on timeline canvas (FR-24 through FR-28):
+  - Added `ClipData` interface for clip data passed to TimelineCanvas
+  - Added `clips` and `sampleRate` props to TimelineCanvas component
+  - Added `getProjectClips` query in ProjectEditor component
+  - Implemented `getTrackColor(index)` function for deterministic track colors using golden angle
+  - Clips render as rounded rectangles with track-inherited colors (FR-24)
+  - Clip rectangles display filename with truncation for long names (FR-25)
+  - Clip width calculated from duration: `duration * pixelsPerSecond / sampleRate` (FR-26)
+  - Clip x position calculated from startTime: `startTime * pixelsPerSecond / sampleRate` (FR-27)
+  - Normal visual state: semi-transparent fill (0.7 alpha) with solid border (FR-28)
+
+### Implementation Notes
+- Track colors generated deterministically using golden angle (137.508°) for even hue distribution
+- Colors use HSL format: `hsl(hue, 65%, 55%)` for vibrant but not overwhelming colors
+- Clips skip rendering when outside visible time range (horizontal culling)
+- Clips skip rendering when their track is outside visible area (vertical culling)
+- Text truncation uses canvas measureText for accurate width calculation
+- Uses `ctx.roundRect()` for rounded corners on clip rectangles
+- Sample rate defaults to 44100 if project.sampleRate is not set
+
+### Technical Details
+- Clip position formula: `clipX = (clipStartSeconds - scrollStartTime) * pixelsPerSecond`
+- Clip width formula: `clipWidth = clipDurationSeconds * pixelsPerSecond`
+- Track Y position: `RULER_HEIGHT + trackIndex * TRACK_HEIGHT - scrollTop`
+- Clip has 2px padding inside track lane for visual separation
+
+### Next Priority Tasks
+1. Implement drag-drop zone on timeline track lanes (FR-29-33)
+2. Calculate drop position in samples from mouse position (FR-31)
+3. Decode audio file client-side to get duration/sample rate (FR-10)
+4. Upload file to Convex on drop (FR-8)
+
+### Files Modified
+- apps/web/src/routes/project.$id.tsx (added clip rendering to TimelineCanvas)

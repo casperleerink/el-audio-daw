@@ -28,7 +28,7 @@ Add ability to drag audio files from computer onto tracks, upload to Convex file
 - [ ] Decode audio file client-side to get duration/sample rate
 - [ ] Upload file to Convex on drop
 - [ ] Create clip record after successful upload
-- [ ] Render clip rectangles on timeline canvas
+- [x] Render clip rectangles on timeline canvas
 - [ ] Implement clip dragging to move position
 - [ ] Handle clip overlap (truncate existing clip)
 - [ ] Load all project clips into VFS on page load
