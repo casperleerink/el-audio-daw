@@ -25,6 +25,7 @@ import { VirtualizedTrackList } from "@/components/VirtualizedTrackList";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
 import { useClipDrag, type ClipData } from "@/hooks/useClipDrag";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
+import { useTimelineCanvasEvents } from "@/hooks/useTimelineCanvasEvents";
 import { useTimelineFileDrop } from "@/hooks/useTimelineFileDrop";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { renderTimeline } from "@/lib/canvasRenderer";
@@ -537,9 +538,11 @@ function TimelineCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  // Hover state for timeline cursor indicator
-  const [hoverX, setHoverX] = useState<number | null>(null);
-  const [hoverTime, setHoverTime] = useState<number | null>(null);
+
+  // Calculate max vertical scroll (needed by hooks)
+  const totalTrackHeight = tracks.length * TRACK_HEIGHT;
+  const viewportHeight = dimensions.height - RULER_HEIGHT;
+  const maxScrollTop = Math.max(0, totalTrackHeight - viewportHeight);
 
   // Zoom state and handlers
   const {
@@ -554,37 +557,8 @@ function TimelineCanvas({
   } = useTimelineZoom({
     containerRef,
     canvasRef,
-    hoverX,
+    hoverX: null, // Will be updated by useTimelineCanvasEvents
     dimensions,
-  });
-
-  // File drag-drop state and handlers (FR-29-33)
-  const {
-    isDraggingFile,
-    dropTarget,
-    isUploading,
-    handleDragEnter,
-    handleDragOver,
-    handleDragLeave,
-    handleDrop,
-  } = useTimelineFileDrop({
-    canvasRef,
-    containerRef,
-    tracks: tracks.map((t) => ({
-      ...t,
-      _id: t._id as Id<"tracks">,
-      order: 0,
-      muted: false,
-      solo: false,
-      gain: 1,
-    })),
-    scrollLeft,
-    scrollTop,
-    pixelsPerSecond,
-    sampleRate,
-    projectId,
-    rulerHeight: RULER_HEIGHT,
-    trackHeight: TRACK_HEIGHT,
   });
 
   // Mutation for clip position update
@@ -615,6 +589,53 @@ function TimelineCanvas({
     updateClipPosition,
   });
 
+  // Canvas event handlers (wheel, click, hover)
+  const { hoverX, hoverTime, handleWheel, handleClick, handleMouseMove, handleMouseLeave } =
+    useTimelineCanvasEvents({
+      canvasRef,
+      scrollLeft,
+      scrollTop,
+      setScrollLeft,
+      maxScrollTop,
+      pixelsPerSecond,
+      onScrollChange,
+      onSeek,
+      handleWheelZoom,
+      findClipAtPosition,
+      justFinishedDrag,
+      handleClipMouseMove,
+      handleClipMouseLeave,
+    });
+
+  // File drag-drop state and handlers (FR-29-33)
+  const {
+    isDraggingFile,
+    dropTarget,
+    isUploading,
+    handleDragEnter,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+  } = useTimelineFileDrop({
+    canvasRef,
+    containerRef,
+    tracks: tracks.map((t) => ({
+      ...t,
+      _id: t._id as Id<"tracks">,
+      order: 0,
+      muted: false,
+      solo: false,
+      gain: 1,
+    })),
+    scrollLeft,
+    scrollTop,
+    pixelsPerSecond,
+    sampleRate,
+    projectId,
+    rulerHeight: RULER_HEIGHT,
+    trackHeight: TRACK_HEIGHT,
+  });
+
   // Track resize
   useEffect(() => {
     const container = containerRef.current;
@@ -633,83 +654,6 @@ function TimelineCanvas({
     observer.observe(container);
     return () => observer.disconnect();
   }, []);
-
-  // Calculate max vertical scroll
-  const totalTrackHeight = tracks.length * TRACK_HEIGHT;
-  const viewportHeight = dimensions.height - RULER_HEIGHT;
-  const maxScrollTop = Math.max(0, totalTrackHeight - viewportHeight);
-
-  // Handle wheel for zoom and scroll
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      e.preventDefault();
-
-      // Try zoom first (ctrl/cmd + scroll)
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (rect) {
-        const cursorX = e.clientX - rect.left;
-        if (handleWheelZoom(e, cursorX)) {
-          return;
-        }
-      }
-
-      if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        // Horizontal scroll with shift or horizontal gesture
-        const delta = e.shiftKey ? e.deltaY : e.deltaX;
-        setScrollLeft((prev) => Math.max(0, prev + delta));
-      } else {
-        // Vertical scroll - sync with track list
-        const newScrollTop = Math.min(maxScrollTop, Math.max(0, scrollTop + e.deltaY));
-        onScrollChange(newScrollTop);
-      }
-    },
-    [maxScrollTop, scrollTop, onScrollChange, handleWheelZoom, setScrollLeft],
-  );
-
-  // Handle click for seeking (only if not ending a clip drag)
-  const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      // Don't seek if we just finished dragging a clip
-      if (justFinishedDrag) return;
-
-      // Don't seek if clicking on a clip (so users can click clips without seeking)
-      const clip = findClipAtPosition(e.clientX, e.clientY);
-      if (clip) return;
-
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      const x = e.clientX - rect.left + scrollLeft;
-      const time = x / pixelsPerSecond;
-      onSeek(Math.max(0, time));
-    },
-    [scrollLeft, pixelsPerSecond, onSeek, findClipAtPosition, justFinishedDrag],
-  );
-
-  // Handle mouse move for hover indicator and clip dragging
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      // Handle clip dragging if active
-      handleClipMouseMove(e);
-
-      const canvasX = e.clientX - rect.left;
-      const scrolledX = canvasX + scrollLeft;
-      const time = scrolledX / pixelsPerSecond;
-      setHoverX(canvasX);
-      setHoverTime(Math.max(0, time));
-    },
-    [scrollLeft, pixelsPerSecond, handleClipMouseMove],
-  );
-
-  // Handle mouse leave to clear hover state and end clip drag
-  const handleMouseLeave = useCallback(() => {
-    setHoverX(null);
-    setHoverTime(null);
-    handleClipMouseLeave();
-  }, [handleClipMouseLeave]);
 
   // Draw canvas
   useEffect(() => {
