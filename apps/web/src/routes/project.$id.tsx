@@ -1,7 +1,6 @@
 import { api } from "@el-audio-daw/backend/convex/_generated/api";
 import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
 import { isSupportedAudioType, MAX_FILE_SIZE } from "@el-audio-daw/backend/convex/constants";
-import { AudioEngine, type ClipState, type TrackState } from "@el-audio-daw/audio";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
@@ -33,6 +32,7 @@ import { toast } from "sonner";
 
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
+import { useAudioEngine } from "@/hooks/useAudioEngine";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
 import { renderTimeline } from "@/lib/canvasRenderer";
 import { formatGain, formatTime } from "@/lib/formatters";
@@ -186,11 +186,6 @@ function ProjectEditor() {
   const reorderTracks = useMutation(api.tracks.reorderTracks);
   const updateProject = useMutation(api.projects.updateProject);
 
-  const [isEngineInitializing, setIsEngineInitializing] = useState(false);
-  const [isEngineReady, setIsEngineReady] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playheadTime, setPlayheadTime] = useState(0);
-  const [masterGain, setMasterGain] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [isSavingProjectName, setIsSavingProjectName] = useState(false);
@@ -198,7 +193,6 @@ function ProjectEditor() {
   const [isAddingTrack, setIsAddingTrack] = useState(false);
   const [deletingTrackId, setDeletingTrackId] = useState<string | null>(null);
 
-  const engineRef = useRef<AudioEngine | null>(null);
   const trackListRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -208,106 +202,21 @@ function ProjectEditor() {
     handleUpdateTrackGain,
   } = useOptimisticTrackUpdates(tracks, updateTrack);
 
-  // Initialize audio engine (called lazily on first transport action)
-  const initializeEngine = useCallback(async () => {
-    if (engineRef.current?.isInitialized()) {
-      return engineRef.current;
-    }
-
-    setIsEngineInitializing(true);
-    try {
-      const engine = new AudioEngine();
-      // Use project sample rate to match clip data units
-      const sampleRate = project?.sampleRate ?? 44100;
-      await engine.initialize(sampleRate);
-      engineRef.current = engine;
-
-      engine.onPlayheadUpdate((time: number) => {
-        setPlayheadTime(time);
-      });
-
-      setIsEngineReady(true);
-      return engine;
-    } catch (err) {
-      toast.error("Failed to initialize audio engine. Please try again.");
-      console.error(err);
-      return null;
-    } finally {
-      setIsEngineInitializing(false);
-    }
-  }, [project?.sampleRate]);
-
-  // Sync tracks to audio engine (uses optimistic updates for instant feedback)
-  useEffect(() => {
-    if (!isEngineReady || !engineRef.current?.isInitialized() || !tracksWithOptimisticUpdates)
-      return;
-
-    const trackStates: TrackState[] = tracksWithOptimisticUpdates.map((t) => ({
-      id: t._id,
-      muted: t.muted,
-      solo: t.solo,
-      gain: t.gain,
-    }));
-
-    engineRef.current.setTracks(trackStates);
-  }, [isEngineReady, tracksWithOptimisticUpdates]);
-
-  // Sync master gain to audio engine
-  useEffect(() => {
-    if (!isEngineReady || !engineRef.current?.isInitialized()) return;
-    engineRef.current.setMasterGain(masterGain);
-  }, [isEngineReady, masterGain]);
-
-  // Load clips into VFS and sync to audio engine (FR-17)
-  useEffect(() => {
-    const engine = engineRef.current;
-    if (!isEngineReady || !engine?.isInitialized() || !clips || !clipUrls) return;
-
-    // Build a map of fileId -> URL for quick lookup
-    const urlMap = new Map<string, string>();
-    for (const clipUrl of clipUrls) {
-      if (clipUrl.url) {
-        urlMap.set(clipUrl.fileId, clipUrl.url);
-      }
-    }
-
-    // Load all audio into VFS (only loads if not already loaded)
-    const loadPromises = clips.map(async (clip) => {
-      const url = urlMap.get(clip.fileId);
-      if (!url) return;
-
-      try {
-        // This is idempotent - it won't reload if already in VFS
-        await engine.loadAudioIntoVFS(clip.fileId, url);
-      } catch (err) {
-        console.error(`Failed to load audio for clip ${clip.name}:`, err);
-      }
-    });
-
-    // After loading, sync clip state to engine for playback
-    Promise.all(loadPromises).then(() => {
-      const clipStates: ClipState[] = clips.map((clip) => ({
-        id: clip._id,
-        trackId: clip.trackId,
-        fileId: clip.fileId,
-        startTime: clip.startTime,
-        duration: clip.duration,
-        audioStartTime: clip.audioStartTime,
-        gain: clip.gain,
-      }));
-      engine.setClips(clipStates);
-    });
-  }, [isEngineReady, clips, clipUrls]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (engineRef.current) {
-        engineRef.current.dispose();
-        engineRef.current = null;
-      }
-    };
-  }, []);
+  const {
+    isEngineInitializing,
+    isPlaying,
+    playheadTime,
+    masterGain,
+    setMasterGain,
+    stop: handleStop,
+    togglePlayStop: handleTogglePlayStop,
+    seek,
+  } = useAudioEngine({
+    sampleRate: project?.sampleRate ?? 44100,
+    tracks: tracksWithOptimisticUpdates,
+    clips,
+    clipUrls,
+  });
 
   // Update project name when project loads
   useEffect(() => {
@@ -315,36 +224,6 @@ function ProjectEditor() {
       setProjectName(project.name);
     }
   }, [project]);
-
-  const handlePlay = useCallback(async () => {
-    let engine = engineRef.current;
-    if (!engine) {
-      engine = await initializeEngine();
-      if (!engine) return;
-    }
-    engine.play();
-    setIsPlaying(true);
-  }, [initializeEngine]);
-
-  const handleStop = useCallback(() => {
-    if (!isPlaying) {
-      // Already stopped, reset playhead to 0
-      engineRef.current?.setPlayhead(0);
-      setPlayheadTime(0);
-      return;
-    }
-    if (!engineRef.current) return;
-    engineRef.current.stop();
-    setIsPlaying(false);
-  }, [isPlaying]);
-
-  const handleTogglePlayStop = useCallback(async () => {
-    if (isPlaying) {
-      handleStop();
-    } else {
-      await handlePlay();
-    }
-  }, [isPlaying, handlePlay, handleStop]);
 
   const handleAddTrack = useCallback(async () => {
     setIsAddingTrack(true);
@@ -641,14 +520,7 @@ function ProjectEditor() {
             playheadTime={playheadTime}
             scrollTop={scrollTop}
             onScrollChange={setScrollTop}
-            onSeek={async (time) => {
-              let engine = engineRef.current;
-              if (!engine) {
-                engine = await initializeEngine();
-              }
-              engine?.setPlayhead(time);
-              setPlayheadTime(time);
-            }}
+            onSeek={seek}
             projectId={id as Id<"projects">}
           />
         </div>
