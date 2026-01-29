@@ -82,9 +82,17 @@ export class AudioEngine {
 
     this.ctx = new AudioContext(sampleRate ? { sampleRate } : undefined);
 
-    await this.core.initialize(this.ctx, {
+    const node = await this.core.initialize(this.ctx, {
       numberOfInputs: 0,
       numberOfOutputs: 1,
+    });
+
+    // Connect the WebRenderer's AudioWorkletNode to the destination
+    node.connect(this.ctx.destination);
+
+    // Listen for Elementary errors
+    this.core.on("error", (e) => {
+      console.error("[AudioEngine] Elementary error:", e);
     });
 
     this.initialized = true;
@@ -142,6 +150,8 @@ export class AudioEngine {
 
     this.playing = false;
     this.stopPlayheadUpdates();
+    // Re-render to silence output
+    this.renderGraph();
     // Playhead stays at current position
   }
 
@@ -394,7 +404,9 @@ export class AudioEngine {
       // Get all clips for this track (FR-21)
       const trackClips = clips.filter((clip) => clip.trackId === track.id);
 
-      // Render each clip using el.sampleseq or el.mc.sampleseq (FR-19, FR-23)
+      // Render each clip using el.sampleseq (FR-19, FR-23)
+      // NOTE: We use two separate el.sampleseq calls for stereo instead of el.mc.sampleseq
+      // because el.mc.sampleseq doesn't correctly resolve :0/:1 VFS paths
       const clipSignals: { left: NodeRepr_t; right: NodeRepr_t }[] = trackClips.map((clip) => {
         const vfsEntry = this.vfsEntries.get(clip.fileId);
         if (!vfsEntry) {
@@ -407,59 +419,72 @@ export class AudioEngine {
 
         // Calculate times in seconds for el.sampleseq
         const startTimeSeconds = clip.startTime / sampleRate;
-        const durationSeconds = clip.duration / sampleRate;
+        const clipDurationSeconds = clip.duration / sampleRate;
+        // duration prop is the actual audio file duration, not the clip timeline duration
+        const sampleDurationSeconds = vfsEntry.duration / vfsEntry.sampleRate;
 
         // Clip gain (FR-20)
         const clipGainValue = dbToGain(clip.gain);
 
-        // Build sequence: trigger at start, stop at end
+        // Build sequence: trigger at start, stop at end of clip on timeline
         const seq = [
           { time: startTimeSeconds, value: 1 },
-          { time: startTimeSeconds + durationSeconds, value: 0 },
+          { time: startTimeSeconds + clipDurationSeconds, value: 0 },
         ];
 
-        if (vfsEntry.channels === 1) {
-          // Mono clip - use el.sampleseq
-          const monoSignal = el.sampleseq(
-            {
-              key: `clip-${clip.id}-mono`,
-              seq,
-              path: clip.fileId,
-              duration: durationSeconds,
-            },
-            timeInSeconds,
-          );
-          // Apply clip gain
-          const gainedSignal = el.mul(
-            el.const({ key: `clip-${clip.id}-gain`, value: clipGainValue }),
-            monoSignal,
-          );
-          // Mono to stereo
-          return { left: gainedSignal, right: gainedSignal };
-        } else {
-          // Stereo clip - use el.mc.sampleseq
-          const [leftChannel, rightChannel] = el.mc.sampleseq(
-            {
-              key: `clip-${clip.id}-stereo`,
-              channels: 2,
-              seq,
-              path: clip.fileId,
-              duration: durationSeconds,
-            },
-            timeInSeconds,
-          );
-          // Apply clip gain to both channels
+        // Validate values before passing to Elementary
+        const hasInvalidValue =
+          !Number.isFinite(startTimeSeconds) ||
+          !Number.isFinite(clipDurationSeconds) ||
+          !Number.isFinite(sampleDurationSeconds) ||
+          !Number.isFinite(clipGainValue);
+
+        if (hasInvalidValue) {
+          console.error(`[AudioEngine] Invalid values for clip ${clip.id}, skipping`);
           return {
-            left: el.mul(
-              el.const({ key: `clip-${clip.id}-gain-l`, value: clipGainValue }),
-              leftChannel!,
-            ),
-            right: el.mul(
-              el.const({ key: `clip-${clip.id}-gain-r`, value: clipGainValue }),
-              rightChannel!,
-            ),
+            left: el.const({ key: `clip-${clip.id}-left-invalid`, value: 0 }),
+            right: el.const({ key: `clip-${clip.id}-right-invalid`, value: 0 }),
           };
         }
+
+        // Get explicit VFS paths for left and right channels
+        // Mono: use fileId directly; Stereo: use fileId:0 and fileId:1
+        const leftPath = vfsEntry.channels === 1 ? clip.fileId : `${clip.fileId}:0`;
+        const rightPath = vfsEntry.channels === 1 ? clip.fileId : `${clip.fileId}:1`;
+
+        // Create sampleseq for left channel
+        const leftSignal = el.sampleseq(
+          {
+            key: `clip-${clip.id}-left`,
+            seq,
+            path: leftPath,
+            duration: sampleDurationSeconds,
+          },
+          timeInSeconds,
+        );
+
+        // Create sampleseq for right channel
+        const rightSignal = el.sampleseq(
+          {
+            key: `clip-${clip.id}-right`,
+            seq,
+            path: rightPath,
+            duration: sampleDurationSeconds,
+          },
+          timeInSeconds,
+        );
+
+        // Apply clip gain to both channels
+        return {
+          left: el.mul(
+            el.const({ key: `clip-${clip.id}-gain-l`, value: clipGainValue }),
+            leftSignal,
+          ),
+          right: el.mul(
+            el.const({ key: `clip-${clip.id}-gain-r`, value: clipGainValue }),
+            rightSignal,
+          ),
+        };
       });
 
       // Sum all clips on this track (FR-21)
@@ -511,6 +536,15 @@ export class AudioEngine {
 
     const masterLeft = el.mul(smoothedMasterGain, summedLeft);
     const masterRight = el.mul(smoothedMasterGain, summedRight);
+
+    // Render silence when not playing
+    if (!this.playing) {
+      this.core.render(
+        el.const({ key: "silence-l", value: 0 }),
+        el.const({ key: "silence-r", value: 0 }),
+      );
+      return;
+    }
 
     // Render stereo output
     this.core.render(masterLeft, masterRight);

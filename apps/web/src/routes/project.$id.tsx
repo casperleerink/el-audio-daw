@@ -240,7 +240,7 @@ function ProjectEditor() {
 
   // Sync tracks to audio engine (uses optimistic updates for instant feedback)
   useEffect(() => {
-    if (!engineRef.current || !tracksWithOptimisticUpdates) return;
+    if (!isEngineReady || !engineRef.current?.isInitialized() || !tracksWithOptimisticUpdates) return;
 
     const trackStates: TrackState[] = tracksWithOptimisticUpdates.map((t) => ({
       id: t._id,
@@ -250,13 +250,13 @@ function ProjectEditor() {
     }));
 
     engineRef.current.setTracks(trackStates);
-  }, [tracksWithOptimisticUpdates]);
+  }, [isEngineReady, tracksWithOptimisticUpdates]);
 
   // Sync master gain to audio engine
   useEffect(() => {
-    if (!engineRef.current) return;
+    if (!isEngineReady || !engineRef.current?.isInitialized()) return;
     engineRef.current.setMasterGain(masterGain);
-  }, [masterGain]);
+  }, [isEngineReady, masterGain]);
 
   // Load clips into VFS and sync to audio engine (FR-17)
   useEffect(() => {
