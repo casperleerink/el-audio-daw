@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
+import { renderTimeline } from "@/lib/canvasRenderer";
 import { formatGain, formatTime } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1029,14 +1030,6 @@ const DEFAULT_PIXELS_PER_SECOND = 20;
 const MIN_PIXELS_PER_SECOND = 2;
 const MAX_PIXELS_PER_SECOND = 200;
 
-// Generate a track color from its index using HSL
-// Uses a golden angle offset to spread colors evenly around the hue wheel
-function getTrackColor(index: number): string {
-  const goldenAngle = 137.508; // degrees
-  const hue = (index * goldenAngle) % 360;
-  return `hsl(${hue}, 65%, 55%)`;
-}
-
 // Drop target state for visual feedback
 interface DropTarget {
   trackId: string;
@@ -1650,179 +1643,25 @@ function TimelineCanvas({
   // Draw canvas
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx || dimensions.width === 0) return;
+    if (!canvas) return;
 
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = dimensions.width * dpr;
-    canvas.height = dimensions.height * dpr;
-    ctx.scale(dpr, dpr);
-
-    // Clear
-    ctx.fillStyle =
-      getComputedStyle(document.documentElement).getPropertyValue("--background").trim() ||
-      "#09090b";
-    ctx.fillRect(0, 0, dimensions.width, dimensions.height);
-
-    const borderColor =
-      getComputedStyle(document.documentElement).getPropertyValue("--border").trim() || "#27272a";
-    const mutedColor =
-      getComputedStyle(document.documentElement).getPropertyValue("--muted-foreground").trim() ||
-      "#71717a";
-
-    // Calculate visible time range
-    const startTime = scrollLeft / pixelsPerSecond;
-    const visibleDuration = dimensions.width / pixelsPerSecond;
-    const endTime = startTime + visibleDuration;
-
-    // Draw time ruler
-    ctx.fillStyle = borderColor;
-    ctx.fillRect(0, RULER_HEIGHT - 1, dimensions.width, 1);
-
-    // Calculate marker interval based on zoom level
-    let markerInterval = 1; // seconds
-    const minPixelsBetweenMarkers = 60;
-    while (markerInterval * pixelsPerSecond < minPixelsBetweenMarkers) {
-      markerInterval *= 2;
-    }
-
-    // Draw time markers
-    ctx.fillStyle = mutedColor;
-    ctx.font = "10px monospace";
-    ctx.textAlign = "center";
-
-    const firstMarker = Math.floor(startTime / markerInterval) * markerInterval;
-    for (let time = firstMarker; time <= endTime; time += markerInterval) {
-      const x = (time - startTime) * pixelsPerSecond;
-      if (x < 0) continue;
-
-      // Draw tick
-      ctx.fillRect(x, RULER_HEIGHT - 8, 1, 8);
-
-      // Draw time label
-      const mins = Math.floor(time / 60);
-      const secs = Math.floor(time % 60);
-      ctx.fillText(`${mins}:${secs.toString().padStart(2, "0")}`, x, 12);
-    }
-
-    // Draw track lanes (accounting for vertical scroll)
-    for (let i = 0; i < tracks.length; i++) {
-      const y = RULER_HEIGHT + i * TRACK_HEIGHT - scrollTop;
-      // Skip tracks that are outside the visible area
-      if (y + TRACK_HEIGHT < RULER_HEIGHT || y > dimensions.height) continue;
-      ctx.fillStyle = borderColor;
-      ctx.fillRect(0, y + TRACK_HEIGHT - 1, dimensions.width, 1);
-    }
-
-    // Build track index map for clip rendering
-    const trackIndexMap = new Map<string, number>();
-    tracks.forEach((track, index) => {
-      trackIndexMap.set(track._id, index);
+    renderTimeline({
+      canvas,
+      dimensions,
+      tracks,
+      clips,
+      sampleRate,
+      playheadTime,
+      scrollLeft,
+      scrollTop,
+      pixelsPerSecond,
+      hoverX,
+      clipDragState: clipDragState
+        ? { clipId: clipDragState.clipId, currentStartTime: clipDragState.currentStartTime }
+        : null,
+      rulerHeight: RULER_HEIGHT,
+      trackHeight: TRACK_HEIGHT,
     });
-
-    // Draw clips (FR-24 through FR-28, FR-35 for dragging)
-    const CLIP_PADDING = 2; // padding inside track lane
-    const CLIP_BORDER_RADIUS = 4;
-
-    for (const clip of clips) {
-      const trackIndex = trackIndexMap.get(clip.trackId);
-      if (trackIndex === undefined) continue;
-
-      // Check if this clip is being dragged (FR-34, FR-35)
-      const isDragging = clipDragState?.clipId === clip._id;
-
-      // Use drag position if dragging, otherwise use original position
-      const effectiveStartTime = isDragging ? clipDragState.currentStartTime : clip.startTime;
-
-      // Convert clip times from samples to seconds
-      const clipStartSeconds = effectiveStartTime / sampleRate;
-      const clipDurationSeconds = clip.duration / sampleRate;
-      const clipEndSeconds = clipStartSeconds + clipDurationSeconds;
-
-      // Skip clips that are outside the visible time range
-      if (clipEndSeconds < startTime || clipStartSeconds > endTime) continue;
-
-      // Calculate clip rectangle position and dimensions (FR-26, FR-27)
-      const clipX = (clipStartSeconds - startTime) * pixelsPerSecond;
-      const clipWidth = clipDurationSeconds * pixelsPerSecond;
-      const trackY = RULER_HEIGHT + trackIndex * TRACK_HEIGHT - scrollTop;
-
-      // Skip clips in tracks that are outside the visible area
-      if (trackY + TRACK_HEIGHT < RULER_HEIGHT || trackY > dimensions.height) continue;
-
-      const clipY = trackY + CLIP_PADDING;
-      const clipHeight = TRACK_HEIGHT - CLIP_PADDING * 2 - 1; // -1 for track lane border
-
-      // Get track color (FR-24 - clip color inherited from track)
-      const trackColor = getTrackColor(trackIndex);
-
-      // Draw clip background (FR-24, FR-28, FR-35)
-      // Reduce opacity when dragging to indicate dragging state
-      ctx.fillStyle = trackColor;
-      ctx.globalAlpha = isDragging ? 0.5 : 0.7;
-      ctx.beginPath();
-      ctx.roundRect(clipX, clipY, clipWidth, clipHeight, CLIP_BORDER_RADIUS);
-      ctx.fill();
-
-      // Draw clip border for better visibility
-      ctx.strokeStyle = trackColor;
-      ctx.globalAlpha = isDragging ? 0.7 : 1;
-      ctx.lineWidth = isDragging ? 2 : 1;
-      ctx.beginPath();
-      ctx.roundRect(clipX, clipY, clipWidth, clipHeight, CLIP_BORDER_RADIUS);
-      ctx.stroke();
-
-      // Draw clip name (FR-25)
-      if (clipWidth > 30) {
-        // Only draw text if clip is wide enough
-        ctx.fillStyle = "#ffffff";
-        ctx.globalAlpha = isDragging ? 0.6 : 0.9;
-        ctx.font = "11px sans-serif";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-
-        // Truncate text if it doesn't fit
-        const textPadding = 6;
-        const maxTextWidth = clipWidth - textPadding * 2;
-        let displayName = clip.name;
-
-        // Measure and truncate if needed
-        let textWidth = ctx.measureText(displayName).width;
-        if (textWidth > maxTextWidth) {
-          // Truncate with ellipsis
-          while (textWidth > maxTextWidth && displayName.length > 0) {
-            displayName = displayName.slice(0, -1);
-            textWidth = ctx.measureText(displayName + "…").width;
-          }
-          displayName = displayName + "…";
-        }
-
-        ctx.fillText(displayName, clipX + textPadding, clipY + clipHeight / 2);
-      }
-
-      ctx.globalAlpha = 1;
-    }
-
-    // Draw playhead
-    const playheadX = (playheadTime - startTime) * pixelsPerSecond;
-    if (playheadX >= 0 && playheadX <= dimensions.width) {
-      ctx.fillStyle = mutedColor;
-      ctx.fillRect(playheadX, 0, 1, dimensions.height);
-    }
-
-    // Draw hover indicator line
-    if (hoverX !== null && hoverX >= 0 && hoverX <= dimensions.width) {
-      ctx.strokeStyle = mutedColor;
-      ctx.globalAlpha = 0.4;
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(hoverX, 0);
-      ctx.lineTo(hoverX, dimensions.height);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.globalAlpha = 1;
-    }
   }, [
     dimensions,
     tracks,
