@@ -23,17 +23,17 @@ Add ability to drag audio files from computer onto tracks, upload to Convex file
 - [x] Set up Elementary VFS integration in AudioEngine
 - [x] Add method to load audio buffer into VFS
 - [x] Update audio graph to render clips at correct positions
-- [ ] Implement drag-drop zone on timeline track lanes
-- [ ] Calculate drop position in samples from mouse position
-- [ ] Decode audio file client-side to get duration/sample rate
-- [ ] Upload file to Convex on drop
-- [ ] Create clip record after successful upload
+- [x] Implement drag-drop zone on timeline track lanes
+- [x] Calculate drop position in samples from mouse position
+- [x] Decode audio file client-side to get duration/sample rate
+- [x] Upload file to Convex on drop
+- [x] Create clip record after successful upload
 - [x] Render clip rectangles on timeline canvas
 - [ ] Implement clip dragging to move position
 - [ ] Handle clip overlap (truncate existing clip)
 - [ ] Load all project clips into VFS on page load
-- [ ] Show loading state during upload
-- [ ] Show error state on upload failure
+- [x] Show loading state during upload
+- [x] Show error state on upload failure
 - [ ] Auto-extend project duration when clip placed near/past end
 
 ## Functional Requirements

@@ -171,3 +171,54 @@ Clip 3 (gain) ──> Track Sum ──> Track Gain ─────┼──> Mas
 
 ### Files Modified
 - apps/web/src/routes/project.$id.tsx (added clip rendering to TimelineCanvas)
+
+---
+
+## 2026-01-28 - Drag-Drop File Upload Complete
+
+### Completed
+- Implemented drag-drop file upload for audio clips on timeline (FR-29 through FR-33):
+  - Added drag-drop event handlers (`handleDragEnter`, `handleDragOver`, `handleDragLeave`, `handleDrop`)
+  - Visual feedback when dragging file over timeline (FR-30): overlay with "Drop audio file on a track" message
+  - Drop target indicator: vertical line showing where clip will be placed
+  - Calculate drop position in samples from mouse position (FR-31): `(mouseX + scrollLeft) / pixelsPerSecond * sampleRate`
+  - Track detection from Y position: `Math.floor((canvasY - RULER_HEIGHT + scrollTop) / TRACK_HEIGHT)`
+- Client-side audio file validation (FR-5, FR-6, FR-7):
+  - Validate file size (max 100MB)
+  - Validate audio format (WAV, MP3, AIFF, FLAC, OGG)
+- Audio file decoding to get duration (FR-10):
+  - Uses Web Audio API `decodeAudioData` to decode file
+  - Extracts duration in samples and file sample rate
+  - Shows warning if sample rate differs from project (FR-11)
+- File upload to Convex storage (FR-8):
+  - Generate upload URL via `generateUploadUrl` mutation
+  - POST file to upload URL
+  - Validate uploaded file via `validateUploadedFile` mutation
+- Create clip record after upload (FR-9):
+  - Uses `createClip` mutation with track ID, file ID, start time, duration
+  - Clip name derived from filename (without extension)
+- Loading state during upload (FR-32): overlay with spinner and "Uploading audio..." text
+- Error state on upload failure (FR-33): toast notification with error message
+
+### Implementation Notes
+- Drop zone highlights entire timeline with semi-transparent primary color overlay
+- Drop target indicator is a vertical line at the calculated drop position
+- Uses same constants for supported audio types and max file size as backend
+- Creates AudioContext on demand for decoding, then closes it to free resources
+- All mutations are called in sequence: generateUploadUrl → upload → validateUploadedFile → createClip
+- Successful upload shows toast with clip name
+- Failed uploads show toast with error message (file validation errors, upload failures, etc.)
+
+### Technical Details
+- `DropTarget` interface tracks trackId, trackIndex, and dropTimeInSamples
+- `calculateDropPosition(clientX, clientY)` computes drop target from mouse coordinates
+- `decodeAudioFile(file)` returns `{ durationInSamples, fileSampleRate }`
+- Drop indicator position calculated as: `(dropTimeInSamples / sampleRate - scrollLeft / pixelsPerSecond) * pixelsPerSecond`
+
+### Next Priority Tasks
+1. Implement clip dragging to move position (FR-34-38)
+2. Load all project clips into VFS on page load (FR-17)
+3. Auto-extend project duration when clip placed near/past end (FR-13 - already handled in backend)
+
+### Files Modified
+- apps/web/src/routes/project.$id.tsx (added drag-drop handlers, visual feedback, file upload flow)
