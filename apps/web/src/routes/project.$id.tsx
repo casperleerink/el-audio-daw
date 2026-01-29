@@ -240,7 +240,8 @@ function ProjectEditor() {
 
   // Sync tracks to audio engine (uses optimistic updates for instant feedback)
   useEffect(() => {
-    if (!isEngineReady || !engineRef.current?.isInitialized() || !tracksWithOptimisticUpdates) return;
+    if (!isEngineReady || !engineRef.current?.isInitialized() || !tracksWithOptimisticUpdates)
+      return;
 
     const trackStates: TrackState[] = tracksWithOptimisticUpdates.map((t) => ({
       id: t._id,

@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
@@ -8,6 +8,7 @@ import z from "zod";
 import { authClient } from "@/lib/auth-client";
 
 import { Button } from "./ui/button";
+import { FormErrorAlert } from "./ui/form-error-alert";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 
@@ -59,12 +60,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
     <div className="mx-auto w-full mt-10 max-w-md p-6">
       <h1 className="mb-6 text-center text-3xl font-bold">Create Account</h1>
 
-      {formError && (
-        <div className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
-          <AlertCircle className="size-4 shrink-0" />
-          <span>{formError}</span>
-        </div>
-      )}
+      <FormErrorAlert message={formError} />
 
       <form
         onSubmit={(e) => {
