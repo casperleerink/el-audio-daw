@@ -222,3 +222,42 @@ Clip 3 (gain) ──> Track Sum ──> Track Gain ─────┼──> Mas
 
 ### Files Modified
 - apps/web/src/routes/project.$id.tsx (added drag-drop handlers, visual feedback, file upload flow)
+
+---
+
+## 2026-01-28 - VFS Loading on Page Load Complete
+
+### Completed
+- Implemented loading all project clips into VFS when audio engine initializes (FR-17):
+  - Added `getProjectClipUrls` query to fetch all clip URLs for VFS loading
+  - Added `isEngineReady` state to track when audio engine is initialized
+  - Added `useEffect` that loads all project clips into VFS when:
+    - Audio engine is initialized (`isEngineReady` becomes true)
+    - Clips or clipUrls change (new clip uploaded, clip deleted, etc.)
+  - After loading audio into VFS, syncs clip state to AudioEngine for playback
+  - Uses idempotent `loadAudioIntoVFS` to avoid reloading already-loaded audio
+
+### Implementation Notes
+- The `clipUrls` query returns fileId -> URL mapping for all project clips
+- A `urlMap` is built for O(1) lookups when loading clips
+- Loading is done in parallel with `Promise.all` for better performance
+- After all audio is loaded, `setClips()` is called to update the audio graph
+- The `isEngineReady` state ensures the effect re-runs when engine initializes (even if clips were already loaded)
+- Failed loads are logged but don't block other clips from loading
+
+### Audio Playback Flow
+1. User opens project page
+2. `clips` and `clipUrls` queries return project data
+3. User presses Play, triggering audio engine initialization
+4. `isEngineReady` becomes true, triggering VFS loading effect
+5. All clip audio is fetched, decoded, and loaded into VFS
+6. Clip state is synced to AudioEngine via `setClips()`
+7. AudioEngine renders clips at correct timeline positions with `el.sampleseq`
+
+### Next Priority Tasks
+1. Implement clip dragging to move position (FR-34-38)
+2. Handle clip overlap during move (FR-37) - already handled in backend
+3. Auto-extend project duration when clip placed near/past end (FR-13) - already handled in backend
+
+### Files Modified
+- apps/web/src/routes/project.$id.tsx (added VFS loading on engine init, clipUrls query, isEngineReady state)

@@ -1,6 +1,6 @@
 import { api } from "@el-audio-daw/backend/convex/_generated/api";
 import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
-import { AudioEngine, type TrackState } from "@el-audio-daw/audio";
+import { AudioEngine, type ClipState, type TrackState } from "@el-audio-daw/audio";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
@@ -165,6 +165,7 @@ function ProjectEditor() {
   const project = useQuery(api.projects.getProject, { id: id as any });
   const tracks = useQuery(api.tracks.getProjectTracks, { projectId: id as any });
   const clips = useQuery(api.clips.getProjectClips, { projectId: id as any });
+  const clipUrls = useQuery(api.clips.getProjectClipUrls, { projectId: id as any });
 
   const createTrack = useMutation(api.tracks.createTrack);
   const updateTrack = useMutation(api.tracks.updateTrack);
@@ -173,6 +174,7 @@ function ProjectEditor() {
   const updateProject = useMutation(api.projects.updateProject);
 
   const [isEngineInitializing, setIsEngineInitializing] = useState(false);
+  const [isEngineReady, setIsEngineReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playheadTime, setPlayheadTime] = useState(0);
   const [masterGain, setMasterGain] = useState(0);
@@ -223,6 +225,7 @@ function ProjectEditor() {
         setPlayheadTime(time);
       });
 
+      setIsEngineReady(true);
       return engine;
     } catch (err) {
       toast.error("Failed to initialize audio engine. Please try again.");
@@ -252,6 +255,47 @@ function ProjectEditor() {
     if (!engineRef.current) return;
     engineRef.current.setMasterGain(masterGain);
   }, [masterGain]);
+
+  // Load clips into VFS and sync to audio engine (FR-17)
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!isEngineReady || !engine?.isInitialized() || !clips || !clipUrls) return;
+
+    // Build a map of fileId -> URL for quick lookup
+    const urlMap = new Map<string, string>();
+    for (const clipUrl of clipUrls) {
+      if (clipUrl.url) {
+        urlMap.set(clipUrl.fileId, clipUrl.url);
+      }
+    }
+
+    // Load all audio into VFS (only loads if not already loaded)
+    const loadPromises = clips.map(async (clip) => {
+      const url = urlMap.get(clip.fileId);
+      if (!url) return;
+
+      try {
+        // This is idempotent - it won't reload if already in VFS
+        await engine.loadAudioIntoVFS(clip.fileId, url);
+      } catch (err) {
+        console.error(`Failed to load audio for clip ${clip.name}:`, err);
+      }
+    });
+
+    // After loading, sync clip state to engine for playback
+    Promise.all(loadPromises).then(() => {
+      const clipStates: ClipState[] = clips.map((clip) => ({
+        id: clip._id,
+        trackId: clip.trackId,
+        fileId: clip.fileId,
+        startTime: clip.startTime,
+        duration: clip.duration,
+        audioStartTime: clip.audioStartTime,
+        gain: clip.gain,
+      }));
+      engine.setClips(clipStates);
+    });
+  }, [isEngineReady, clips, clipUrls]);
 
   // Cleanup on unmount
   useEffect(() => {
