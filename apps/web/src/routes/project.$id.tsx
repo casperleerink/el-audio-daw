@@ -5,12 +5,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
 
-// Safari-specific GestureEvent for trackpad pinch-to-zoom
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
-interface GestureEvent extends UIEvent {
-  scale: number;
-  rotation: number;
-}
 import {
   ArrowLeft,
   GripVertical,
@@ -34,13 +28,11 @@ import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
+import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { renderTimeline } from "@/lib/canvasRenderer";
 import { formatGain, formatTime } from "@/lib/formatters";
 import {
   CLIP_PADDING,
-  DEFAULT_PIXELS_PER_SECOND,
-  MAX_PIXELS_PER_SECOND,
-  MIN_PIXELS_PER_SECOND,
   RULER_HEIGHT,
   TRACK_HEADER_HEIGHT,
   TRACK_HEIGHT,
@@ -931,11 +923,26 @@ function TimelineCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const [pixelsPerSecond, setPixelsPerSecond] = useState(DEFAULT_PIXELS_PER_SECOND);
   // Hover state for timeline cursor indicator
   const [hoverX, setHoverX] = useState<number | null>(null);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
+
+  // Zoom state and handlers
+  const {
+    scrollLeft,
+    pixelsPerSecond,
+    setScrollLeft,
+    canZoomIn,
+    canZoomOut,
+    handleZoomIn,
+    handleZoomOut,
+    handleWheelZoom,
+  } = useTimelineZoom({
+    containerRef,
+    canvasRef,
+    hoverX,
+    dimensions,
+  });
 
   // Drag-drop state (FR-29-33)
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -1244,29 +1251,16 @@ function TimelineCanvas({
     (e: React.WheelEvent) => {
       e.preventDefault();
 
-      if (e.ctrlKey || e.metaKey) {
-        // Zoom with ctrl/cmd + scroll, centered on cursor position
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (!rect) return;
-
+      // Try zoom first (ctrl/cmd + scroll)
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
         const cursorX = e.clientX - rect.left;
-        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        if (handleWheelZoom(e, cursorX)) {
+          return;
+        }
+      }
 
-        // Calculate time at cursor before zoom
-        const timeAtCursor = (cursorX + scrollLeft) / pixelsPerSecond;
-
-        // Calculate new zoom level
-        const newPixelsPerSecond = Math.min(
-          MAX_PIXELS_PER_SECOND,
-          Math.max(MIN_PIXELS_PER_SECOND, pixelsPerSecond * zoomFactor),
-        );
-
-        // Adjust scroll so cursor stays over the same time position
-        const newScrollLeft = timeAtCursor * newPixelsPerSecond - cursorX;
-
-        setPixelsPerSecond(newPixelsPerSecond);
-        setScrollLeft(Math.max(0, newScrollLeft));
-      } else if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
         // Horizontal scroll with shift or horizontal gesture
         const delta = e.shiftKey ? e.deltaY : e.deltaX;
         setScrollLeft((prev) => Math.max(0, prev + delta));
@@ -1276,86 +1270,8 @@ function TimelineCanvas({
         onScrollChange(newScrollTop);
       }
     },
-    [maxScrollTop, scrollTop, onScrollChange, scrollLeft, pixelsPerSecond],
+    [maxScrollTop, scrollTop, onScrollChange, handleWheelZoom, setScrollLeft],
   );
-
-  // Store current values in refs for Safari gesture handlers
-  const scrollLeftRef = useRef(scrollLeft);
-  const pixelsPerSecondRef = useRef(pixelsPerSecond);
-  const hoverXRef = useRef(hoverX);
-  const dimensionsRef = useRef(dimensions);
-
-  useEffect(() => {
-    scrollLeftRef.current = scrollLeft;
-  }, [scrollLeft]);
-  useEffect(() => {
-    pixelsPerSecondRef.current = pixelsPerSecond;
-  }, [pixelsPerSecond]);
-  useEffect(() => {
-    hoverXRef.current = hoverX;
-  }, [hoverX]);
-  useEffect(() => {
-    dimensionsRef.current = dimensions;
-  }, [dimensions]);
-
-  // Prevent browser zoom on Safari trackpad pinch gestures
-  // Safari fires gesturestart/gesturechange/gestureend for pinch-to-zoom
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    // Track gesture scale for Safari pinch-to-zoom
-    let lastScale = 1;
-
-    const handleGestureStart = (e: Event) => {
-      e.preventDefault();
-      lastScale = 1;
-    };
-
-    const handleGestureChange = (e: Event) => {
-      e.preventDefault();
-      // GestureEvent is Safari-specific
-      const gestureEvent = e as GestureEvent;
-      const scale = gestureEvent.scale;
-      const zoomFactor = scale / lastScale;
-      lastScale = scale;
-
-      // Use cursor position if hovering, otherwise use viewport center
-      const cursorX = hoverXRef.current ?? dimensionsRef.current.width / 2;
-      const currentScrollLeft = scrollLeftRef.current;
-      const currentPPS = pixelsPerSecondRef.current;
-
-      // Calculate time at cursor before zoom
-      const timeAtCursor = (cursorX + currentScrollLeft) / currentPPS;
-
-      // Calculate new zoom level
-      const newPixelsPerSecond = Math.min(
-        MAX_PIXELS_PER_SECOND,
-        Math.max(MIN_PIXELS_PER_SECOND, currentPPS * zoomFactor),
-      );
-
-      // Adjust scroll so cursor stays over the same time position
-      const newScrollLeft = timeAtCursor * newPixelsPerSecond - cursorX;
-
-      setPixelsPerSecond(newPixelsPerSecond);
-      setScrollLeft(Math.max(0, newScrollLeft));
-    };
-
-    const handleGestureEnd = (e: Event) => {
-      e.preventDefault();
-    };
-
-    // Add gesture event listeners (Safari only - other browsers ignore these)
-    container.addEventListener("gesturestart", handleGestureStart);
-    container.addEventListener("gesturechange", handleGestureChange);
-    container.addEventListener("gestureend", handleGestureEnd);
-
-    return () => {
-      container.removeEventListener("gesturestart", handleGestureStart);
-      container.removeEventListener("gesturechange", handleGestureChange);
-      container.removeEventListener("gestureend", handleGestureEnd);
-    };
-  }, []);
 
   // Handle mousedown for clip dragging (FR-34)
   const handleMouseDown = useCallback(
@@ -1480,36 +1396,6 @@ function TimelineCanvas({
     }
   }, [clipDragState, handleClipDragEnd]);
 
-  // Zoom in by 2x, centered on cursor or viewport center
-  const handleZoomIn = useCallback(() => {
-    // Use cursor position if hovering, otherwise use viewport center
-    const cursorX = hoverX ?? dimensions.width / 2;
-    const timeAtCursor = (cursorX + scrollLeft) / pixelsPerSecond;
-
-    const newPixelsPerSecond = Math.min(MAX_PIXELS_PER_SECOND, pixelsPerSecond * 2);
-
-    // Adjust scroll so cursor stays over the same time position
-    const newScrollLeft = timeAtCursor * newPixelsPerSecond - cursorX;
-
-    setPixelsPerSecond(newPixelsPerSecond);
-    setScrollLeft(Math.max(0, newScrollLeft));
-  }, [hoverX, dimensions.width, scrollLeft, pixelsPerSecond]);
-
-  // Zoom out by 2x, centered on cursor or viewport center
-  const handleZoomOut = useCallback(() => {
-    // Use cursor position if hovering, otherwise use viewport center
-    const cursorX = hoverX ?? dimensions.width / 2;
-    const timeAtCursor = (cursorX + scrollLeft) / pixelsPerSecond;
-
-    const newPixelsPerSecond = Math.max(MIN_PIXELS_PER_SECOND, pixelsPerSecond / 2);
-
-    // Adjust scroll so cursor stays over the same time position
-    const newScrollLeft = timeAtCursor * newPixelsPerSecond - cursorX;
-
-    setPixelsPerSecond(newPixelsPerSecond);
-    setScrollLeft(Math.max(0, newScrollLeft));
-  }, [hoverX, dimensions.width, scrollLeft, pixelsPerSecond]);
-
   // Draw canvas
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1544,10 +1430,6 @@ function TimelineCanvas({
     hoverX,
     clipDragState,
   ]);
-
-  // Check if at zoom limits
-  const canZoomIn = pixelsPerSecond < MAX_PIXELS_PER_SECOND;
-  const canZoomOut = pixelsPerSecond > MIN_PIXELS_PER_SECOND;
 
   // Calculate drop indicator position (FR-30)
   const dropIndicatorStyle = dropTarget
