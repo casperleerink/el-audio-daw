@@ -56,47 +56,24 @@ export function useOptimisticTrackUpdates<T extends BaseTrack>(
     });
   }, []);
 
-  const handleUpdateTrackMute = useCallback(
-    async (trackId: string, muted: boolean) => {
-      applyOptimisticUpdate(trackId, { muted });
-      try {
-        await updateTrack({ id: trackId, muted });
-        clearOptimisticUpdate(trackId, ["muted"]);
-      } catch {
-        clearOptimisticUpdate(trackId, ["muted"]);
-        toast.error("Failed to update track");
-      }
-    },
+  const createUpdateHandler = useCallback(
+    <K extends keyof TrackUpdate>(key: K) =>
+      async (trackId: string, value: NonNullable<TrackUpdate[K]>) => {
+        applyOptimisticUpdate(trackId, { [key]: value } as TrackUpdate);
+        try {
+          await updateTrack({ id: trackId, [key]: value });
+        } catch {
+          toast.error("Failed to update track");
+        } finally {
+          clearOptimisticUpdate(trackId, [key]);
+        }
+      },
     [updateTrack, applyOptimisticUpdate, clearOptimisticUpdate],
   );
 
-  const handleUpdateTrackSolo = useCallback(
-    async (trackId: string, solo: boolean) => {
-      applyOptimisticUpdate(trackId, { solo });
-      try {
-        await updateTrack({ id: trackId, solo });
-        clearOptimisticUpdate(trackId, ["solo"]);
-      } catch {
-        clearOptimisticUpdate(trackId, ["solo"]);
-        toast.error("Failed to update track");
-      }
-    },
-    [updateTrack, applyOptimisticUpdate, clearOptimisticUpdate],
-  );
-
-  const handleUpdateTrackGain = useCallback(
-    async (trackId: string, gain: number) => {
-      applyOptimisticUpdate(trackId, { gain });
-      try {
-        await updateTrack({ id: trackId, gain });
-        clearOptimisticUpdate(trackId, ["gain"]);
-      } catch {
-        clearOptimisticUpdate(trackId, ["gain"]);
-        toast.error("Failed to update track");
-      }
-    },
-    [updateTrack, applyOptimisticUpdate, clearOptimisticUpdate],
-  );
+  const handleUpdateTrackMute = useMemo(() => createUpdateHandler("muted"), [createUpdateHandler]);
+  const handleUpdateTrackSolo = useMemo(() => createUpdateHandler("solo"), [createUpdateHandler]);
+  const handleUpdateTrackGain = useMemo(() => createUpdateHandler("gain"), [createUpdateHandler]);
 
   // Merge server tracks with optimistic updates
   const tracksWithOptimisticUpdates = useMemo(() => {
