@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
+import { formatGain, formatTime } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -402,20 +403,6 @@ function ProjectEditor() {
     }
   }, [updateProject, id, projectName, project]);
 
-  // Format time as M:SS.mmm
-  const formatTime = useCallback((seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds % 1) * 1000);
-    return `${mins}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(3, "0")}`;
-  }, []);
-
-  // Format gain as dB
-  const formatGain = useCallback((db: number) => {
-    if (db <= -60) return "-∞";
-    return `${db > 0 ? "+" : ""}${db.toFixed(1)} dB`;
-  }, []);
-
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -606,7 +593,6 @@ function ProjectEditor() {
             onNameChange={handleUpdateTrackName}
             onDelete={handleDeleteTrack}
             onReorder={handleReorderTracks}
-            formatGain={formatGain}
             deletingTrackId={deletingTrackId}
             onAddTrack={handleAddTrack}
             isAddingTrack={isAddingTrack}
@@ -679,7 +665,6 @@ interface VirtualizedTrackListProps {
   onNameChange: (trackId: string, name: string) => void;
   onDelete: (trackId: string) => void;
   onReorder: (trackIds: string[]) => void;
-  formatGain: (db: number) => string;
   deletingTrackId: string | null;
   onAddTrack: () => void;
   isAddingTrack: boolean;
@@ -697,7 +682,6 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
       onNameChange,
       onDelete,
       onReorder,
-      formatGain,
       deletingTrackId,
       onAddTrack,
       isAddingTrack,
@@ -855,7 +839,6 @@ const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackLi
                   onGainChange={(gain) => onGainChange(track._id, gain)}
                   onNameChange={(name) => onNameChange(track._id, name)}
                   onDelete={() => onDelete(track._id)}
-                  formatGain={formatGain}
                 />
                 {showDropIndicatorAfter && (
                   <div className="pointer-events-none absolute inset-0 rounded bg-primary/10 ring-2 ring-inset ring-primary/50" />
@@ -886,7 +869,6 @@ interface TrackHeaderProps {
   onGainChange: (gain: number) => void;
   onNameChange: (name: string) => void;
   onDelete: () => void;
-  formatGain: (db: number) => string;
 }
 
 function TrackHeader({
@@ -900,7 +882,6 @@ function TrackHeader({
   onGainChange,
   onNameChange,
   onDelete,
-  formatGain,
 }: TrackHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(track.name);
@@ -1855,14 +1836,6 @@ function TimelineCanvas({
     clipDragState,
   ]);
 
-  // Format time for hover tooltip
-  const formatHoverTime = (time: number) => {
-    const mins = Math.floor(time / 60);
-    const secs = Math.floor(time % 60);
-    const ms = Math.floor((time % 1) * 100);
-    return `${mins}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
-  };
-
   // Check if at zoom limits
   const canZoomIn = pixelsPerSecond < MAX_PIXELS_PER_SECOND;
   const canZoomOut = pixelsPerSecond > MIN_PIXELS_PER_SECOND;
@@ -1967,7 +1940,7 @@ function TimelineCanvas({
           }}
         >
           <div className="bg-foreground text-background rounded px-1.5 py-0.5 text-xs font-mono whitespace-nowrap">
-            {formatHoverTime(hoverTime)}
+            {formatTime(hoverTime, 2)}
           </div>
         </div>
       )}
