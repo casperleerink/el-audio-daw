@@ -64,6 +64,8 @@ export class AudioEngine {
   };
   /** Map of VFS keys (Convex storage IDs) to metadata about loaded audio */
   private vfsEntries: Map<string, VFSEntry> = new Map();
+  /** Offset to convert el.time() to transport time (set when play starts) */
+  private transportTimeOffset = 0;
 
   constructor() {
     this.core = new WebRenderer();
@@ -117,6 +119,15 @@ export class AudioEngine {
 
     this.playing = true;
     this.playStartTime = this.ctx.currentTime - this.playheadPosition;
+
+    // Calculate transport time offset: el.time()/sr() gives audio context time,
+    // we need to subtract an offset so it equals playheadPosition at this moment.
+    // offset = currentContextTime - playheadPosition
+    this.transportTimeOffset = this.ctx.currentTime - this.playheadPosition;
+
+    // Re-render graph with new transport offset
+    this.renderGraph();
+
     this.startPlayheadUpdates();
   }
 
@@ -142,6 +153,10 @@ export class AudioEngine {
     if (this.playing && this.ctx) {
       // Adjust play start time to maintain continuity
       this.playStartTime = this.ctx.currentTime - this.playheadPosition;
+
+      // Update transport offset and re-render for seeking during playback
+      this.transportTimeOffset = this.ctx.currentTime - this.playheadPosition;
+      this.renderGraph();
     }
 
     // Notify listeners of the new position
@@ -358,8 +373,14 @@ export class AudioEngine {
     // Determine if any track is soloed (FR-22)
     const anySoloed = tracks.some((t) => t.solo);
 
-    // Time signal in seconds for el.sampleseq (FR-19)
-    const timeInSeconds = el.div(el.time(), el.sr());
+    // Transport-aware time signal in seconds for el.sampleseq (FR-19)
+    // el.time()/sr() gives absolute audio context time, we subtract the offset
+    // calculated at play() to get the transport/playhead position.
+    const contextTimeSeconds = el.div(el.time(), el.sr());
+    const timeInSeconds = el.sub(
+      contextTimeSeconds,
+      el.const({ key: "transport-offset", value: this.transportTimeOffset }),
+    );
 
     // Build track signals
     const trackSignals: { left: NodeRepr_t; right: NodeRepr_t }[] = tracks.map((track) => {
