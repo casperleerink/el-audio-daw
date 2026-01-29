@@ -4,6 +4,13 @@ import { isSupportedAudioType, MAX_FILE_SIZE } from "@el-audio-daw/backend/conve
 import { useMutation } from "convex/react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import {
+  calculateTimeFromX,
+  calculateTrackIndexFromY,
+  clientToCanvasPosition,
+  isInTrackArea,
+  secondsToSamples,
+} from "@/lib/timelineCalculations";
 import { useSyncRef } from "./useSyncRef";
 
 interface Track {
@@ -97,22 +104,28 @@ export function useTimelineFileDrop({
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect || tracks.length === 0) return null;
 
-      const canvasX = clientX - rect.left;
-      const canvasY = clientY - rect.top;
+      const { canvasX, canvasY } = clientToCanvasPosition(clientX, clientY, rect);
 
       // Check if in track area (below ruler)
-      if (canvasY < rulerHeight) return null;
+      if (!isInTrackArea(canvasY, rulerHeight)) return null;
 
       // Calculate track index from Y position
-      const trackIndex = Math.floor((canvasY - rulerHeight + scrollTopRef.current) / trackHeight);
+      const layoutParams = {
+        rulerHeight,
+        trackHeight,
+        scrollTop: scrollTopRef.current,
+        scrollLeft: scrollLeftRef.current,
+        pixelsPerSecond: pixelsPerSecondRef.current,
+      };
+      const trackIndex = calculateTrackIndexFromY(canvasY, layoutParams);
       if (trackIndex < 0 || trackIndex >= tracks.length) return null;
 
       const track = tracks[trackIndex];
       if (!track) return null;
 
       // Calculate time from X position
-      const timeInSeconds = (canvasX + scrollLeftRef.current) / pixelsPerSecondRef.current;
-      const dropTimeInSamples = Math.max(0, Math.round(timeInSeconds * sampleRate));
+      const timeInSeconds = calculateTimeFromX(canvasX, layoutParams);
+      const dropTimeInSamples = Math.max(0, secondsToSamples(timeInSeconds, sampleRate));
 
       return {
         trackId: track._id,

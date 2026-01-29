@@ -32,6 +32,13 @@ import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { renderTimeline } from "@/lib/canvasRenderer";
 import { formatGain, formatTime } from "@/lib/formatters";
 import {
+  calculateTimeFromX,
+  calculateTrackIndexFromY,
+  clientToCanvasPosition,
+  isInTrackArea,
+  samplesToSeconds,
+} from "@/lib/timelineCalculations";
+import {
   CLIP_PADDING,
   RULER_HEIGHT,
   TRACK_HEADER_HEIGHT,
@@ -1003,28 +1010,34 @@ function TimelineCanvas({
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect || tracks.length === 0) return null;
 
-      const canvasX = clientX - rect.left;
-      const canvasY = clientY - rect.top;
+      const { canvasX, canvasY } = clientToCanvasPosition(clientX, clientY, rect);
 
       // Check if in track area (below ruler)
-      if (canvasY < RULER_HEIGHT) return null;
+      if (!isInTrackArea(canvasY, RULER_HEIGHT)) return null;
 
       // Calculate track index from Y position
-      const trackIndex = Math.floor((canvasY - RULER_HEIGHT + scrollTop) / TRACK_HEIGHT);
+      const layoutParams = {
+        rulerHeight: RULER_HEIGHT,
+        trackHeight: TRACK_HEIGHT,
+        scrollTop,
+        scrollLeft,
+        pixelsPerSecond,
+      };
+      const trackIndex = calculateTrackIndexFromY(canvasY, layoutParams);
       if (trackIndex < 0 || trackIndex >= tracks.length) return null;
 
       const track = tracks[trackIndex];
       if (!track) return null;
 
       // Calculate time from X position (in seconds for comparison)
-      const timeInSeconds = (canvasX + scrollLeft) / pixelsPerSecond;
+      const timeInSeconds = calculateTimeFromX(canvasX, layoutParams);
 
       // Find a clip at this position
       for (const clip of clips) {
         if (clip.trackId !== track._id) continue;
 
-        const clipStartSeconds = clip.startTime / sampleRate;
-        const clipDurationSeconds = clip.duration / sampleRate;
+        const clipStartSeconds = samplesToSeconds(clip.startTime, sampleRate);
+        const clipDurationSeconds = samplesToSeconds(clip.duration, sampleRate);
         const clipEndSeconds = clipStartSeconds + clipDurationSeconds;
 
         // Check if click is within clip's time range
