@@ -21,6 +21,8 @@ import {
   ZoomOut,
 } from "lucide-react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+
+import { useTrackNameEdit } from "@/hooks/useTrackNameEdit";
 import { toast } from "sonner";
 
 import SignInForm from "@/components/sign-in-form";
@@ -756,26 +758,11 @@ function TrackHeader({
   onNameChange,
   onDelete,
 }: TrackHeaderProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(track.name);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isEditing]);
-
-  const handleNameSubmit = () => {
-    const trimmed = editName.trim();
-    if (trimmed && trimmed !== track.name) {
-      onNameChange(trimmed);
-    } else {
-      setEditName(track.name);
-    }
-    setIsEditing(false);
-  };
+  const { isEditing, editName, inputRef, startEditing, setEditName, handleSubmit, handleKeyDown } =
+    useTrackNameEdit({
+      initialName: track.name,
+      onNameChange,
+    });
 
   return (
     <div
@@ -800,14 +787,8 @@ function TrackHeader({
               value={editName}
               maxLength={50}
               onChange={(e) => setEditName(e.target.value)}
-              onBlur={handleNameSubmit}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleNameSubmit();
-                if (e.key === "Escape") {
-                  setEditName(track.name);
-                  setIsEditing(false);
-                }
-              }}
+              onBlur={handleSubmit}
+              onKeyDown={handleKeyDown}
             />
             {editName.length >= 40 && (
               <span
@@ -820,7 +801,7 @@ function TrackHeader({
         ) : (
           <button
             className="group flex flex-1 items-center gap-1 truncate text-left text-xs font-medium hover:text-foreground/80"
-            onClick={() => setIsEditing(true)}
+            onClick={startEditing}
           >
             <span className="truncate">{track.name}</span>
             <Pencil className="size-2.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
