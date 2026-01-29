@@ -2,8 +2,9 @@ import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
 import { api } from "@el-audio-daw/backend/convex/_generated/api";
 import { isSupportedAudioType, MAX_FILE_SIZE } from "@el-audio-daw/backend/convex/constants";
 import { useMutation } from "convex/react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { useSyncRef } from "./useSyncRef";
 
 interface Track {
   _id: Id<"tracks">;
@@ -86,12 +87,9 @@ export function useTimelineFileDrop({
   const createClip = useMutation(api.clips.createClip);
 
   // Store current values in refs for stable callbacks
-  const scrollLeftRef = useRef(scrollLeft);
-  const scrollTopRef = useRef(scrollTop);
-  const pixelsPerSecondRef = useRef(pixelsPerSecond);
-  scrollLeftRef.current = scrollLeft;
-  scrollTopRef.current = scrollTop;
-  pixelsPerSecondRef.current = pixelsPerSecond;
+  const scrollLeftRef = useSyncRef(scrollLeft);
+  const scrollTopRef = useSyncRef(scrollTop);
+  const pixelsPerSecondRef = useSyncRef(pixelsPerSecond);
 
   // Calculate drop position from mouse coordinates
   const calculateDropPosition = useCallback(
