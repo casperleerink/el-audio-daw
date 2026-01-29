@@ -261,3 +261,48 @@ Clip 3 (gain) ──> Track Sum ──> Track Gain ─────┼──> Mas
 
 ### Files Modified
 - apps/web/src/routes/project.$id.tsx (added VFS loading on engine init, clipUrls query, isEngineReady state)
+
+---
+
+## 2026-01-28 - Clip Dragging to Move Position Complete
+
+### Completed
+- Implemented clip dragging to move position (FR-34 through FR-38):
+  - Added `ClipDragState` interface to track clip being dragged and its position
+  - Added `findClipAtPosition()` helper to detect which clip is under the mouse cursor
+  - Added `handleMouseDown` to initiate drag when clicking on a clip (FR-34)
+  - Added `handleClipDragMove` to update drag position during mouse move (FR-35)
+  - Added `handleClipDragEnd` to commit new position to database on mouse up (FR-36)
+  - Visual feedback during drag: reduced opacity (0.5 fill, 0.7 border) and thicker border (FR-35)
+  - Cursor changes to `grabbing` while dragging
+  - Start time clamped to 0 on frontend before sending to backend (FR-38)
+  - Backend `updateClipPosition` mutation already handles overlap (FR-37) and project duration extension (FR-13)
+
+### Implementation Notes
+- Clips are now rendered at their `currentStartTime` during drag, giving immediate visual feedback
+- Used `justFinishedDragRef` to prevent click event from firing seek after drag ends
+- Click on clip no longer triggers timeline seek (users must click empty track area to seek)
+- All position calculations use samples for precision, converting to/from seconds only for display
+
+### Visual States During Drag
+- Fill opacity: 0.7 → 0.5 (indicates dragging state)
+- Border opacity: 1 → 0.7
+- Border width: 1px → 2px (makes clip more visible during drag)
+- Text opacity: 0.9 → 0.6
+
+### Files Modified
+- apps/web/src/routes/project.$id.tsx (added clip drag handlers, ClipDragState, findClipAtPosition, visual feedback during drag)
+
+### PRD Status
+All tasks in the Audio Clips PRD are now complete:
+- Schema changes ✓
+- File upload mutations ✓
+- Clip CRUD mutations ✓
+- VFS integration ✓
+- Audio graph clip rendering ✓
+- Timeline canvas clip rendering ✓
+- Drag-drop file upload ✓
+- VFS loading on page load ✓
+- Clip dragging to move position ✓
+- Clip overlap handling ✓ (backend)
+- Auto-extend project duration ✓ (backend)
