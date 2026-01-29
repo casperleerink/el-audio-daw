@@ -86,3 +86,48 @@
 ### Files Modified
 - packages/audio/src/engine.ts (added VFS methods and VFSEntry type)
 - packages/audio/src/index.ts (exported VFSEntry type)
+
+---
+
+## 2026-01-28 - Audio Graph Clip Rendering Complete
+
+### Completed
+- Updated AudioEngine to render clips at correct timeline positions (FR-19 through FR-23):
+  - Added `ClipState` interface with all required fields (id, trackId, fileId, startTime, duration, audioStartTime, gain)
+  - Added `clips` array to `AudioEngineState`
+  - Added `setClips(clips)` method to update clip state and re-render audio graph
+  - Updated `renderGraph()` to render clips using `el.sampleseq` (mono) and `el.mc.sampleseq` (stereo)
+  - Clips play at their timeline positions (`startTime` in samples converted to seconds)
+  - Clips only play during their duration (FR-23)
+  - Multiple clips on same track sum together (FR-21)
+  - Clip gain applied before track gain (FR-20)
+  - Track mute/solo logic applied at track level (FR-22)
+- Exported `ClipState` type from audio package
+
+### Implementation Notes
+- Uses `el.sampleseq` for mono clips, `el.mc.sampleseq` for stereo clips
+- Time signal: `el.div(el.time(), el.sr())` provides time in seconds
+- Sequence format: `{time: startSeconds, value: 1}` to trigger, `{time: endSeconds, value: 0}` to stop
+- If audio not loaded in VFS yet, clip renders silence (graceful degradation)
+- Full stereo support: renders separate left/right channels, summed per track then to master
+- Keys used throughout for efficient Elementary Audio graph updates
+
+### Audio Signal Flow (FR-20)
+```
+Clip 1 (gain) ──┐
+Clip 2 (gain) ──┼──> Track Sum ──> Track Gain ──┐
+                                                 │
+Clip 3 (gain) ──> Track Sum ──> Track Gain ─────┼──> Master Gain ──> Output
+                                                 │
+(mute/solo applied at track level)              │
+```
+
+### Next Priority Tasks
+1. Implement drag-drop zone on timeline track lanes (FR-29-33)
+2. Calculate drop position in samples from mouse position (FR-31)
+3. Decode audio file client-side (FR-10)
+4. Render clip rectangles on timeline canvas (FR-24-28)
+
+### Files Modified
+- packages/audio/src/engine.ts (added ClipState, setClips, updated renderGraph)
+- packages/audio/src/index.ts (exported ClipState type)

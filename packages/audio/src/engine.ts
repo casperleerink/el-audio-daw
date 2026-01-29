@@ -9,8 +9,27 @@ export interface TrackState {
   gain: number; // in dB, -60 to +12
 }
 
+/**
+ * Clip state for audio playback (FR-19 through FR-23)
+ */
+export interface ClipState {
+  id: string;
+  trackId: string;
+  /** VFS key (Convex storage ID) for the audio file */
+  fileId: string;
+  /** Position on timeline in samples */
+  startTime: number;
+  /** Clip length in samples */
+  duration: number;
+  /** Offset into source audio in samples (for trimming) */
+  audioStartTime: number;
+  /** Clip gain in dB */
+  gain: number;
+}
+
 export interface AudioEngineState {
   tracks: TrackState[];
+  clips: ClipState[];
   masterGain: number; // in dB, -60 to +12
 }
 
@@ -40,6 +59,7 @@ export class AudioEngine {
   private animationFrameId: number | null = null;
   private state: AudioEngineState = {
     tracks: [],
+    clips: [],
     masterGain: 0,
   };
   /** Map of VFS keys (Convex storage IDs) to metadata about loaded audio */
@@ -153,6 +173,15 @@ export class AudioEngine {
    */
   setTracks(tracks: TrackState[]): void {
     this.state.tracks = tracks;
+    this.renderGraph();
+  }
+
+  /**
+   * Update clip states (FR-19)
+   * Clips are rendered at their timeline positions using el.sampleseq
+   */
+  setClips(clips: ClipState[]): void {
+    this.state.clips = clips;
     this.renderGraph();
   }
 
@@ -310,60 +339,158 @@ export class AudioEngine {
   /**
    * Render the audio graph based on current state
    *
-   * Graph structure:
-   * Track 1 (gain) ──┐
-   * Track 2 (gain) ──┼──> Sum ──> Master Gain ──> Output
-   * Track 3 (gain) ──┘
+   * Graph structure (FR-20):
+   * Clip 1 (gain) ──┐
+   * Clip 2 (gain) ──┼──> Track Sum ──> Track Gain ──┐
+   *                                                  │
+   * Clip 3 (gain) ──> Track Sum ──> Track Gain ─────┼──> Master Gain ──> Output
+   *                                                  │
+   * (mute/solo applied at track level)              │
    */
   private renderGraph(): void {
     if (!this.initialized) {
       return;
     }
 
-    const { tracks, masterGain } = this.state;
+    const { tracks, clips, masterGain } = this.state;
+    const sampleRate = this.getSampleRate();
 
-    // Determine if any track is soloed
+    // Determine if any track is soloed (FR-22)
     const anySoloed = tracks.some((t) => t.solo);
 
+    // Time signal in seconds for el.sampleseq (FR-19)
+    const timeInSeconds = el.div(el.time(), el.sr());
+
     // Build track signals
-    // In v1, tracks produce silence (no clips yet), but routing must work
-    const trackSignals: NodeRepr_t[] = tracks.map((track) => {
-      // Determine if this track should be audible
+    const trackSignals: { left: NodeRepr_t; right: NodeRepr_t }[] = tracks.map((track) => {
+      // Determine if this track should be audible (FR-22)
       const shouldPlay = anySoloed ? track.solo : !track.muted;
 
-      // Get gain value (0 if muted/not-soloed, otherwise convert from dB)
-      const gainValue = shouldPlay ? dbToGain(track.gain) : 0;
+      // Get track gain value (0 if muted/not-soloed, otherwise convert from dB)
+      const trackGainValue = shouldPlay ? dbToGain(track.gain) : 0;
 
-      // Create a silent signal for this track (placeholder for future clips)
-      // Using el.const with a unique key per track for efficient updates
-      const silentSignal = el.const({ key: `track-${track.id}-signal`, value: 0 });
+      // Get all clips for this track (FR-21)
+      const trackClips = clips.filter((clip) => clip.trackId === track.id);
 
-      // Apply gain (smooth it to avoid clicks)
-      return el.mul(
-        el.sm(el.const({ key: `track-${track.id}-gain`, value: gainValue })),
-        silentSignal,
+      // Render each clip using el.sampleseq or el.mc.sampleseq (FR-19, FR-23)
+      const clipSignals: { left: NodeRepr_t; right: NodeRepr_t }[] = trackClips.map((clip) => {
+        const vfsEntry = this.vfsEntries.get(clip.fileId);
+        if (!vfsEntry) {
+          // Audio not loaded yet, return silence
+          return {
+            left: el.const({ key: `clip-${clip.id}-left-empty`, value: 0 }),
+            right: el.const({ key: `clip-${clip.id}-right-empty`, value: 0 }),
+          };
+        }
+
+        // Calculate times in seconds for el.sampleseq
+        const startTimeSeconds = clip.startTime / sampleRate;
+        const durationSeconds = clip.duration / sampleRate;
+
+        // Clip gain (FR-20)
+        const clipGainValue = dbToGain(clip.gain);
+
+        // Build sequence: trigger at start, stop at end
+        const seq = [
+          { time: startTimeSeconds, value: 1 },
+          { time: startTimeSeconds + durationSeconds, value: 0 },
+        ];
+
+        if (vfsEntry.channels === 1) {
+          // Mono clip - use el.sampleseq
+          const monoSignal = el.sampleseq(
+            {
+              key: `clip-${clip.id}-mono`,
+              seq,
+              path: clip.fileId,
+              duration: durationSeconds,
+            },
+            timeInSeconds,
+          );
+          // Apply clip gain
+          const gainedSignal = el.mul(
+            el.const({ key: `clip-${clip.id}-gain`, value: clipGainValue }),
+            monoSignal,
+          );
+          // Mono to stereo
+          return { left: gainedSignal, right: gainedSignal };
+        } else {
+          // Stereo clip - use el.mc.sampleseq
+          const [leftChannel, rightChannel] = el.mc.sampleseq(
+            {
+              key: `clip-${clip.id}-stereo`,
+              channels: 2,
+              seq,
+              path: clip.fileId,
+              duration: durationSeconds,
+            },
+            timeInSeconds,
+          );
+          // Apply clip gain to both channels
+          return {
+            left: el.mul(
+              el.const({ key: `clip-${clip.id}-gain-l`, value: clipGainValue }),
+              leftChannel!,
+            ),
+            right: el.mul(
+              el.const({ key: `clip-${clip.id}-gain-r`, value: clipGainValue }),
+              rightChannel!,
+            ),
+          };
+        }
+      });
+
+      // Sum all clips on this track (FR-21)
+      let trackLeft: NodeRepr_t;
+      let trackRight: NodeRepr_t;
+
+      if (clipSignals.length === 0) {
+        // No clips - silence
+        trackLeft = el.const({ key: `track-${track.id}-left-empty`, value: 0 });
+        trackRight = el.const({ key: `track-${track.id}-right-empty`, value: 0 });
+      } else if (clipSignals.length === 1) {
+        trackLeft = clipSignals[0]!.left;
+        trackRight = clipSignals[0]!.right;
+      } else {
+        // Sum multiple clips
+        trackLeft = el.add(...clipSignals.map((s) => s.left));
+        trackRight = el.add(...clipSignals.map((s) => s.right));
+      }
+
+      // Apply track gain with smoothing (FR-20)
+      const smoothedGain = el.sm(
+        el.const({ key: `track-${track.id}-gain`, value: trackGainValue }),
       );
+
+      return {
+        left: el.mul(smoothedGain, trackLeft),
+        right: el.mul(smoothedGain, trackRight),
+      };
     });
 
     // Sum all tracks (or silence if no tracks)
-    let summedSignal: NodeRepr_t;
-    const firstTrack = trackSignals[0];
-    if (trackSignals.length === 0 || firstTrack === undefined) {
-      summedSignal = el.const({ key: "sum-empty", value: 0 });
+    let summedLeft: NodeRepr_t;
+    let summedRight: NodeRepr_t;
+
+    if (trackSignals.length === 0) {
+      summedLeft = el.const({ key: "sum-left-empty", value: 0 });
+      summedRight = el.const({ key: "sum-right-empty", value: 0 });
     } else if (trackSignals.length === 1) {
-      summedSignal = firstTrack;
+      summedLeft = trackSignals[0]!.left;
+      summedRight = trackSignals[0]!.right;
     } else {
-      summedSignal = el.add(...trackSignals);
+      summedLeft = el.add(...trackSignals.map((s) => s.left));
+      summedRight = el.add(...trackSignals.map((s) => s.right));
     }
 
     // Apply master gain with smoothing
     const masterGainValue = dbToGain(masterGain);
-    const masterOutput = el.mul(
-      el.sm(el.const({ key: "master-gain", value: masterGainValue })),
-      summedSignal,
-    );
+    const smoothedMasterGain = el.sm(el.const({ key: "master-gain", value: masterGainValue }));
 
-    // Render stereo output (same signal on both channels for now)
-    this.core.render(masterOutput, masterOutput);
+    const masterLeft = el.mul(smoothedMasterGain, summedLeft);
+    const masterRight = el.mul(smoothedMasterGain, summedRight);
+
+    // Render stereo output
+    this.core.render(masterLeft, masterRight);
   }
 }
