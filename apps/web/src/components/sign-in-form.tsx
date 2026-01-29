@@ -1,10 +1,8 @@
 import { useForm } from "@tanstack/react-form";
-import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 import z from "zod";
 
+import { useAuthForm } from "@/hooks/useAuthForm";
 import { authClient } from "@/lib/auth-client";
 
 import { Button } from "./ui/button";
@@ -12,10 +10,8 @@ import { FormErrorAlert } from "./ui/form-error-alert";
 import { TanStackFormField } from "./ui/tanstack-form-field";
 
 export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
-  const navigate = useNavigate({
-    from: "/",
-  });
-  const [formError, setFormError] = useState<string | null>(null);
+  const { formError, clearFormError, authCallbacks, handleSubmitStart } =
+    useAuthForm("Sign in successful");
 
   const form = useForm({
     defaultValues: {
@@ -23,25 +19,13 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
       password: "",
     },
     onSubmit: async ({ value }) => {
-      setFormError(null);
+      handleSubmitStart();
       await authClient.signIn.email(
         {
           email: value.email,
           password: value.password,
         },
-        {
-          onSuccess: () => {
-            navigate({
-              to: "/",
-            });
-            toast.success("Sign in successful");
-          },
-          onError: (error) => {
-            const errorMessage = error.error.message || error.error.statusText;
-            setFormError(errorMessage);
-            toast.error(errorMessage);
-          },
-        },
+        authCallbacks,
       );
     },
     validators: {
@@ -51,10 +35,6 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
       }),
     },
   });
-
-  const clearFormError = () => {
-    if (formError) setFormError(null);
-  };
 
   return (
     <div className="mx-auto w-full mt-10 max-w-md p-6">
