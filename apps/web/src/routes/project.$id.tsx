@@ -26,18 +26,12 @@ import { toast } from "sonner";
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
+import { useClipDrag, type ClipData } from "@/hooks/useClipDrag";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
 import { useTimelineFileDrop } from "@/hooks/useTimelineFileDrop";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { renderTimeline } from "@/lib/canvasRenderer";
 import { formatGain, formatTime } from "@/lib/formatters";
-import {
-  calculateTimeFromX,
-  calculateTrackIndexFromY,
-  clientToCanvasPosition,
-  isInTrackArea,
-  samplesToSeconds,
-} from "@/lib/timelineCalculations";
 import {
   CLIP_PADDING,
   RULER_HEIGHT,
@@ -881,16 +875,6 @@ function TrackHeader({
   );
 }
 
-// Clip data from Convex query
-interface ClipData {
-  _id: string;
-  trackId: string;
-  fileId: string;
-  name: string;
-  startTime: number; // in samples
-  duration: number; // in samples
-}
-
 interface TimelineCanvasProps {
   tracks: { _id: string; name: string }[];
   clips: ClipData[];
@@ -900,14 +884,6 @@ interface TimelineCanvasProps {
   onScrollChange: (scrollTop: number) => void;
   onSeek: (time: number) => void | Promise<void>;
   projectId: Id<"projects">;
-}
-
-// Clip drag state for moving clips (FR-34-38)
-interface ClipDragState {
-  clipId: string;
-  originalStartTime: number; // in samples
-  currentStartTime: number; // in samples (updated during drag)
-  dragStartX: number; // initial mouse X position
 }
 
 function TimelineCanvas({
@@ -973,12 +949,33 @@ function TimelineCanvas({
     trackHeight: TRACK_HEIGHT,
   });
 
-  // Clip drag state (FR-34-38)
-  const [clipDragState, setClipDragState] = useState<ClipDragState | null>(null);
-  const justFinishedDragRef = useRef(false);
-
   // Mutation for clip position update
   const updateClipPosition = useMutation(api.clips.updateClipPosition);
+
+  // Clip drag state and handlers (FR-34-38)
+  const {
+    clipDragState,
+    justFinishedDrag,
+    findClipAtPosition,
+    handleMouseDown: handleClipMouseDown,
+    handleMouseMove: handleClipMouseMove,
+    handleMouseUp: handleClipMouseUp,
+    handleMouseLeave: handleClipMouseLeave,
+  } = useClipDrag({
+    canvasRef,
+    tracks,
+    clips,
+    scrollLeft,
+    scrollTop,
+    pixelsPerSecond,
+    sampleRate,
+    layoutParams: {
+      rulerHeight: RULER_HEIGHT,
+      trackHeight: TRACK_HEIGHT,
+      clipPadding: CLIP_PADDING,
+    },
+    updateClipPosition,
+  });
 
   // Track resize
   useEffect(() => {
@@ -1003,60 +1000,6 @@ function TimelineCanvas({
   const totalTrackHeight = tracks.length * TRACK_HEIGHT;
   const viewportHeight = dimensions.height - RULER_HEIGHT;
   const maxScrollTop = Math.max(0, totalTrackHeight - viewportHeight);
-
-  // Find clip at mouse position (for drag-to-move)
-  const findClipAtPosition = useCallback(
-    (clientX: number, clientY: number): ClipData | null => {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect || tracks.length === 0) return null;
-
-      const { canvasX, canvasY } = clientToCanvasPosition(clientX, clientY, rect);
-
-      // Check if in track area (below ruler)
-      if (!isInTrackArea(canvasY, RULER_HEIGHT)) return null;
-
-      // Calculate track index from Y position
-      const layoutParams = {
-        rulerHeight: RULER_HEIGHT,
-        trackHeight: TRACK_HEIGHT,
-        scrollTop,
-        scrollLeft,
-        pixelsPerSecond,
-      };
-      const trackIndex = calculateTrackIndexFromY(canvasY, layoutParams);
-      if (trackIndex < 0 || trackIndex >= tracks.length) return null;
-
-      const track = tracks[trackIndex];
-      if (!track) return null;
-
-      // Calculate time from X position (in seconds for comparison)
-      const timeInSeconds = calculateTimeFromX(canvasX, layoutParams);
-
-      // Find a clip at this position
-      for (const clip of clips) {
-        if (clip.trackId !== track._id) continue;
-
-        const clipStartSeconds = samplesToSeconds(clip.startTime, sampleRate);
-        const clipDurationSeconds = samplesToSeconds(clip.duration, sampleRate);
-        const clipEndSeconds = clipStartSeconds + clipDurationSeconds;
-
-        // Check if click is within clip's time range
-        if (timeInSeconds >= clipStartSeconds && timeInSeconds <= clipEndSeconds) {
-          // Check if click is within clip's vertical bounds
-          const trackY = RULER_HEIGHT + trackIndex * TRACK_HEIGHT - scrollTop;
-          const clipY = trackY + CLIP_PADDING;
-          const clipHeight = TRACK_HEIGHT - CLIP_PADDING * 2 - 1;
-
-          if (canvasY >= clipY && canvasY <= clipY + clipHeight) {
-            return clip;
-          }
-        }
-      }
-
-      return null;
-    },
-    [tracks, clips, scrollLeft, scrollTop, pixelsPerSecond, sampleRate],
-  );
 
   // Handle wheel for zoom and scroll
   const handleWheel = useCallback(
@@ -1085,77 +1028,11 @@ function TimelineCanvas({
     [maxScrollTop, scrollTop, onScrollChange, handleWheelZoom, setScrollLeft],
   );
 
-  // Handle mousedown for clip dragging (FR-34)
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      // Check if clicking on a clip
-      const clip = findClipAtPosition(e.clientX, e.clientY);
-      if (clip) {
-        e.preventDefault();
-        setClipDragState({
-          clipId: clip._id,
-          originalStartTime: clip.startTime,
-          currentStartTime: clip.startTime,
-          dragStartX: e.clientX,
-        });
-      }
-    },
-    [findClipAtPosition],
-  );
-
-  // Handle mousemove for clip dragging (FR-35)
-  const handleClipDragMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!clipDragState) return;
-
-      const deltaX = e.clientX - clipDragState.dragStartX;
-      const deltaTimeInSeconds = deltaX / pixelsPerSecond;
-      const deltaTimeInSamples = deltaTimeInSeconds * sampleRate;
-
-      // Calculate new start time (clamp to 0 per FR-38)
-      const newStartTime = Math.max(0, clipDragState.originalStartTime + deltaTimeInSamples);
-
-      setClipDragState((prev) =>
-        prev ? { ...prev, currentStartTime: Math.round(newStartTime) } : null,
-      );
-    },
-    [clipDragState, pixelsPerSecond, sampleRate],
-  );
-
-  // Handle mouseup for clip dragging (FR-36)
-  const handleClipDragEnd = useCallback(async () => {
-    if (!clipDragState) return;
-
-    // Mark that we just finished a drag to prevent click from seeking
-    justFinishedDragRef.current = true;
-    // Reset the flag on next tick
-    requestAnimationFrame(() => {
-      justFinishedDragRef.current = false;
-    });
-
-    const { clipId, originalStartTime, currentStartTime } = clipDragState;
-
-    // Only update if position changed
-    if (currentStartTime !== originalStartTime) {
-      try {
-        await updateClipPosition({
-          id: clipId as Id<"clips">,
-          startTime: currentStartTime,
-        });
-      } catch (error) {
-        console.error("Failed to update clip position:", error);
-        toast.error("Failed to move clip");
-      }
-    }
-
-    setClipDragState(null);
-  }, [clipDragState, updateClipPosition]);
-
   // Handle click for seeking (only if not ending a clip drag)
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       // Don't seek if we just finished dragging a clip
-      if (justFinishedDragRef.current) return;
+      if (justFinishedDrag) return;
 
       // Don't seek if clicking on a clip (so users can click clips without seeking)
       const clip = findClipAtPosition(e.clientX, e.clientY);
@@ -1168,7 +1045,7 @@ function TimelineCanvas({
       const time = x / pixelsPerSecond;
       onSeek(Math.max(0, time));
     },
-    [scrollLeft, pixelsPerSecond, onSeek, findClipAtPosition],
+    [scrollLeft, pixelsPerSecond, onSeek, findClipAtPosition, justFinishedDrag],
   );
 
   // Handle mouse move for hover indicator and clip dragging
@@ -1177,10 +1054,8 @@ function TimelineCanvas({
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      // Handle clip dragging if active (FR-35)
-      if (clipDragState) {
-        handleClipDragMove(e);
-      }
+      // Handle clip dragging if active
+      handleClipMouseMove(e);
 
       const canvasX = e.clientX - rect.left;
       const scrolledX = canvasX + scrollLeft;
@@ -1188,25 +1063,15 @@ function TimelineCanvas({
       setHoverX(canvasX);
       setHoverTime(Math.max(0, time));
     },
-    [scrollLeft, pixelsPerSecond, clipDragState, handleClipDragMove],
+    [scrollLeft, pixelsPerSecond, handleClipMouseMove],
   );
 
   // Handle mouse leave to clear hover state and end clip drag
   const handleMouseLeave = useCallback(() => {
     setHoverX(null);
     setHoverTime(null);
-    // Cancel clip drag on mouse leave (don't commit changes)
-    if (clipDragState) {
-      setClipDragState(null);
-    }
-  }, [clipDragState]);
-
-  // Handle mouse up to end clip drag (FR-36)
-  const handleMouseUp = useCallback(() => {
-    if (clipDragState) {
-      handleClipDragEnd();
-    }
-  }, [clipDragState, handleClipDragEnd]);
+    handleClipMouseLeave();
+  }, [handleClipMouseLeave]);
 
   // Draw canvas
   useEffect(() => {
@@ -1268,9 +1133,9 @@ function TimelineCanvas({
         ref={canvasRef}
         className={`absolute inset-0 ${clipDragState ? "cursor-grabbing" : "cursor-crosshair"}`}
         style={{ width: dimensions.width, height: dimensions.height }}
-        onMouseDown={handleMouseDown}
+        onMouseDown={handleClipMouseDown}
         onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
+        onMouseUp={handleClipMouseUp}
         onMouseLeave={handleMouseLeave}
         onClick={handleClick}
       />
