@@ -1,14 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { authComponent } from "./auth";
-
-async function checkProjectAccess(ctx: { db: any }, projectId: any, userId: string) {
-  const projectUser = await ctx.db
-    .query("projectUsers")
-    .withIndex("by_project_and_user", (q: any) => q.eq("projectId", projectId).eq("userId", userId))
-    .first();
-  return projectUser !== null;
-}
+import { checkProjectAccess } from "./utils";
 
 export const createTrack = mutation({
   args: {
@@ -21,7 +14,7 @@ export const createTrack = mutation({
       throw new Error("Not authenticated");
     }
 
-    const hasAccess = await checkProjectAccess(ctx, args.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
     if (!hasAccess) {
       throw new Error("Not authorized to access this project");
     }
@@ -72,7 +65,7 @@ export const updateTrack = mutation({
       throw new Error("Track not found");
     }
 
-    const hasAccess = await checkProjectAccess(ctx, track.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, track.projectId, user._id);
     if (!hasAccess) {
       throw new Error("Not authorized to access this project");
     }
@@ -105,7 +98,7 @@ export const deleteTrack = mutation({
       throw new Error("Track not found");
     }
 
-    const hasAccess = await checkProjectAccess(ctx, track.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, track.projectId, user._id);
     if (!hasAccess) {
       throw new Error("Not authorized to access this project");
     }
@@ -125,7 +118,7 @@ export const reorderTracks = mutation({
       throw new Error("Not authenticated");
     }
 
-    const hasAccess = await checkProjectAccess(ctx, args.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
     if (!hasAccess) {
       throw new Error("Not authorized to access this project");
     }
@@ -154,7 +147,7 @@ export const getProjectTracks = query({
       return [];
     }
 
-    const hasAccess = await checkProjectAccess(ctx, args.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
     if (!hasAccess) {
       return [];
     }

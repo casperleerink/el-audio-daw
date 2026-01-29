@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { authComponent } from "./auth";
+import { checkProjectAccess } from "./utils";
 
 // Supported audio MIME types (FR-5)
 const SUPPORTED_AUDIO_TYPES = [
@@ -19,14 +20,6 @@ const SUPPORTED_AUDIO_TYPES = [
 // Maximum file size: 100MB (FR-6)
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
-async function checkProjectAccess(ctx: { db: any }, projectId: any, userId: string) {
-  const projectUser = await ctx.db
-    .query("projectUsers")
-    .withIndex("by_project_and_user", (q: any) => q.eq("projectId", projectId).eq("userId", userId))
-    .first();
-  return projectUser !== null;
-}
-
 /**
  * Generate an upload URL for audio file uploads (FR-8)
  * Client-side validation should happen before calling this
@@ -41,7 +34,7 @@ export const generateUploadUrl = mutation({
       throw new Error("Not authenticated");
     }
 
-    const hasAccess = await checkProjectAccess(ctx, args.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
     if (!hasAccess) {
       throw new Error("Not authorized to access this project");
     }
@@ -67,7 +60,7 @@ export const validateUploadedFile = mutation({
       throw new Error("Not authenticated");
     }
 
-    const hasAccess = await checkProjectAccess(ctx, args.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
     if (!hasAccess) {
       throw new Error("Not authorized to access this project");
     }
@@ -108,7 +101,7 @@ export const getFileUrl = query({
       return null;
     }
 
-    const hasAccess = await checkProjectAccess(ctx, args.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
     if (!hasAccess) {
       return null;
     }
@@ -135,7 +128,7 @@ export const createClip = mutation({
       throw new Error("Not authenticated");
     }
 
-    const hasAccess = await checkProjectAccess(ctx, args.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
     if (!hasAccess) {
       throw new Error("Not authorized to access this project");
     }
@@ -235,7 +228,7 @@ export const updateClipPosition = mutation({
       throw new Error("Clip not found");
     }
 
-    const hasAccess = await checkProjectAccess(ctx, clip.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, clip.projectId, user._id);
     if (!hasAccess) {
       throw new Error("Not authorized to access this project");
     }
@@ -310,7 +303,7 @@ export const deleteClip = mutation({
       throw new Error("Clip not found");
     }
 
-    const hasAccess = await checkProjectAccess(ctx, clip.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, clip.projectId, user._id);
     if (!hasAccess) {
       throw new Error("Not authorized to access this project");
     }
@@ -336,7 +329,7 @@ export const getProjectClips = query({
       return [];
     }
 
-    const hasAccess = await checkProjectAccess(ctx, args.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
     if (!hasAccess) {
       return [];
     }
@@ -363,7 +356,7 @@ export const getProjectClipUrls = query({
       return [];
     }
 
-    const hasAccess = await checkProjectAccess(ctx, args.projectId, user._id);
+    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
     if (!hasAccess) {
       return [];
     }
