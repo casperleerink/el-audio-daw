@@ -3,6 +3,8 @@
  * Extracted from TimelineCanvas component to improve testability and readability.
  */
 
+import { CLIP_BORDER_RADIUS, CLIP_PADDING } from "./timelineConstants";
+
 export interface CanvasColors {
   background: string;
   border: string;
@@ -143,9 +145,6 @@ export function drawClips(options: DrawClipsOptions): void {
   const { renderCtx, clips, trackIndexMap, sampleRate, clipDragState } = options;
   const { ctx, width, height, scrollLeft, scrollTop, pixelsPerSecond, rulerHeight, trackHeight } =
     renderCtx;
-
-  const CLIP_PADDING = 2;
-  const CLIP_BORDER_RADIUS = 4;
 
   // Calculate visible time range
   const startTime = scrollLeft / pixelsPerSecond;

@@ -36,6 +36,15 @@ import SignUpForm from "@/components/sign-up-form";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
 import { renderTimeline } from "@/lib/canvasRenderer";
 import { formatGain, formatTime } from "@/lib/formatters";
+import {
+  CLIP_PADDING,
+  DEFAULT_PIXELS_PER_SECOND,
+  MAX_PIXELS_PER_SECOND,
+  MIN_PIXELS_PER_SECOND,
+  RULER_HEIGHT,
+  TRACK_HEADER_HEIGHT,
+  TRACK_HEIGHT,
+} from "@/lib/timelineConstants";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -648,8 +657,6 @@ function ProjectEditor() {
   );
 }
 
-const TRACK_HEADER_HEIGHT = 60;
-
 interface VirtualizedTrackListProps {
   tracks: {
     _id: string;
@@ -1024,12 +1031,6 @@ interface TimelineCanvasProps {
   projectId: Id<"projects">;
 }
 
-const TRACK_HEIGHT = 60;
-const RULER_HEIGHT = 24;
-const DEFAULT_PIXELS_PER_SECOND = 20;
-const MIN_PIXELS_PER_SECOND = 2;
-const MAX_PIXELS_PER_SECOND = 200;
-
 // Drop target state for visual feedback
 interface DropTarget {
   trackId: string;
@@ -1124,9 +1125,6 @@ function TimelineCanvas({
 
       // Calculate time from X position (in seconds for comparison)
       const timeInSeconds = (canvasX + scrollLeft) / pixelsPerSecond;
-
-      // Clip dimensions constants (must match canvas drawing code)
-      const CLIP_PADDING = 2;
 
       // Find a clip at this position
       for (const clip of clips) {
