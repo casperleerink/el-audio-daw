@@ -1,24 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { authComponent } from "./auth";
+import { isSupportedAudioType, MAX_FILE_SIZE } from "./constants";
 import { checkProjectAccess } from "./utils";
-
-// Supported audio MIME types (FR-5)
-const SUPPORTED_AUDIO_TYPES = [
-  "audio/wav",
-  "audio/x-wav",
-  "audio/mp3",
-  "audio/mpeg",
-  "audio/aiff",
-  "audio/x-aiff",
-  "audio/flac",
-  "audio/x-flac",
-  "audio/ogg",
-  "audio/vorbis",
-];
-
-// Maximum file size: 100MB (FR-6)
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
 /**
  * Generate an upload URL for audio file uploads (FR-8)
@@ -75,7 +59,7 @@ export const validateUploadedFile = mutation({
     }
 
     // Validate content type (FR-7)
-    if (!SUPPORTED_AUDIO_TYPES.includes(args.contentType)) {
+    if (!isSupportedAudioType(args.contentType)) {
       // Delete the uploaded file
       await ctx.storage.delete(args.storageId);
       throw new Error(

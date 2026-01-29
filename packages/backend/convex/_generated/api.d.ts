@@ -10,11 +10,13 @@
 
 import type * as auth from "../auth.js";
 import type * as clips from "../clips.js";
+import type * as constants from "../constants.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as privateData from "../privateData.js";
 import type * as projects from "../projects.js";
 import type * as tracks from "../tracks.js";
+import type * as utils from "../utils.js";
 
 import type {
   ApiFromModules,
@@ -25,11 +27,13 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   clips: typeof clips;
+  constants: typeof constants;
   healthCheck: typeof healthCheck;
   http: typeof http;
   privateData: typeof privateData;
   projects: typeof projects;
   tracks: typeof tracks;
+  utils: typeof utils;
 }>;
 
 /**

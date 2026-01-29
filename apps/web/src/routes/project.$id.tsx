@@ -1,5 +1,6 @@
 import { api } from "@el-audio-daw/backend/convex/_generated/api";
 import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
+import { isSupportedAudioType, MAX_FILE_SIZE } from "@el-audio-daw/backend/convex/constants";
 import { AudioEngine, type ClipState, type TrackState } from "@el-audio-daw/audio";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -1055,23 +1056,6 @@ function getTrackColor(index: number): string {
   return `hsl(${hue}, 65%, 55%)`;
 }
 
-// Supported audio MIME types for client-side validation (matches backend)
-const SUPPORTED_AUDIO_TYPES = [
-  "audio/wav",
-  "audio/x-wav",
-  "audio/mp3",
-  "audio/mpeg",
-  "audio/aiff",
-  "audio/x-aiff",
-  "audio/flac",
-  "audio/x-flac",
-  "audio/ogg",
-  "audio/vorbis",
-];
-
-// Maximum file size: 100MB
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
-
 // Drop target state for visual feedback
 interface DropTarget {
   trackId: string;
@@ -1230,7 +1214,7 @@ function TimelineCanvas({
 
   // Check if file is a supported audio type
   const isAudioFile = useCallback((file: File): boolean => {
-    return SUPPORTED_AUDIO_TYPES.includes(file.type);
+    return isSupportedAudioType(file.type);
   }, []);
 
   // Decode audio file to get duration (FR-10)
