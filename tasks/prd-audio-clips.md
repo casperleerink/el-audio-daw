@@ -20,8 +20,8 @@ Add ability to drag audio files from computer onto tracks, upload to Convex file
 - [x] Create Convex file upload mutation
 - [x] Create clip CRUD mutations (create, update position, delete)
 - [x] Create query to get clips for a project
-- [ ] Set up Elementary VFS integration in AudioEngine
-- [ ] Add method to load audio buffer into VFS
+- [x] Set up Elementary VFS integration in AudioEngine
+- [x] Add method to load audio buffer into VFS
 - [ ] Update audio graph to render clips at correct positions
 - [ ] Implement drag-drop zone on timeline track lanes
 - [ ] Calculate drop position in samples from mouse position

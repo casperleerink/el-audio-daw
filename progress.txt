@@ -55,3 +55,34 @@
 
 ### Files Modified
 - packages/backend/convex/clips.ts (new file)
+
+---
+
+## 2026-01-28 - VFS Integration Complete
+
+### Completed
+- Added Virtual File System (VFS) integration to AudioEngine (FR-15, FR-16, FR-18):
+  - `loadAudioIntoVFS(key, url)`: Fetches audio from URL, decodes with Web Audio API, and loads into Elementary VFS
+  - `isAudioLoaded(key)`: Checks if audio is already loaded in VFS
+  - `getVFSEntry(key)`: Gets metadata (channels, duration, sampleRate) for loaded audio
+  - `getVFSEntries()`: Returns all loaded VFS entries
+  - `getSampleRate()`: Returns AudioContext sample rate
+  - `pruneVFS(activeKeys)`: Removes unused audio from VFS
+- Added `VFSEntry` interface to track loaded audio metadata
+- Exported `VFSEntry` type from audio package
+
+### Implementation Notes
+- VFS key is the Convex storage ID (same as `fileId` in clips table)
+- Mono audio uses key directly, stereo uses `key:0` and `key:1` format (Elementary convention)
+- Metadata (channels, duration, sampleRate) is stored locally for later use when rendering clips
+- Audio is only loaded once per key (caches in vfsEntries map)
+- dispose() now clears vfsEntries to prevent memory leaks
+
+### Next Priority Tasks
+1. Update audio graph to render clips at correct positions (use el.sampleseq for timeline playback)
+2. Implement drag-drop zone on timeline track lanes
+3. Render clip rectangles on timeline canvas
+
+### Files Modified
+- packages/audio/src/engine.ts (added VFS methods and VFSEntry type)
+- packages/audio/src/index.ts (exported VFSEntry type)

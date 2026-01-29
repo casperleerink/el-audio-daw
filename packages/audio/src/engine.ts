@@ -14,6 +14,19 @@ export interface AudioEngineState {
   masterGain: number; // in dB, -60 to +12
 }
 
+/**
+ * VFS entry representing an audio buffer loaded into the Virtual File System
+ * Keyed by the Convex storage ID
+ */
+export interface VFSEntry {
+  /** Number of channels in the audio (1 = mono, 2 = stereo) */
+  channels: number;
+  /** Duration in samples */
+  duration: number;
+  /** Sample rate of the audio file */
+  sampleRate: number;
+}
+
 type PlayheadCallback = (timeInSeconds: number) => void;
 
 export class AudioEngine {
@@ -29,6 +42,8 @@ export class AudioEngine {
     tracks: [],
     masterGain: 0,
   };
+  /** Map of VFS keys (Convex storage IDs) to metadata about loaded audio */
+  private vfsEntries: Map<string, VFSEntry> = new Map();
 
   constructor() {
     this.core = new WebRenderer();
@@ -161,6 +176,109 @@ export class AudioEngine {
     this.initialized = false;
     this.playing = false;
     this.playheadCallbacks.clear();
+    this.vfsEntries.clear();
+  }
+
+  // ==================== VFS Methods ====================
+
+  /**
+   * Load an audio file from a URL into the Virtual File System (FR-15, FR-16, FR-18)
+   * @param key - The VFS key (Convex storage ID)
+   * @param url - The URL to fetch the audio from
+   * @returns Metadata about the loaded audio
+   */
+  async loadAudioIntoVFS(key: string, url: string): Promise<VFSEntry> {
+    if (!this.ctx) {
+      throw new Error("AudioEngine not initialized");
+    }
+
+    // Check if already loaded
+    const existing = this.vfsEntries.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    // Fetch and decode the audio file
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio: ${response.statusText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+
+    // Add to VFS based on channel count
+    const vfsMap: Record<string, Float32Array> = {};
+    if (audioBuffer.numberOfChannels === 1) {
+      // Mono: use key directly
+      vfsMap[key] = audioBuffer.getChannelData(0);
+    } else {
+      // Stereo or multi-channel: use key:channel format
+      for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+        vfsMap[`${key}:${i}`] = audioBuffer.getChannelData(i);
+      }
+    }
+
+    await this.core.updateVirtualFileSystem(vfsMap);
+
+    // Store metadata
+    const entry: VFSEntry = {
+      channels: audioBuffer.numberOfChannels,
+      duration: audioBuffer.length,
+      sampleRate: audioBuffer.sampleRate,
+    };
+    this.vfsEntries.set(key, entry);
+
+    return entry;
+  }
+
+  /**
+   * Check if an audio file is loaded in the VFS
+   * @param key - The VFS key (Convex storage ID)
+   */
+  isAudioLoaded(key: string): boolean {
+    return this.vfsEntries.has(key);
+  }
+
+  /**
+   * Get metadata for a loaded audio file
+   * @param key - The VFS key (Convex storage ID)
+   */
+  getVFSEntry(key: string): VFSEntry | undefined {
+    return this.vfsEntries.get(key);
+  }
+
+  /**
+   * Get all loaded VFS entries
+   */
+  getVFSEntries(): Map<string, VFSEntry> {
+    return new Map(this.vfsEntries);
+  }
+
+  /**
+   * Get the sample rate of the AudioContext
+   */
+  getSampleRate(): number {
+    return this.ctx?.sampleRate ?? 44100;
+  }
+
+  /**
+   * Remove unused audio files from the VFS
+   * Removes entries not in the provided list of keys
+   * @param activeKeys - List of keys that should remain in VFS
+   */
+  async pruneVFS(activeKeys: string[]): Promise<void> {
+    const activeSet = new Set(activeKeys);
+
+    // Remove entries not in active set from our tracking
+    for (const key of this.vfsEntries.keys()) {
+      if (!activeSet.has(key)) {
+        this.vfsEntries.delete(key);
+      }
+    }
+
+    // Tell Elementary to clean up unused resources
+    await this.core.pruneVirtualFileSystem();
   }
 
   private startPlayheadUpdates(): void {
