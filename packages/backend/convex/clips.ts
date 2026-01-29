@@ -2,9 +2,8 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { isSupportedAudioType, MAX_FILE_SIZE } from "./constants";
 import {
-  checkProjectAccess,
+  checkQueryAccess,
   extendProjectDurationIfNeeded,
-  getAuthUser,
   handleClipOverlap,
   requireProjectAccess,
 } from "./utils";
@@ -69,13 +68,8 @@ export const getFileUrl = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const user = await getAuthUser(ctx);
+    const user = await checkQueryAccess(ctx, args.projectId);
     if (!user) {
-      return null;
-    }
-
-    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
-    if (!hasAccess) {
       return null;
     }
 
@@ -202,13 +196,8 @@ export const getProjectClips = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const user = await getAuthUser(ctx);
+    const user = await checkQueryAccess(ctx, args.projectId);
     if (!user) {
-      return [];
-    }
-
-    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
-    if (!hasAccess) {
       return [];
     }
 
@@ -229,13 +218,8 @@ export const getProjectClipUrls = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const user = await getAuthUser(ctx);
+    const user = await checkQueryAccess(ctx, args.projectId);
     if (!user) {
-      return [];
-    }
-
-    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
-    if (!hasAccess) {
       return [];
     }
 

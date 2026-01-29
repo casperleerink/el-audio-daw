@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { checkProjectAccess, getAuthUser, requireProjectAccess } from "./utils";
+import { checkQueryAccess, requireProjectAccess } from "./utils";
 
 export const createTrack = mutation({
   args: {
@@ -109,13 +109,8 @@ export const getProjectTracks = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const user = await getAuthUser(ctx);
+    const user = await checkQueryAccess(ctx, args.projectId);
     if (!user) {
-      return [];
-    }
-
-    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
-    if (!hasAccess) {
       return [];
     }
 

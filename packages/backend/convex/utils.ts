@@ -55,6 +55,23 @@ export async function checkProjectAccess(
 }
 
 /**
+ * Check if user is authenticated and has project access for queries.
+ * Returns the user if authenticated and authorized, null otherwise.
+ * Use this in queries where you want to return null/empty on auth failure instead of throwing.
+ */
+export async function checkQueryAccess(ctx: QueryCtx | MutationCtx, projectId: Id<"projects">) {
+  const user = await getAuthUser(ctx);
+  if (!user) {
+    return null;
+  }
+  const hasAccess = await checkProjectAccess(ctx.db, projectId, user._id);
+  if (!hasAccess) {
+    return null;
+  }
+  return user;
+}
+
+/**
  * Handle clip overlap when a new clip is placed or an existing clip is moved.
  * - Deletes existing clips that are completely covered by the new clip region
  * - Truncates existing clips that overlap at their end (new clip starts inside them)
