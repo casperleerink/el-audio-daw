@@ -218,7 +218,9 @@ function ProjectEditor() {
     setIsEngineInitializing(true);
     try {
       const engine = new AudioEngine();
-      await engine.initialize();
+      // Use project sample rate to match clip data units
+      const sampleRate = project?.sampleRate ?? 44100;
+      await engine.initialize(sampleRate);
       engineRef.current = engine;
 
       engine.onPlayheadUpdate((time: number) => {
@@ -234,7 +236,7 @@ function ProjectEditor() {
     } finally {
       setIsEngineInitializing(false);
     }
-  }, []);
+  }, [project?.sampleRate]);
 
   // Sync tracks to audio engine (uses optimistic updates for instant feedback)
   useEffect(() => {

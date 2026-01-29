@@ -73,13 +73,14 @@ export class AudioEngine {
 
   /**
    * Initializes the audio engine. Must be called after a user gesture.
+   * @param sampleRate - Optional sample rate for the AudioContext (defaults to system default)
    */
-  async initialize(): Promise<void> {
+  async initialize(sampleRate?: number): Promise<void> {
     if (this.initialized) {
       return;
     }
 
-    this.ctx = new AudioContext();
+    this.ctx = new AudioContext(sampleRate ? { sampleRate } : undefined);
 
     await this.core.initialize(this.ctx, {
       numberOfInputs: 0,
