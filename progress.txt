@@ -1,0 +1,25 @@
+# Audio Clips Feature Progress
+
+## 2026-01-28 - Schema Changes Complete
+
+### Completed
+- Added `clips` table to Convex schema with all required fields:
+  - projectId, trackId, fileId (storage ID), name, startTime, duration, audioStartTime, gain, timestamps
+  - Indexes: by_track (trackId), by_project (projectId)
+- Added `color` field (optional string) to tracks table for clip rendering
+- Added `duration` field (optional number, in samples) to projects table
+- Added `sampleRate` field (optional number) to projects table
+
+### Implementation Notes
+- All new fields are optional to maintain backward compatibility with existing data
+- The `fileId` field uses `v.id("_storage")` which is Convex's built-in storage ID type
+- Track colors are stored as hex strings (e.g., "#FF5733")
+- Duration and sampleRate on projects will be set when first clip is uploaded
+
+### Next Priority Tasks
+1. Create Convex file upload mutation (FR-5 through FR-8)
+2. Create clip CRUD mutations (create, update position, delete)
+3. Create query to get clips for a project
+
+### Files Modified
+- packages/backend/convex/schema.ts

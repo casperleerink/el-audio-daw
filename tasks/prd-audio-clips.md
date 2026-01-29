@@ -13,10 +13,10 @@ Add ability to drag audio files from computer onto tracks, upload to Convex file
 
 ## Tasks
 
-- [ ] Add `clips` table to Convex schema
-- [ ] Add `color` field to tracks table (or generate deterministically from track order/id)
-- [ ] Add `duration` field to projects table (in samples)
-- [ ] Add `sampleRate` field to projects table
+- [x] Add `clips` table to Convex schema
+- [x] Add `color` field to tracks table (or generate deterministically from track order/id)
+- [x] Add `duration` field to projects table (in samples)
+- [x] Add `sampleRate` field to projects table
 - [ ] Create Convex file upload mutation
 - [ ] Create clip CRUD mutations (create, update position, delete)
 - [ ] Create query to get clips for a project
@@ -41,6 +41,7 @@ Add ability to drag audio files from computer onto tracks, upload to Convex file
 ### Schema
 
 **FR-1**: Add `clips` table with fields:
+
 - `projectId`: reference to projects table
 - `trackId`: reference to tracks table
 - `fileId`: Convex storage ID (used as VFS key)
@@ -72,6 +73,7 @@ Add ability to drag audio files from computer onto tracks, upload to Convex file
 ### Clip Creation
 
 **FR-9**: On successful upload, create clip record with:
+
 - `startTime` = mouse drop position converted to samples
 - `duration` = decoded audio duration in samples
 - `audioStartTime` = 0
@@ -85,6 +87,7 @@ Add ability to drag audio files from computer onto tracks, upload to Convex file
 ### Clip Overlap Handling
 
 **FR-12**: When placing a new clip, if it overlaps with existing clip on same track:
+
 - If new clip starts inside existing clip: truncate existing clip's duration to end where new clip starts
 - If new clip completely covers existing clip: delete existing clip
 - Multiple existing clips can be affected
@@ -102,6 +105,7 @@ Add ability to drag audio files from computer onto tracks, upload to Convex file
 **FR-16**: Each audio file loaded into VFS with key = Convex storage ID string
 
 **FR-17**: Load all project clips into VFS when:
+
 - User opens project page
 - New clip is uploaded
 
@@ -125,11 +129,12 @@ Add ability to drag audio files from computer onto tracks, upload to Convex file
 
 **FR-25**: Clip rectangle shows filename (truncated if too long)
 
-**FR-26**: Clip width = duration * pixelsPerSecond / sampleRate
+**FR-26**: Clip width = duration \* pixelsPerSecond / sampleRate
 
-**FR-27**: Clip x position = startTime * pixelsPerSecond / sampleRate
+**FR-27**: Clip x position = startTime \* pixelsPerSecond / sampleRate
 
 **FR-28**: Different visual states:
+
 - Normal: solid color with filename
 - Loading: semi-transparent with spinner/pulsing effect
 - Error: red-tinted with error icon
@@ -192,6 +197,7 @@ Use `ctx.storage.store()` for upload, `ctx.storage.getUrl()` for retrieval. File
 ### Position Calculations
 
 All positions stored in samples for precision. Convert to/from seconds using project sampleRate:
+
 - samples to seconds: `samples / sampleRate`
 - seconds to samples: `seconds * sampleRate`
 
