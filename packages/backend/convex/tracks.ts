@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { authComponent } from "./auth";
-import { checkProjectAccess } from "./utils";
+import { checkProjectAccess, getAuthUser, requireProjectAccess } from "./utils";
 
 export const createTrack = mutation({
   args: {
@@ -9,15 +8,7 @@ export const createTrack = mutation({
     name: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
-    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
-    if (!hasAccess) {
-      throw new Error("Not authorized to access this project");
-    }
+    await requireProjectAccess(ctx, args.projectId);
 
     // Get highest order number
     const tracks = await ctx.db
@@ -55,20 +46,12 @@ export const updateTrack = mutation({
     gain: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
     const track = await ctx.db.get(args.id);
     if (!track) {
       throw new Error("Track not found");
     }
 
-    const hasAccess = await checkProjectAccess(ctx.db, track.projectId, user._id);
-    if (!hasAccess) {
-      throw new Error("Not authorized to access this project");
-    }
+    await requireProjectAccess(ctx, track.projectId);
 
     const updates: Record<string, any> = {
       updatedAt: Date.now(),
@@ -88,20 +71,12 @@ export const deleteTrack = mutation({
     id: v.id("tracks"),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
     const track = await ctx.db.get(args.id);
     if (!track) {
       throw new Error("Track not found");
     }
 
-    const hasAccess = await checkProjectAccess(ctx.db, track.projectId, user._id);
-    if (!hasAccess) {
-      throw new Error("Not authorized to access this project");
-    }
+    await requireProjectAccess(ctx, track.projectId);
 
     await ctx.db.delete(args.id);
   },
@@ -113,15 +88,7 @@ export const reorderTracks = mutation({
     trackIds: v.array(v.id("tracks")),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
-    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
-    if (!hasAccess) {
-      throw new Error("Not authorized to access this project");
-    }
+    await requireProjectAccess(ctx, args.projectId);
 
     const now = Date.now();
     for (let i = 0; i < args.trackIds.length; i++) {
@@ -142,7 +109,7 @@ export const getProjectTracks = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
+    const user = await getAuthUser(ctx);
     if (!user) {
       return [];
     }

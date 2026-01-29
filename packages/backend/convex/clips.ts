@@ -1,8 +1,13 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { authComponent } from "./auth";
 import { isSupportedAudioType, MAX_FILE_SIZE } from "./constants";
-import { checkProjectAccess, extendProjectDurationIfNeeded, handleClipOverlap } from "./utils";
+import {
+  checkProjectAccess,
+  extendProjectDurationIfNeeded,
+  getAuthUser,
+  handleClipOverlap,
+  requireProjectAccess,
+} from "./utils";
 
 /**
  * Generate an upload URL for audio file uploads (FR-8)
@@ -13,15 +18,7 @@ export const generateUploadUrl = mutation({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
-    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
-    if (!hasAccess) {
-      throw new Error("Not authorized to access this project");
-    }
+    await requireProjectAccess(ctx, args.projectId);
 
     return await ctx.storage.generateUploadUrl();
   },
@@ -39,15 +36,7 @@ export const validateUploadedFile = mutation({
     size: v.number(),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
-    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
-    if (!hasAccess) {
-      throw new Error("Not authorized to access this project");
-    }
+    await requireProjectAccess(ctx, args.projectId);
 
     // Validate file size (FR-6)
     if (args.size > MAX_FILE_SIZE) {
@@ -80,7 +69,7 @@ export const getFileUrl = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
+    const user = await getAuthUser(ctx);
     if (!user) {
       return null;
     }
@@ -107,15 +96,7 @@ export const createClip = mutation({
     duration: v.number(),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
-    const hasAccess = await checkProjectAccess(ctx.db, args.projectId, user._id);
-    if (!hasAccess) {
-      throw new Error("Not authorized to access this project");
-    }
+    await requireProjectAccess(ctx, args.projectId);
 
     // Verify track belongs to project
     const track = await ctx.db.get(args.trackId);
@@ -166,20 +147,12 @@ export const updateClipPosition = mutation({
     startTime: v.number(),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
     const clip = await ctx.db.get(args.id);
     if (!clip) {
       throw new Error("Clip not found");
     }
 
-    const hasAccess = await checkProjectAccess(ctx.db, clip.projectId, user._id);
-    if (!hasAccess) {
-      throw new Error("Not authorized to access this project");
-    }
+    await requireProjectAccess(ctx, clip.projectId);
 
     // Clamp to 0 (FR-38)
     const newStartTime = Math.max(0, args.startTime);
@@ -206,20 +179,12 @@ export const deleteClip = mutation({
     id: v.id("clips"),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
     const clip = await ctx.db.get(args.id);
     if (!clip) {
       throw new Error("Clip not found");
     }
 
-    const hasAccess = await checkProjectAccess(ctx.db, clip.projectId, user._id);
-    if (!hasAccess) {
-      throw new Error("Not authorized to access this project");
-    }
+    await requireProjectAccess(ctx, clip.projectId);
 
     // Delete the stored audio file
     await ctx.storage.delete(clip.fileId);
@@ -237,7 +202,7 @@ export const getProjectClips = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
+    const user = await getAuthUser(ctx);
     if (!user) {
       return [];
     }
@@ -264,7 +229,7 @@ export const getProjectClipUrls = query({
     projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
+    const user = await getAuthUser(ctx);
     if (!user) {
       return [];
     }

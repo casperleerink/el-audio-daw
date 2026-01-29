@@ -1,5 +1,42 @@
-import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
+import type { DatabaseReader, DatabaseWriter, MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { authComponent } from "./auth";
+
+// Re-export authComponent for use in modules that import from utils
+export { authComponent };
+
+/**
+ * Get the authenticated user from the context.
+ * Returns the user if authenticated, null otherwise.
+ */
+export async function getAuthUser(ctx: QueryCtx | MutationCtx) {
+  return await authComponent.safeGetAuthUser(ctx);
+}
+
+/**
+ * Ensure the user is authenticated, throwing an error if not.
+ * Use this in mutations where authentication is required.
+ */
+export async function requireAuth(ctx: QueryCtx | MutationCtx) {
+  const user = await authComponent.safeGetAuthUser(ctx);
+  if (!user) {
+    throw new Error("Not authenticated");
+  }
+  return user;
+}
+
+/**
+ * Ensure the user is authenticated and has access to the given project.
+ * Use this in mutations where both auth and project access are required.
+ */
+export async function requireProjectAccess(ctx: QueryCtx | MutationCtx, projectId: Id<"projects">) {
+  const user = await requireAuth(ctx);
+  const hasAccess = await checkProjectAccess(ctx.db, projectId, user._id);
+  if (!hasAccess) {
+    throw new Error("Not authorized to access this project");
+  }
+  return user;
+}
 
 /**
  * Check if a user has access to a project by verifying they are a projectUser.

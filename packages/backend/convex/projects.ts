@@ -1,16 +1,13 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { authComponent } from "./auth";
+import { getAuthUser, requireAuth } from "./utils";
 
 export const createProject = mutation({
   args: {
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
+    const user = await requireAuth(ctx);
 
     const now = Date.now();
     const projectId = await ctx.db.insert("projects", {
@@ -36,10 +33,7 @@ export const updateProject = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
+    const user = await requireAuth(ctx);
 
     const projectUser = await ctx.db
       .query("projectUsers")
@@ -62,10 +56,7 @@ export const deleteProject = mutation({
     id: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
+    const user = await requireAuth(ctx);
 
     const projectUser = await ctx.db
       .query("projectUsers")
@@ -104,7 +95,7 @@ export const getProject = query({
     id: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
+    const user = await getAuthUser(ctx);
     if (!user) {
       return null;
     }
@@ -126,7 +117,7 @@ export const getProject = query({
 export const getUserProjects = query({
   args: {},
   handler: async (ctx) => {
-    const user = await authComponent.safeGetAuthUser(ctx);
+    const user = await getAuthUser(ctx);
     if (!user) {
       return [];
     }
