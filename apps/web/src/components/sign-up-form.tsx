@@ -9,8 +9,7 @@ import { authClient } from "@/lib/auth-client";
 
 import { Button } from "./ui/button";
 import { FormErrorAlert } from "./ui/form-error-alert";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
+import { TanStackFormField } from "./ui/tanstack-form-field";
 
 export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate({
@@ -56,6 +55,10 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
     },
   });
 
+  const clearFormError = () => {
+    if (formError) setFormError(null);
+  };
+
   return (
     <div className="mx-auto w-full mt-10 max-w-md p-6">
       <h1 className="mb-6 text-center text-3xl font-bold">Create Account</h1>
@@ -70,82 +73,23 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         }}
         className="space-y-4"
       >
-        <div>
-          <form.Field name="name">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Name</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => {
-                    if (formError) setFormError(null);
-                    field.handleChange(e.target.value);
-                  }}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
-        </div>
+        <TanStackFormField form={form} name="name" label="Name" onInputChange={clearFormError} />
 
-        <div>
-          <form.Field name="email">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Email</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="email"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => {
-                    if (formError) setFormError(null);
-                    field.handleChange(e.target.value);
-                  }}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
-        </div>
+        <TanStackFormField
+          form={form}
+          name="email"
+          label="Email"
+          type="email"
+          onInputChange={clearFormError}
+        />
 
-        <div>
-          <form.Field name="password">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Password</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="password"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => {
-                    if (formError) setFormError(null);
-                    field.handleChange(e.target.value);
-                  }}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
-        </div>
+        <TanStackFormField
+          form={form}
+          name="password"
+          label="Password"
+          type="password"
+          onInputChange={clearFormError}
+        />
 
         <form.Subscribe>
           {(state) => (
