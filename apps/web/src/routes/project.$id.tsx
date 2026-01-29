@@ -68,9 +68,7 @@ function ProjectEditorPage() {
         )}
       </Unauthenticated>
       <AuthLoading>
-        <div className="flex h-full items-center justify-center">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-        </div>
+        <ProjectEditorSkeleton />
       </AuthLoading>
     </>
   );
@@ -280,10 +278,16 @@ function ProjectEditor() {
   }, [initializeEngine]);
 
   const handleStop = useCallback(() => {
+    if (!isPlaying) {
+      // Already stopped, reset playhead to 0
+      engineRef.current?.setPlayhead(0);
+      setPlayheadTime(0);
+      return;
+    }
     if (!engineRef.current) return;
     engineRef.current.stop();
     setIsPlaying(false);
-  }, []);
+  }, [isPlaying]);
 
   const handleTogglePlayStop = useCallback(async () => {
     if (isPlaying) {
@@ -1119,11 +1123,27 @@ function TimelineCanvas({
       e.preventDefault();
 
       if (e.ctrlKey || e.metaKey) {
-        // Zoom with ctrl/cmd + scroll
+        // Zoom with ctrl/cmd + scroll, centered on cursor position
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        const cursorX = e.clientX - rect.left;
         const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-        setPixelsPerSecond((prev) =>
-          Math.min(MAX_PIXELS_PER_SECOND, Math.max(MIN_PIXELS_PER_SECOND, prev * zoomFactor)),
+
+        // Calculate time at cursor before zoom
+        const timeAtCursor = (cursorX + scrollLeft) / pixelsPerSecond;
+
+        // Calculate new zoom level
+        const newPixelsPerSecond = Math.min(
+          MAX_PIXELS_PER_SECOND,
+          Math.max(MIN_PIXELS_PER_SECOND, pixelsPerSecond * zoomFactor),
         );
+
+        // Adjust scroll so cursor stays over the same time position
+        const newScrollLeft = timeAtCursor * newPixelsPerSecond - cursorX;
+
+        setPixelsPerSecond(newPixelsPerSecond);
+        setScrollLeft(Math.max(0, newScrollLeft));
       } else if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
         // Horizontal scroll with shift or horizontal gesture
         const delta = e.shiftKey ? e.deltaY : e.deltaX;
@@ -1134,8 +1154,27 @@ function TimelineCanvas({
         onScrollChange(newScrollTop);
       }
     },
-    [maxScrollTop, scrollTop, onScrollChange],
+    [maxScrollTop, scrollTop, onScrollChange, scrollLeft, pixelsPerSecond],
   );
+
+  // Store current values in refs for Safari gesture handlers
+  const scrollLeftRef = useRef(scrollLeft);
+  const pixelsPerSecondRef = useRef(pixelsPerSecond);
+  const hoverXRef = useRef(hoverX);
+  const dimensionsRef = useRef(dimensions);
+
+  useEffect(() => {
+    scrollLeftRef.current = scrollLeft;
+  }, [scrollLeft]);
+  useEffect(() => {
+    pixelsPerSecondRef.current = pixelsPerSecond;
+  }, [pixelsPerSecond]);
+  useEffect(() => {
+    hoverXRef.current = hoverX;
+  }, [hoverX]);
+  useEffect(() => {
+    dimensionsRef.current = dimensions;
+  }, [dimensions]);
 
   // Prevent browser zoom on Safari trackpad pinch gestures
   // Safari fires gesturestart/gesturechange/gestureend for pinch-to-zoom
@@ -1159,9 +1198,25 @@ function TimelineCanvas({
       const zoomFactor = scale / lastScale;
       lastScale = scale;
 
-      setPixelsPerSecond((prev) =>
-        Math.min(MAX_PIXELS_PER_SECOND, Math.max(MIN_PIXELS_PER_SECOND, prev * zoomFactor)),
+      // Use cursor position if hovering, otherwise use viewport center
+      const cursorX = hoverXRef.current ?? dimensionsRef.current.width / 2;
+      const currentScrollLeft = scrollLeftRef.current;
+      const currentPPS = pixelsPerSecondRef.current;
+
+      // Calculate time at cursor before zoom
+      const timeAtCursor = (cursorX + currentScrollLeft) / currentPPS;
+
+      // Calculate new zoom level
+      const newPixelsPerSecond = Math.min(
+        MAX_PIXELS_PER_SECOND,
+        Math.max(MIN_PIXELS_PER_SECOND, currentPPS * zoomFactor),
       );
+
+      // Adjust scroll so cursor stays over the same time position
+      const newScrollLeft = timeAtCursor * newPixelsPerSecond - cursorX;
+
+      setPixelsPerSecond(newPixelsPerSecond);
+      setScrollLeft(Math.max(0, newScrollLeft));
     };
 
     const handleGestureEnd = (e: Event) => {
@@ -1214,15 +1269,35 @@ function TimelineCanvas({
     setHoverTime(null);
   }, []);
 
-  // Zoom in by 2x
+  // Zoom in by 2x, centered on cursor or viewport center
   const handleZoomIn = useCallback(() => {
-    setPixelsPerSecond((prev) => Math.min(MAX_PIXELS_PER_SECOND, prev * 2));
-  }, []);
+    // Use cursor position if hovering, otherwise use viewport center
+    const cursorX = hoverX ?? dimensions.width / 2;
+    const timeAtCursor = (cursorX + scrollLeft) / pixelsPerSecond;
 
-  // Zoom out by 2x
+    const newPixelsPerSecond = Math.min(MAX_PIXELS_PER_SECOND, pixelsPerSecond * 2);
+
+    // Adjust scroll so cursor stays over the same time position
+    const newScrollLeft = timeAtCursor * newPixelsPerSecond - cursorX;
+
+    setPixelsPerSecond(newPixelsPerSecond);
+    setScrollLeft(Math.max(0, newScrollLeft));
+  }, [hoverX, dimensions.width, scrollLeft, pixelsPerSecond]);
+
+  // Zoom out by 2x, centered on cursor or viewport center
   const handleZoomOut = useCallback(() => {
-    setPixelsPerSecond((prev) => Math.max(MIN_PIXELS_PER_SECOND, prev / 2));
-  }, []);
+    // Use cursor position if hovering, otherwise use viewport center
+    const cursorX = hoverX ?? dimensions.width / 2;
+    const timeAtCursor = (cursorX + scrollLeft) / pixelsPerSecond;
+
+    const newPixelsPerSecond = Math.max(MIN_PIXELS_PER_SECOND, pixelsPerSecond / 2);
+
+    // Adjust scroll so cursor stays over the same time position
+    const newScrollLeft = timeAtCursor * newPixelsPerSecond - cursorX;
+
+    setPixelsPerSecond(newPixelsPerSecond);
+    setScrollLeft(Math.max(0, newScrollLeft));
+  }, [hoverX, dimensions.width, scrollLeft, pixelsPerSecond]);
 
   // Draw canvas
   useEffect(() => {
