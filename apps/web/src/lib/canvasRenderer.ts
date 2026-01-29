@@ -58,6 +58,28 @@ export function getTrackColor(index: number): string {
 }
 
 /**
+ * Truncate text to fit within a given width, adding an ellipsis if needed.
+ * Returns the truncated text that fits within maxWidth.
+ */
+export function truncateText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string {
+  let textWidth = ctx.measureText(text).width;
+  if (textWidth <= maxWidth) {
+    return text;
+  }
+
+  let truncated = text;
+  while (textWidth > maxWidth && truncated.length > 0) {
+    truncated = truncated.slice(0, -1);
+    textWidth = ctx.measureText(truncated + "…").width;
+  }
+  return truncated + "…";
+}
+
+/**
  * Clear the canvas with background color
  */
 export function clearCanvas(ctx: CanvasRenderContext): void {
@@ -208,17 +230,7 @@ export function drawClips(options: DrawClipsOptions): void {
 
       const textPadding = 6;
       const maxTextWidth = clipWidth - textPadding * 2;
-      let displayName = clip.name;
-
-      // Truncate with ellipsis if needed
-      let textWidth = ctx.measureText(displayName).width;
-      if (textWidth > maxTextWidth) {
-        while (textWidth > maxTextWidth && displayName.length > 0) {
-          displayName = displayName.slice(0, -1);
-          textWidth = ctx.measureText(displayName + "…").width;
-        }
-        displayName = displayName + "…";
-      }
+      const displayName = truncateText(ctx, clip.name, maxTextWidth);
 
       ctx.fillText(displayName, clipX + textPadding, clipY + clipHeight / 2);
     }
