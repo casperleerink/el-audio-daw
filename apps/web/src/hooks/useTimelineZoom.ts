@@ -22,6 +22,20 @@ interface UseTimelineZoomOptions {
   dimensions: { width: number; height: number };
 }
 
+/**
+ * Calculate the new scroll position after zoom to keep the cursor
+ * over the same timeline position.
+ */
+function calculateScrollAfterZoom(
+  cursorX: number,
+  currentScrollLeft: number,
+  currentPPS: number,
+  newPPS: number,
+): number {
+  const timeAtCursor = (cursorX + currentScrollLeft) / currentPPS;
+  return Math.max(0, timeAtCursor * newPPS - cursorX);
+}
+
 interface UseTimelineZoomReturn {
   /** Horizontal scroll position in pixels */
   scrollLeft: number;
@@ -86,14 +100,14 @@ export function useTimelineZoom({
       currentScrollLeft: number,
       currentPPS: number,
     ) => {
-      // Calculate time at cursor before zoom
-      const timeAtCursor = (cursorX + currentScrollLeft) / currentPPS;
-
-      // Adjust scroll so cursor stays over the same time position
-      const newScrollLeft = timeAtCursor * newPixelsPerSecond - cursorX;
-
+      const newScrollLeft = calculateScrollAfterZoom(
+        cursorX,
+        currentScrollLeft,
+        currentPPS,
+        newPixelsPerSecond,
+      );
       setPixelsPerSecond(newPixelsPerSecond);
-      setScrollLeft(Math.max(0, newScrollLeft));
+      setScrollLeft(newScrollLeft);
     },
     [],
   );
@@ -157,20 +171,21 @@ export function useTimelineZoom({
       const currentScrollLeft = scrollLeftRef.current;
       const currentPPS = pixelsPerSecondRef.current;
 
-      // Calculate time at cursor before zoom
-      const timeAtCursor = (cursorX + currentScrollLeft) / currentPPS;
-
       // Calculate new zoom level
       const newPixelsPerSecond = Math.min(
         MAX_PIXELS_PER_SECOND,
         Math.max(MIN_PIXELS_PER_SECOND, currentPPS * zoomFactor),
       );
 
-      // Adjust scroll so cursor stays over the same time position
-      const newScrollLeft = timeAtCursor * newPixelsPerSecond - cursorX;
+      const newScrollLeft = calculateScrollAfterZoom(
+        cursorX,
+        currentScrollLeft,
+        currentPPS,
+        newPixelsPerSecond,
+      );
 
       setPixelsPerSecond(newPixelsPerSecond);
-      setScrollLeft(Math.max(0, newScrollLeft));
+      setScrollLeft(newScrollLeft);
     };
 
     const handleGestureEnd = (e: Event) => {
