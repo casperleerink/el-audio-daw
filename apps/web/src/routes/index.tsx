@@ -16,6 +16,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { formatDate } from "@/lib/formatters";
 
 export const Route = createFileRoute("/")({
   component: DashboardComponent,
@@ -125,15 +126,6 @@ function ProjectCard({
   };
   onOpen: () => void;
 }) {
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
-    });
-  };
-
   return (
     <Card className="cursor-pointer transition-colors hover:bg-muted/50" onClick={onOpen}>
       <CardHeader>

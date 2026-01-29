@@ -19,3 +19,17 @@ export function formatGain(db: number): string {
   if (db <= -60) return "-∞";
   return `${db > 0 ? "+" : ""}${db.toFixed(1)} dB`;
 }
+
+/**
+ * Format a timestamp as a localized date string
+ * @param timestamp - Unix timestamp in milliseconds
+ * @returns Formatted date string (e.g., "Jan 15" or "Jan 15, 2024" for dates in other years)
+ */
+export function formatDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+  });
+}
