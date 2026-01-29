@@ -1,6 +1,5 @@
 import { api } from "@el-audio-daw/backend/convex/_generated/api";
 import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
-import { isSupportedAudioType, MAX_FILE_SIZE } from "@el-audio-daw/backend/convex/constants";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
@@ -28,6 +27,7 @@ import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
+import { useTimelineFileDrop } from "@/hooks/useTimelineFileDrop";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { renderTimeline } from "@/lib/canvasRenderer";
 import { formatGain, formatTime } from "@/lib/formatters";
@@ -895,13 +895,6 @@ interface TimelineCanvasProps {
   projectId: Id<"projects">;
 }
 
-// Drop target state for visual feedback
-interface DropTarget {
-  trackId: string;
-  trackIndex: number;
-  dropTimeInSamples: number;
-}
-
 // Clip drag state for moving clips (FR-34-38)
 interface ClipDragState {
   clipId: string;
@@ -944,19 +937,40 @@ function TimelineCanvas({
     dimensions,
   });
 
-  // Drag-drop state (FR-29-33)
-  const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  // File drag-drop state and handlers (FR-29-33)
+  const {
+    isDraggingFile,
+    dropTarget,
+    isUploading,
+    handleDragEnter,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+  } = useTimelineFileDrop({
+    canvasRef,
+    containerRef,
+    tracks: tracks.map((t) => ({
+      ...t,
+      _id: t._id as Id<"tracks">,
+      order: 0,
+      muted: false,
+      solo: false,
+      gain: 1,
+    })),
+    scrollLeft,
+    scrollTop,
+    pixelsPerSecond,
+    sampleRate,
+    projectId,
+    rulerHeight: RULER_HEIGHT,
+    trackHeight: TRACK_HEIGHT,
+  });
 
   // Clip drag state (FR-34-38)
   const [clipDragState, setClipDragState] = useState<ClipDragState | null>(null);
   const justFinishedDragRef = useRef(false);
 
-  // Mutations for file upload
-  const generateUploadUrl = useMutation(api.clips.generateUploadUrl);
-  const validateUploadedFile = useMutation(api.clips.validateUploadedFile);
-  const createClip = useMutation(api.clips.createClip);
+  // Mutation for clip position update
   const updateClipPosition = useMutation(api.clips.updateClipPosition);
 
   // Track resize
@@ -1029,221 +1043,6 @@ function TimelineCanvas({
       return null;
     },
     [tracks, clips, scrollLeft, scrollTop, pixelsPerSecond, sampleRate],
-  );
-
-  // Calculate drop position from mouse coordinates (FR-31)
-  const calculateDropPosition = useCallback(
-    (clientX: number, clientY: number): DropTarget | null => {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect || tracks.length === 0) return null;
-
-      const canvasX = clientX - rect.left;
-      const canvasY = clientY - rect.top;
-
-      // Check if in track area (below ruler)
-      if (canvasY < RULER_HEIGHT) return null;
-
-      // Calculate track index from Y position
-      const trackIndex = Math.floor((canvasY - RULER_HEIGHT + scrollTop) / TRACK_HEIGHT);
-      if (trackIndex < 0 || trackIndex >= tracks.length) return null;
-
-      const track = tracks[trackIndex];
-      if (!track) return null;
-
-      // Calculate time from X position (FR-31)
-      const timeInSeconds = (canvasX + scrollLeft) / pixelsPerSecond;
-      const dropTimeInSamples = Math.max(0, Math.round(timeInSeconds * sampleRate));
-
-      return {
-        trackId: track._id,
-        trackIndex,
-        dropTimeInSamples,
-      };
-    },
-    [tracks, scrollLeft, scrollTop, pixelsPerSecond, sampleRate],
-  );
-
-  // Check if file is a supported audio type
-  const isAudioFile = useCallback((file: File): boolean => {
-    return isSupportedAudioType(file.type);
-  }, []);
-
-  // Decode audio file to get duration (FR-10)
-  const decodeAudioFile = useCallback(
-    async (file: File): Promise<{ durationInSamples: number; fileSampleRate: number }> => {
-      const arrayBuffer = await file.arrayBuffer();
-      const audioContext = new AudioContext({ sampleRate });
-      try {
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        return {
-          durationInSamples: audioBuffer.length,
-          fileSampleRate: audioBuffer.sampleRate,
-        };
-      } finally {
-        await audioContext.close();
-      }
-    },
-    [sampleRate],
-  );
-
-  // Handle file drop (FR-29-33)
-  const handleFileDrop = useCallback(
-    async (file: File, dropPosition: DropTarget) => {
-      // Client-side validation (FR-6, FR-7)
-      if (file.size > MAX_FILE_SIZE) {
-        toast.error(
-          `File too large. Maximum size is 100MB, got ${Math.round(file.size / 1024 / 1024)}MB`,
-        );
-        return;
-      }
-
-      if (!isAudioFile(file)) {
-        toast.error("Unsupported audio format. Supported formats: WAV, MP3, AIFF, FLAC, OGG");
-        return;
-      }
-
-      setIsUploading(true);
-
-      try {
-        // Decode audio to get duration (FR-10)
-        const { durationInSamples, fileSampleRate } = await decodeAudioFile(file);
-
-        // Show warning if sample rates differ (FR-11)
-        if (fileSampleRate !== sampleRate) {
-          toast.warning(
-            `Sample rate mismatch: file is ${fileSampleRate}Hz, project is ${sampleRate}Hz. Playback may be affected.`,
-          );
-        }
-
-        // Generate upload URL (FR-8)
-        const uploadUrl = await generateUploadUrl({ projectId });
-
-        // Upload file to Convex storage
-        const response = await fetch(uploadUrl, {
-          method: "POST",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-
-        if (!response.ok) {
-          throw new Error("Upload failed");
-        }
-
-        const { storageId } = (await response.json()) as { storageId: Id<"_storage"> };
-
-        // Validate uploaded file (FR-5, FR-6, FR-7)
-        await validateUploadedFile({
-          storageId,
-          projectId,
-          contentType: file.type,
-          size: file.size,
-        });
-
-        // Create clip record (FR-9)
-        const clipName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
-        await createClip({
-          projectId,
-          trackId: dropPosition.trackId as Id<"tracks">,
-          fileId: storageId,
-          name: clipName,
-          startTime: dropPosition.dropTimeInSamples,
-          duration: durationInSamples,
-        });
-
-        toast.success(`Added "${clipName}" to timeline`);
-      } catch (error) {
-        console.error("Failed to upload audio file:", error);
-        toast.error(error instanceof Error ? error.message : "Failed to upload audio file");
-      } finally {
-        setIsUploading(false);
-      }
-    },
-    [
-      isAudioFile,
-      decodeAudioFile,
-      generateUploadUrl,
-      validateUploadedFile,
-      createClip,
-      projectId,
-      sampleRate,
-    ],
-  );
-
-  // Drag event handlers (FR-29, FR-30)
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // Check if dragging files
-    if (e.dataTransfer.types.includes("Files")) {
-      setIsDraggingFile(true);
-    }
-  }, []);
-
-  const handleDragOver = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (!e.dataTransfer.types.includes("Files")) return;
-
-      e.dataTransfer.dropEffect = "copy";
-      setIsDraggingFile(true);
-
-      // Calculate and update drop target
-      const target = calculateDropPosition(e.clientX, e.clientY);
-      setDropTarget(target);
-    },
-    [calculateDropPosition],
-  );
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // Only clear if leaving the container entirely
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const { clientX, clientY } = e;
-    if (
-      clientX < rect.left ||
-      clientX > rect.right ||
-      clientY < rect.top ||
-      clientY > rect.bottom
-    ) {
-      setIsDraggingFile(false);
-      setDropTarget(null);
-    }
-  }, []);
-
-  const handleDrop = useCallback(
-    async (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      setIsDraggingFile(false);
-
-      const files = Array.from(e.dataTransfer.files);
-      const audioFile = files.find((f) => isAudioFile(f));
-
-      if (!audioFile) {
-        toast.error("No supported audio file found. Supported formats: WAV, MP3, AIFF, FLAC, OGG");
-        setDropTarget(null);
-        return;
-      }
-
-      const target = calculateDropPosition(e.clientX, e.clientY);
-      setDropTarget(null);
-
-      if (!target) {
-        toast.error("Please drop the file on a track lane");
-        return;
-      }
-
-      await handleFileDrop(audioFile, target);
-    },
-    [isAudioFile, calculateDropPosition, handleFileDrop],
   );
 
   // Handle wheel for zoom and scroll
