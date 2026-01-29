@@ -363,6 +363,28 @@ export class AudioEngine {
   }
 
   /**
+   * Sum stereo signals, handling 0, 1, or multiple signals efficiently
+   */
+  private sumStereoSignals(
+    signals: { left: NodeRepr_t; right: NodeRepr_t }[],
+    silenceKey: string,
+  ): { left: NodeRepr_t; right: NodeRepr_t } {
+    if (signals.length === 0) {
+      return {
+        left: el.const({ key: `${silenceKey}-left-empty`, value: 0 }),
+        right: el.const({ key: `${silenceKey}-right-empty`, value: 0 }),
+      };
+    }
+    if (signals.length === 1) {
+      return signals[0]!;
+    }
+    return {
+      left: el.add(...signals.map((s) => s.left)),
+      right: el.add(...signals.map((s) => s.right)),
+    };
+  }
+
+  /**
    * Render the audio graph based on current state
    *
    * Graph structure (FR-20):
@@ -488,21 +510,10 @@ export class AudioEngine {
       });
 
       // Sum all clips on this track (FR-21)
-      let trackLeft: NodeRepr_t;
-      let trackRight: NodeRepr_t;
-
-      if (clipSignals.length === 0) {
-        // No clips - silence
-        trackLeft = el.const({ key: `track-${track.id}-left-empty`, value: 0 });
-        trackRight = el.const({ key: `track-${track.id}-right-empty`, value: 0 });
-      } else if (clipSignals.length === 1) {
-        trackLeft = clipSignals[0]!.left;
-        trackRight = clipSignals[0]!.right;
-      } else {
-        // Sum multiple clips
-        trackLeft = el.add(...clipSignals.map((s) => s.left));
-        trackRight = el.add(...clipSignals.map((s) => s.right));
-      }
+      const { left: trackLeft, right: trackRight } = this.sumStereoSignals(
+        clipSignals,
+        `track-${track.id}`,
+      );
 
       // Apply track gain with smoothing (FR-20)
       const smoothedGain = el.sm(
@@ -516,19 +527,7 @@ export class AudioEngine {
     });
 
     // Sum all tracks (or silence if no tracks)
-    let summedLeft: NodeRepr_t;
-    let summedRight: NodeRepr_t;
-
-    if (trackSignals.length === 0) {
-      summedLeft = el.const({ key: "sum-left-empty", value: 0 });
-      summedRight = el.const({ key: "sum-right-empty", value: 0 });
-    } else if (trackSignals.length === 1) {
-      summedLeft = trackSignals[0]!.left;
-      summedRight = trackSignals[0]!.right;
-    } else {
-      summedLeft = el.add(...trackSignals.map((s) => s.left));
-      summedRight = el.add(...trackSignals.map((s) => s.right));
-    }
+    const { left: summedLeft, right: summedRight } = this.sumStereoSignals(trackSignals, "sum");
 
     // Apply master gain with smoothing
     const masterGainValue = dbToGain(masterGain);
