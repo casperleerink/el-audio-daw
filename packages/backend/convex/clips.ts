@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { authComponent } from "./auth";
 import { isSupportedAudioType, MAX_FILE_SIZE } from "./constants";
-import { checkProjectAccess } from "./utils";
+import { checkProjectAccess, extendProjectDurationIfNeeded, handleClipOverlap } from "./utils";
 
 /**
  * Generate an upload URL for audio file uploads (FR-8)
@@ -131,49 +131,13 @@ export const createClip = mutation({
       throw new Error("Duration must be positive");
     }
 
-    // Handle clip overlap (FR-12)
-    const existingClips = await ctx.db
-      .query("clips")
-      .withIndex("by_track", (q) => q.eq("trackId", args.trackId))
-      .collect();
-
     const newClipEnd = args.startTime + args.duration;
 
-    for (const clip of existingClips) {
-      const clipEnd = clip.startTime + clip.duration;
+    // Handle clip overlap (FR-12)
+    await handleClipOverlap(ctx.db, args.trackId, args.startTime, newClipEnd);
 
-      // Check if new clip completely covers existing clip
-      if (args.startTime <= clip.startTime && newClipEnd >= clipEnd) {
-        // Delete existing clip
-        await ctx.db.delete(clip._id);
-        continue;
-      }
-
-      // Check if new clip starts inside existing clip
-      if (args.startTime > clip.startTime && args.startTime < clipEnd) {
-        // Truncate existing clip's duration to end where new clip starts
-        await ctx.db.patch(clip._id, {
-          duration: args.startTime - clip.startTime,
-          updatedAt: Date.now(),
-        });
-      }
-    }
-
-    // Get project to check/update duration (FR-13)
-    const project = await ctx.db.get(args.projectId);
-    if (project) {
-      const projectSampleRate = project.sampleRate ?? 44100;
-      const currentDuration = project.duration ?? 10 * projectSampleRate;
-
-      // Extend project duration if needed
-      if (newClipEnd > currentDuration) {
-        const extendedDuration = newClipEnd + 10 * projectSampleRate;
-        await ctx.db.patch(args.projectId, {
-          duration: extendedDuration,
-          updatedAt: Date.now(),
-        });
-      }
-    }
+    // Extend project duration if needed (FR-13)
+    await extendProjectDurationIfNeeded(ctx.db, args.projectId, newClipEnd);
 
     const now = Date.now();
     const clipId = await ctx.db.insert("clips", {
@@ -222,45 +186,10 @@ export const updateClipPosition = mutation({
     const newClipEnd = newStartTime + clip.duration;
 
     // Handle clip overlap on move (FR-37)
-    const existingClips = await ctx.db
-      .query("clips")
-      .withIndex("by_track", (q) => q.eq("trackId", clip.trackId))
-      .collect();
+    await handleClipOverlap(ctx.db, clip.trackId, newStartTime, newClipEnd, args.id);
 
-    for (const existingClip of existingClips) {
-      if (existingClip._id === args.id) continue; // Skip self
-
-      const existingClipEnd = existingClip.startTime + existingClip.duration;
-
-      // Check if moved clip completely covers existing clip
-      if (newStartTime <= existingClip.startTime && newClipEnd >= existingClipEnd) {
-        await ctx.db.delete(existingClip._id);
-        continue;
-      }
-
-      // Check if moved clip starts inside existing clip
-      if (newStartTime > existingClip.startTime && newStartTime < existingClipEnd) {
-        await ctx.db.patch(existingClip._id, {
-          duration: newStartTime - existingClip.startTime,
-          updatedAt: Date.now(),
-        });
-      }
-    }
-
-    // Check if project duration needs extending (FR-13)
-    const project = await ctx.db.get(clip.projectId);
-    if (project) {
-      const projectSampleRate = project.sampleRate ?? 44100;
-      const currentDuration = project.duration ?? 10 * projectSampleRate;
-
-      if (newClipEnd > currentDuration) {
-        const extendedDuration = newClipEnd + 10 * projectSampleRate;
-        await ctx.db.patch(clip.projectId, {
-          duration: extendedDuration,
-          updatedAt: Date.now(),
-        });
-      }
-    }
+    // Extend project duration if needed (FR-13)
+    await extendProjectDurationIfNeeded(ctx.db, clip.projectId, newClipEnd);
 
     await ctx.db.patch(args.id, {
       startTime: newStartTime,
