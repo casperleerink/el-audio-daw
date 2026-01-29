@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   DEFAULT_PIXELS_PER_SECOND,
   MAX_PIXELS_PER_SECOND,
   MIN_PIXELS_PER_SECOND,
 } from "@/lib/timelineConstants";
+import { useSyncRef } from "./useSyncRef";
 
 // Safari-specific GestureEvent for trackpad pinch-to-zoom
 interface GestureEvent extends UIEvent {
@@ -71,24 +72,10 @@ export function useTimelineZoom({
   const [pixelsPerSecond, setPixelsPerSecond] = useState(DEFAULT_PIXELS_PER_SECOND);
 
   // Store current values in refs for Safari gesture handlers
-  const scrollLeftRef = useRef(scrollLeft);
-  const pixelsPerSecondRef = useRef(pixelsPerSecond);
-  const hoverXRef = useRef(hoverX);
-  const dimensionsRef = useRef(dimensions);
-
-  // Sync refs with state
-  useEffect(() => {
-    scrollLeftRef.current = scrollLeft;
-  }, [scrollLeft]);
-  useEffect(() => {
-    pixelsPerSecondRef.current = pixelsPerSecond;
-  }, [pixelsPerSecond]);
-  useEffect(() => {
-    hoverXRef.current = hoverX;
-  }, [hoverX]);
-  useEffect(() => {
-    dimensionsRef.current = dimensions;
-  }, [dimensions]);
+  const scrollLeftRef = useSyncRef(scrollLeft);
+  const pixelsPerSecondRef = useSyncRef(pixelsPerSecond);
+  const hoverXRef = useSyncRef(hoverX);
+  const dimensionsRef = useSyncRef(dimensions);
 
   /**
    * Apply zoom centered on a specific X position.
