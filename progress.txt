@@ -1,0 +1,19 @@
+## 2026-01-29 - Optimistic Update Utilities
+
+### Completed
+Created `apps/web/src/lib/optimistic.ts` with the following utilities:
+
+1. **`tempId<TableName>()`** - Generates temporary client IDs prefixed with `temp_` followed by a UUID. Used for optimistic creates before server confirms with real ID.
+
+2. **`MaybePending<T>`** - Type alias for entities that may be in a pending state. Adds optional `_pending` flag.
+
+3. **`isPending(entity)`** - Checks if an entity has a temp ID (starts with `temp_` prefix). Useful for disabling certain actions on pending entities.
+
+4. **`showRollbackToast(action)`** - Shows a toast notification for failed mutations with the message "Failed to [action]. Changes reverted."
+
+### Notes for next person
+- The utilities follow the pattern defined in FR-8 of the PRD
+- The `tempId` function is constrained to `TableNames` from Convex's generated types for type safety
+- These utilities are foundational - the next task should be implementing optimistic updates for track mutations
+- The existing `useOptimisticTrackUpdates` hook in `apps/web/src/hooks/` handles track control updates (mute/solo/gain) but doesn't use Convex's `withOptimisticUpdate` API - it uses local React state instead
+- Consider whether to refactor that hook to use these new utilities or keep both patterns depending on use case
