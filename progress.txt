@@ -295,3 +295,22 @@ Implemented clip selection for the timeline canvas, enabling multi-clip operatio
 - Pending clips (temp IDs) cannot be selected per FR-8
 - Selection is scoped to single track per FR-3 - shift+clicking on different track clears previous selection
 - `selectedClipIds` is a Set for O(1) lookup
+
+## 2026-01-29 - Delete Selected Clips (FR-10 through FR-13)
+
+### Completed
+Implemented Delete/Backspace keyboard shortcut to delete all selected clips.
+
+**Files modified:**
+1. `apps/web/src/routes/project.$id.tsx`
+   - Moved `deleteClip` mutation from `TimelineCanvas` to `ProjectEditor` component
+   - Added `handleDeleteSelectedClips` callback that deletes all selected clips in parallel
+   - Added Delete/Backspace keyboard handler (FR-10)
+   - Clears selection before deletion for immediate visual feedback
+   - Uses optimistic updates (FR-11) and shows rollback toast on failure (FR-12)
+
+### Notes for next person
+- Next priority: "Add trim handles to clip edges" (FR-14 through FR-22)
+- The `deleteClip` mutation also deletes the associated audio file from storage (FR-13)
+- Deletion happens in parallel for all selected clips for better performance
+- Selection is cleared immediately (optimistic behavior) - if deletion fails, clip reappears via Convex rollback

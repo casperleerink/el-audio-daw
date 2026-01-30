@@ -192,6 +192,9 @@ function ProjectEditor() {
   const updateProject = useMutation(api.projects.updateProject).withOptimisticUpdate(
     updateProjectOptimisticUpdate,
   );
+  const deleteClip = useMutation(api.clips.deleteClip).withOptimisticUpdate(
+    deleteClipOptimisticUpdate,
+  );
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -237,6 +240,27 @@ function ProjectEditor() {
     clearSelection,
     selectAllOnFocusedTrack,
   } = useClipSelection({ clips: clipsForSelection });
+
+  // Delete selected clips handler (FR-10 through FR-13)
+  const handleDeleteSelectedClips = useCallback(async () => {
+    if (selectedClipIds.size === 0) return;
+
+    // Get clip IDs as array before clearing selection
+    const clipIdsToDelete = Array.from(selectedClipIds);
+
+    // Clear selection first (optimistic behavior - clips will be gone)
+    clearSelection();
+
+    // Delete all selected clips in parallel (FR-11: optimistic updates)
+    const deletePromises = clipIdsToDelete.map((clipId) =>
+      deleteClip({ id: clipId as any, projectId: id as any }).catch(() => {
+        // FR-12: On failure, show rollback toast (clip will reappear via Convex rollback)
+        showRollbackToast("delete clip");
+      }),
+    );
+
+    await Promise.all(deletePromises);
+  }, [selectedClipIds, clearSelection, deleteClip, id]);
 
   // Update project name when project loads
   useEffect(() => {
@@ -339,11 +363,23 @@ function ProjectEditor() {
         e.preventDefault();
         selectAllOnFocusedTrack();
       }
+
+      // FR-10: Delete or Backspace deletes all selected clips
+      if (e.code === "Delete" || e.code === "Backspace") {
+        e.preventDefault();
+        handleDeleteSelectedClips();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleTogglePlayStop, handleAddTrack, clearSelection, selectAllOnFocusedTrack]);
+  }, [
+    handleTogglePlayStop,
+    handleAddTrack,
+    clearSelection,
+    selectAllOnFocusedTrack,
+    handleDeleteSelectedClips,
+  ]);
 
   // Loading state
   if (project === undefined || tracks === undefined) {
@@ -604,10 +640,6 @@ function TimelineCanvas({
   // Mutation for clip position update with optimistic updates
   const updateClipPosition = useMutation(api.clips.updateClipPosition).withOptimisticUpdate(
     updateClipPositionOptimisticUpdate,
-  );
-  // Prepared for future clip deletion UI
-  const _deleteClip = useMutation(api.clips.deleteClip).withOptimisticUpdate(
-    deleteClipOptimisticUpdate,
   );
 
   // Clip drag state and handlers (FR-34-38)
