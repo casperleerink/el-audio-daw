@@ -420,3 +420,47 @@ Implemented copy/paste for clips via Cmd+C and Cmd+V keyboard shortcuts.
 - Next priorities: cross-track drag (FR-31 through FR-37) or split (Cmd+E, FR-38 through FR-45)
 - Clipboard is stored in a React ref, not context - simple approach works since copy/paste is local to project page
 - Pasted clips appear immediately with temp IDs, replaced by real IDs when server confirms
+
+## 2026-01-29 - Cross-Track Clip Movement (FR-31 through FR-37)
+
+### Completed
+Implemented vertical drag to move clips between tracks.
+
+**Files modified:**
+1. `packages/backend/convex/clips.ts`
+   - Extended `updateClipPosition` mutation to accept optional `trackId` parameter (FR-35)
+   - Validates target track belongs to same project
+   - Runs overlap handling on target track
+
+2. `apps/web/src/lib/clipOptimisticUpdates.ts`
+   - Updated `UpdateClipPositionArgs` to include optional `trackId`
+   - `updateClipPositionOptimisticUpdate` now updates trackId when provided
+
+3. `apps/web/src/hooks/useClipDrag.ts`
+   - Extended `ClipDragState` with `dragStartY`, `originalTrackId`, `currentTrackId`
+   - `handleMouseMove` calculates target track from Y position using `calculateTrackIndexFromY`
+   - `handleMouseUp` commits track change when dragging to different track
+   - Updated mutation signature to accept `trackId`
+
+4. `apps/web/src/lib/canvasRenderer.ts`
+   - Extended `ClipDragState` interface with `currentTrackId`
+   - `drawClips` renders clip at target track position during drag
+   - Added `drawTargetTrackHighlight` function (FR-33)
+   - Updated `renderTimeline` to accept `dragOriginalTrackId`
+
+5. `apps/web/src/routes/project.$id.tsx`
+   - Passes `currentTrackId` and `dragOriginalTrackId` to renderer
+
+**Behavior:**
+- FR-31: Dragging clip vertically moves it between tracks
+- FR-32: During drag, clip snaps to track lanes (no free-floating)
+- FR-33: Target track shows subtle white highlight during drag
+- FR-34: Multi-clip selection preserved (not implemented - single clip drag only)
+- FR-35: Cross-track drag updates `trackId` on commit
+- FR-36: Horizontal movement still works during cross-track drag (combined X/Y)
+- FR-37: Overlap handling applies on target track
+
+### Notes for next person
+- Next priority: split (Cmd+E, FR-38 through FR-45)
+- Multi-clip cross-track drag not implemented (single selection drag works)
+- Clip rendered at reduced opacity (0.5) during drag for visual feedback

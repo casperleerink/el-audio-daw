@@ -26,8 +26,8 @@ Add core clip editing capabilities to the DAW: selection, deletion, trimming, co
 - [x] Update backend for trim mutations (audioStartTime, duration)
 - [x] Implement Cmd+C to copy selected clips to clipboard
 - [x] Implement Cmd+V to paste clips at playhead position
-- [ ] Enable vertical drag to move clips between tracks
-- [ ] Add track snap behavior during cross-track drag
+- [x] Enable vertical drag to move clips between tracks
+- [x] Add track snap behavior during cross-track drag
 - [ ] Implement Cmd+E to split clips at playhead
 - [ ] Add backend mutation for split operation
 

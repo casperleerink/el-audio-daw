@@ -40,6 +40,7 @@ export interface ClipRenderData {
 export interface ClipDragState {
   clipId: string;
   currentStartTime: number;
+  currentTrackId: string; // Target track during cross-track drag (FR-31)
 }
 
 export interface TrimDragState {
@@ -164,6 +165,35 @@ export function drawTrackLanes(renderCtx: TimelineRenderContext, trackCount: num
   }
 }
 
+/**
+ * Draw target track highlight during cross-track drag (FR-33)
+ */
+export function drawTargetTrackHighlight(
+  renderCtx: TimelineRenderContext,
+  clipDragState: ClipDragState | null,
+  trackIndexMap: Map<string, number>,
+  originalTrackId: string | null,
+): void {
+  if (!clipDragState || !originalTrackId) return;
+
+  // Only show highlight if dragging to a different track
+  if (clipDragState.currentTrackId === originalTrackId) return;
+
+  const targetTrackIndex = trackIndexMap.get(clipDragState.currentTrackId);
+  if (targetTrackIndex === undefined) return;
+
+  const { ctx, width, scrollTop, rulerHeight, trackHeight } = renderCtx;
+
+  const trackY = rulerHeight + targetTrackIndex * trackHeight - scrollTop;
+
+  // Draw subtle highlight on target track
+  ctx.save();
+  ctx.fillStyle = "#ffffff";
+  ctx.globalAlpha = 0.08;
+  ctx.fillRect(0, trackY, width, trackHeight);
+  ctx.restore();
+}
+
 interface DrawClipsOptions {
   renderCtx: TimelineRenderContext;
   clips: ClipRenderData[];
@@ -212,7 +242,7 @@ export function drawClips(options: DrawClipsOptions): void {
   const endTime = startTime + visibleDuration;
 
   for (const clip of clips) {
-    const trackIndex = trackIndexMap.get(clip.trackId);
+    let trackIndex = trackIndexMap.get(clip.trackId);
     if (trackIndex === undefined) continue;
 
     // Check if clip is being dragged, trimmed, pending, or selected
@@ -227,6 +257,11 @@ export function drawClips(options: DrawClipsOptions): void {
 
     if (isDragging) {
       effectiveStartTime = clipDragState.currentStartTime;
+      // Use target track for rendering during cross-track drag (FR-33)
+      const targetTrackIndex = trackIndexMap.get(clipDragState.currentTrackId);
+      if (targetTrackIndex !== undefined) {
+        trackIndex = targetTrackIndex;
+      }
     } else if (isTrimming) {
       effectiveStartTime = trimDragState.currentStartTime;
       effectiveDuration = trimDragState.currentDuration;
@@ -415,6 +450,8 @@ interface RenderTimelineOptions {
   trimDragState: TrimDragState | null;
   rulerHeight: number;
   trackHeight: number;
+  /** Original track ID of dragging clip (for target track highlight) */
+  dragOriginalTrackId?: string | null;
 }
 
 /**
@@ -436,6 +473,7 @@ export function renderTimeline(options: RenderTimelineOptions): void {
     trimDragState,
     rulerHeight,
     trackHeight,
+    dragOriginalTrackId,
   } = options;
 
   const ctx = canvas.getContext("2d");
@@ -467,10 +505,12 @@ export function renderTimeline(options: RenderTimelineOptions): void {
     trackIndexMap.set(track._id, index);
   });
 
-  // Render in order: background, ruler, tracks, clips, playhead, hover
+  // Render in order: background, ruler, tracks, target highlight, clips, playhead, hover
   clearCanvas({ ctx, width: dimensions.width, height: dimensions.height, colors });
   drawTimeRuler(renderCtx);
   drawTrackLanes(renderCtx, tracks.length);
+  // Draw target track highlight during cross-track drag (FR-33)
+  drawTargetTrackHighlight(renderCtx, clipDragState, trackIndexMap, dragOriginalTrackId ?? null);
   drawClips({
     renderCtx,
     clips,

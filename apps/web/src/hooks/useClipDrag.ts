@@ -49,12 +49,16 @@ interface LayoutParams {
 
 /**
  * State tracking during a clip drag operation
+ * Supports both horizontal (time) and vertical (track) movement
  */
-interface ClipDragState {
+export interface ClipDragState {
   clipId: string;
   originalStartTime: number; // in samples
   currentStartTime: number; // in samples (updated during drag)
   dragStartX: number; // initial mouse X position
+  dragStartY: number; // initial mouse Y position (for cross-track drag)
+  originalTrackId: string; // track at drag start
+  currentTrackId: string; // target track (updated during drag)
 }
 
 /**
@@ -88,6 +92,7 @@ interface UseClipDragParams {
   updateClipPosition: (args: {
     id: Id<"clips">;
     startTime: number;
+    trackId?: Id<"tracks">;
     projectId?: Id<"projects">;
   }) => Promise<unknown>;
   trimClip: (args: {
@@ -262,12 +267,15 @@ export function useClipDrag({
         e.preventDefault();
 
         if (zone === "body") {
-          // Start clip move drag
+          // Start clip move drag (horizontal and vertical)
           setClipDragState({
             clipId: clip._id,
             originalStartTime: clip.startTime,
             currentStartTime: clip.startTime,
             dragStartX: e.clientX,
+            dragStartY: e.clientY,
+            originalTrackId: clip.trackId,
+            currentTrackId: clip.trackId,
           });
         } else {
           // Start trim drag (left or right handle)
@@ -289,11 +297,15 @@ export function useClipDrag({
     [findClipAtPosition],
   );
 
-  // Handle mousemove for clip dragging (FR-35) or trim dragging (FR-16, FR-17)
+  // Handle mousemove for clip dragging (FR-35, FR-31) or trim dragging (FR-16, FR-17)
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      // Handle clip move drag
+      // Handle clip move drag (horizontal and vertical)
       if (clipDragState) {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        // Calculate horizontal movement (FR-36)
         const deltaX = e.clientX - clipDragState.dragStartX;
         const deltaTimeInSeconds = deltaX / pixelsPerSecond;
         const deltaTimeInSamples = deltaTimeInSeconds * sampleRate;
@@ -301,8 +313,34 @@ export function useClipDrag({
         // Calculate new start time (clamp to 0 per FR-38)
         const newStartTime = Math.max(0, clipDragState.originalStartTime + deltaTimeInSamples);
 
+        // Calculate vertical movement for cross-track drag (FR-31, FR-32)
+        const { canvasY } = clientToCanvasPosition(e.clientX, e.clientY, rect);
+        const layoutCalcParams = {
+          rulerHeight,
+          trackHeight,
+          scrollTop,
+          scrollLeft,
+          pixelsPerSecond,
+        };
+        const targetTrackIndex = calculateTrackIndexFromY(canvasY, layoutCalcParams);
+
+        // Snap to valid track (FR-32)
+        let targetTrackId = clipDragState.originalTrackId;
+        if (targetTrackIndex >= 0 && targetTrackIndex < tracks.length) {
+          const targetTrack = tracks[targetTrackIndex];
+          if (targetTrack) {
+            targetTrackId = targetTrack._id;
+          }
+        }
+
         setClipDragState((prev) =>
-          prev ? { ...prev, currentStartTime: Math.round(newStartTime) } : null,
+          prev
+            ? {
+                ...prev,
+                currentStartTime: Math.round(newStartTime),
+                currentTrackId: targetTrackId,
+              }
+            : null,
         );
         return;
       }
@@ -384,7 +422,18 @@ export function useClipDrag({
         }
       }
     },
-    [clipDragState, trimDragState, pixelsPerSecond, sampleRate],
+    [
+      clipDragState,
+      trimDragState,
+      pixelsPerSecond,
+      sampleRate,
+      canvasRef,
+      tracks,
+      rulerHeight,
+      trackHeight,
+      scrollTop,
+      scrollLeft,
+    ],
   );
 
   // Handle mouseup for clip dragging (FR-36) or trim commit (FR-21)
@@ -396,16 +445,22 @@ export function useClipDrag({
       justFinishedDragRef.current = false;
     });
 
-    // Handle clip move drag commit
+    // Handle clip move drag commit (horizontal and cross-track)
     if (clipDragState) {
-      const { clipId, originalStartTime, currentStartTime } = clipDragState;
+      const { clipId, originalStartTime, currentStartTime, originalTrackId, currentTrackId } =
+        clipDragState;
 
-      // Only update if position changed
-      if (currentStartTime !== originalStartTime) {
+      // Only update if position or track changed
+      const positionChanged = currentStartTime !== originalStartTime;
+      const trackChanged = currentTrackId !== originalTrackId;
+
+      if (positionChanged || trackChanged) {
         try {
           await updateClipPosition({
             id: clipId as Id<"clips">,
             startTime: currentStartTime,
+            // Only include trackId if it changed (FR-35)
+            ...(trackChanged && { trackId: currentTrackId as Id<"tracks"> }),
             projectId,
           });
         } catch (error) {

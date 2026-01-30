@@ -18,6 +18,7 @@ type CreateClipArgs = {
 type UpdateClipPositionArgs = {
   id: Id<"clips">;
   startTime: number;
+  trackId?: Id<"tracks">;
   projectId?: Id<"projects">;
 };
 
@@ -90,7 +91,8 @@ export function createClipOptimisticUpdate(
 
 /**
  * Optimistic update for updateClipPosition mutation.
- * Instantly updates the clip's start time in the local cache.
+ * Instantly updates the clip's start time and optionally trackId in the local cache.
+ * Supports both horizontal movement and cross-track movement (FR-31, FR-35).
  *
  * Note: Requires projectId to be passed in args for optimistic update to work.
  * Without projectId, the update will be a no-op (server will still process it).
@@ -119,6 +121,8 @@ export function updateClipPositionOptimisticUpdate(
       return {
         ...clip,
         startTime: newStartTime,
+        // Update trackId if provided (cross-track movement)
+        trackId: args.trackId ?? clip.trackId,
         updatedAt: now,
       };
     });

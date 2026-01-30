@@ -135,6 +135,7 @@ export const createClip = mutation({
 
 /**
  * Update clip position (for dragging) (FR-34-38)
+ * Supports both horizontal movement (startTime) and cross-track movement (trackId)
  *
  * Note: projectId is optional but required for optimistic updates to work.
  * Without projectId, the mutation will still execute but won't update the cache optimistically.
@@ -143,6 +144,7 @@ export const updateClipPosition = mutation({
   args: {
     id: v.id("clips"),
     startTime: v.number(),
+    trackId: v.optional(v.id("tracks")),
     projectId: v.optional(v.id("projects")),
   },
   handler: async (ctx, args) => {
@@ -153,18 +155,30 @@ export const updateClipPosition = mutation({
 
     await requireProjectAccess(ctx, clip.projectId);
 
+    // Determine target track (FR-31, FR-35)
+    const targetTrackId = args.trackId ?? clip.trackId;
+
+    // Verify new track belongs to project (if changing tracks)
+    if (args.trackId && args.trackId !== clip.trackId) {
+      const newTrack = await ctx.db.get(args.trackId);
+      if (!newTrack || newTrack.projectId !== clip.projectId) {
+        throw new Error("Target track not found in this project");
+      }
+    }
+
     // Clamp to 0 (FR-38)
     const newStartTime = Math.max(0, args.startTime);
     const newClipEnd = newStartTime + clip.duration;
 
-    // Handle clip overlap on move (FR-37)
-    await handleClipOverlap(ctx.db, clip.trackId, newStartTime, newClipEnd, args.id);
+    // Handle clip overlap on target track (FR-37)
+    await handleClipOverlap(ctx.db, targetTrackId, newStartTime, newClipEnd, args.id);
 
     // Extend project duration if needed (FR-13)
     await extendProjectDurationIfNeeded(ctx.db, clip.projectId, newClipEnd);
 
     await ctx.db.patch(args.id, {
       startTime: newStartTime,
+      trackId: targetTrackId,
       updatedAt: Date.now(),
     });
   },

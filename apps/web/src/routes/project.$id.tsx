@@ -861,7 +861,11 @@ function TimelineCanvas({
       pixelsPerSecond,
       hoverX,
       clipDragState: clipDragState
-        ? { clipId: clipDragState.clipId, currentStartTime: clipDragState.currentStartTime }
+        ? {
+            clipId: clipDragState.clipId,
+            currentStartTime: clipDragState.currentStartTime,
+            currentTrackId: clipDragState.currentTrackId,
+          }
         : null,
       trimDragState: trimDragState
         ? {
@@ -872,6 +876,7 @@ function TimelineCanvas({
         : null,
       rulerHeight: RULER_HEIGHT,
       trackHeight: TRACK_HEIGHT,
+      dragOriginalTrackId: clipDragState?.originalTrackId,
     });
   }, [
     dimensions,
