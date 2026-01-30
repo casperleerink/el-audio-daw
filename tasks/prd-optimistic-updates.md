@@ -49,7 +49,7 @@ Implement optimistic updates using Convex's built-in `optimisticUpdate` API for 
 - [x] Implement optimistic update for project
   - `updateProject` - instant name change
 
-- [ ] Update audio engine sync
+- [x] Update audio engine sync
   - Engine reads from Convex query cache (includes optimistic state)
   - Verify engine reacts to optimistic track gain/mute/solo changes
 

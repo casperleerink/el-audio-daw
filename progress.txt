@@ -153,3 +153,27 @@ Implemented optimistic update for the `updateProject` mutation, enabling instant
 ### Notes for next person
 - Remaining tasks: "Implement upload cancellation", "Update audio engine sync", "Add pending state UI for clips"
 - The optimistic update pattern is now complete for all main entities: tracks, clips, and project
+
+## 2026-01-29 - Audio Engine Sync Verification
+
+### Completed
+Verified that the audio engine correctly reacts to optimistic track gain/mute/solo changes. No code changes were needed - the existing architecture already supports this.
+
+**Verification findings:**
+
+The audio engine sync works correctly through the following flow:
+1. `useOptimisticTrackUpdates` hook merges server state with optimistic updates → `tracksWithOptimisticUpdates`
+2. `tracksWithOptimisticUpdates` is passed to `useAudioEngine` hook (line 219 in `project.$id.tsx`)
+3. `useEffect` in `useAudioEngine.ts` (lines 76-87) syncs tracks to engine when `tracks` prop changes
+4. `engine.setTracks()` calls `renderGraph()` which re-renders the DSP graph with new gain/mute/solo values
+5. Gain changes use `el.sm()` (smooth) for click-free transitions
+
+**Key architecture points:**
+- For gain sliders: local React state provides instant UI feedback, `handleUpdateTrackGain` applies optimistic state that flows to audio engine, server commit happens on slider release
+- For mute/solo toggles: immediate optimistic update + server mutation (single action pattern)
+- The audio engine receives optimistic state through the merged `tracksWithOptimisticUpdates`, NOT raw Convex query data
+
+### Notes for next person
+- Remaining tasks: "Implement upload cancellation", "Add pending state UI for clips"
+- Audio engine sync is verified working - optimistic changes to gain/mute/solo immediately affect audio output
+- The gain slider uses a commit-based pattern: local state + optimistic update during drag, server mutation on release
