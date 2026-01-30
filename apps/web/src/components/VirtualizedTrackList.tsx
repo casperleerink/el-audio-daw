@@ -24,6 +24,7 @@ interface TrackHeaderProps {
   track: TrackData;
   index: number;
   isDragging?: boolean;
+  isFocused?: boolean; // FR-9: Track has clip selection focus
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onMuteChange: (muted: boolean) => void;
@@ -40,6 +41,7 @@ function TrackHeader({
   track,
   index,
   isDragging,
+  isFocused,
   onDragStart,
   onDragEnd,
   onMuteChange,
@@ -99,7 +101,7 @@ function TrackHeader({
 
   return (
     <div
-      className={`box-border h-[60px] border-b p-2 transition-all duration-150 ${isDragging ? "scale-[0.98] opacity-50 shadow-lg ring-2 ring-primary/30" : ""}`}
+      className={`box-border h-[60px] border-b p-2 transition-all duration-150 ${isDragging ? "scale-[0.98] opacity-50 shadow-lg ring-2 ring-primary/30" : ""} ${isFocused ? "border-l-2 border-l-primary pl-1.5" : ""}`}
       style={{
         background: `linear-gradient(to right, color-mix(in srgb, ${trackColor} 15%, transparent), transparent 60%)`,
       }}
@@ -200,6 +202,7 @@ function TrackHeader({
 export interface VirtualizedTrackListProps {
   tracks: TrackData[];
   scrollTop: number;
+  focusedTrackId?: string | null; // FR-9: Currently focused track for selection
   onScrollChange: (scrollTop: number) => void;
   onMuteChange: (trackId: string, muted: boolean) => void;
   onSoloChange: (trackId: string, solo: boolean) => void;
@@ -218,6 +221,7 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
     {
       tracks,
       scrollTop,
+      focusedTrackId,
       onScrollChange,
       onMuteChange,
       onSoloChange,
@@ -322,6 +326,7 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
                   track={track}
                   index={virtualRow.index}
                   isDragging={isDragging}
+                  isFocused={focusedTrackId === track._id}
                   onDragStart={(e) => handleDragStart(e, track._id)}
                   onDragEnd={handleDragEnd}
                   onMuteChange={(muted) => onMuteChange(track._id, muted)}

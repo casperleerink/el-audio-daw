@@ -15,11 +15,11 @@ Add core clip editing capabilities to the DAW: selection, deletion, trimming, co
 
 ## Tasks
 
-- [ ] Implement clip selection state (single click, shift+click multi-select)
-- [ ] Add visual selection indicator on canvas
-- [ ] Implement deselect (click empty area, Escape key)
-- [ ] Add Cmd+A to select all clips on focused track
-- [ ] Add focused track visual indicator (left border accent on track header)
+- [x] Implement clip selection state (single click, shift+click multi-select)
+- [x] Add visual selection indicator on canvas
+- [x] Implement deselect (click empty area, Escape key)
+- [x] Add Cmd+A to select all clips on focused track
+- [x] Add focused track visual indicator (left border accent on track header)
 - [ ] Implement Delete/Backspace to delete selected clips
 - [ ] Add trim handles to clip edges (8px grab zone)
 - [ ] Implement trim drag logic constrained to audio boundaries
@@ -126,8 +126,9 @@ Add core clip editing capabilities to the DAW: selection, deletion, trimming, co
 **FR-39:** Split only affects clips that span the playhead (playhead intersects clip duration)
 
 **FR-40:** Split creates two clips from one:
-  - Left clip: original startTime, duration = playhead - startTime, original audioStartTime
-  - Right clip: startTime = playhead, duration = original end - playhead, audioStartTime adjusted
+
+- Left clip: original startTime, duration = playhead - startTime, original audioStartTime
+- Right clip: startTime = playhead, duration = original end - playhead, audioStartTime adjusted
 
 **FR-41:** Both clips reference same audio file (fileId)
 

@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 
+/** Clip data with trackId for selection */
+interface ClipWithTrack {
+  _id: string;
+  trackId: string;
+  pending?: boolean;
+}
+
 interface UseTimelineCanvasEventsOptions {
   /** Container element ref for wheel event attachment */
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -22,13 +29,19 @@ interface UseTimelineCanvasEventsOptions {
   /** Handle wheel zoom (ctrl/cmd + scroll). Returns true if handled. */
   handleWheelZoom: (e: React.WheelEvent, cursorX: number) => boolean;
   /** Find clip at a given screen position */
-  findClipAtPosition: (clientX: number, clientY: number) => unknown | null;
+  findClipAtPosition: (clientX: number, clientY: number) => ClipWithTrack | null;
   /** Whether a clip drag just finished (prevents seeking on drag end) */
   justFinishedDrag: boolean;
   /** Handle clip mouse move during drag */
   handleClipMouseMove: (e: React.MouseEvent<HTMLCanvasElement>) => void;
   /** Handle clip mouse leave */
   handleClipMouseLeave: () => void;
+  /** Callback for single-click selection (FR-1) */
+  onSelectClip?: (clipId: string, trackId: string) => void;
+  /** Callback for shift-click multi-selection (FR-2) */
+  onToggleClipSelection?: (clipId: string, trackId: string) => void;
+  /** Callback when clicking empty area to clear selection (FR-5) */
+  onClearSelection?: () => void;
 }
 
 interface UseTimelineCanvasEventsReturn {
@@ -63,6 +76,9 @@ export function useTimelineCanvasEvents({
   justFinishedDrag,
   handleClipMouseMove,
   handleClipMouseLeave,
+  onSelectClip,
+  onToggleClipSelection,
+  onClearSelection,
 }: UseTimelineCanvasEventsOptions): UseTimelineCanvasEventsReturn {
   const [hoverX, setHoverX] = useState<number | null>(null);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
@@ -103,17 +119,41 @@ export function useTimelineCanvasEvents({
 
     container.addEventListener("wheel", handleWheel, { passive: false });
     return () => container.removeEventListener("wheel", handleWheel);
-  }, [containerRef, canvasRef, maxScrollTop, scrollTop, onScrollChange, handleWheelZoom, setScrollLeft]);
+  }, [
+    containerRef,
+    canvasRef,
+    maxScrollTop,
+    scrollTop,
+    onScrollChange,
+    handleWheelZoom,
+    setScrollLeft,
+  ]);
 
-  // Handle click for seeking (only if not ending a clip drag)
+  // Handle click for seeking and selection
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       // Don't seek if we just finished dragging a clip
       if (justFinishedDrag) return;
 
-      // Don't seek if clicking on a clip (so users can click clips without seeking)
+      // Check if clicking on a clip
       const clip = findClipAtPosition(e.clientX, e.clientY);
-      if (clip) return;
+
+      if (clip) {
+        // FR-8: Pending clips cannot be selected
+        if (clip.pending) return;
+
+        // FR-2: Shift+click toggles selection
+        if (e.shiftKey) {
+          onToggleClipSelection?.(clip._id, clip.trackId);
+        } else {
+          // FR-1: Click selects clip and deselects others
+          onSelectClip?.(clip._id, clip.trackId);
+        }
+        return;
+      }
+
+      // FR-5: Click on empty area deselects all clips
+      onClearSelection?.();
 
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -122,7 +162,17 @@ export function useTimelineCanvasEvents({
       const time = x / pixelsPerSecond;
       onSeek(Math.max(0, time));
     },
-    [canvasRef, scrollLeft, pixelsPerSecond, onSeek, findClipAtPosition, justFinishedDrag],
+    [
+      canvasRef,
+      scrollLeft,
+      pixelsPerSecond,
+      onSeek,
+      findClipAtPosition,
+      justFinishedDrag,
+      onSelectClip,
+      onToggleClipSelection,
+      onClearSelection,
+    ],
   );
 
   // Handle mouse move for hover indicator and clip dragging

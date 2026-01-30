@@ -30,6 +30,7 @@ export interface ClipRenderData {
   startTime: number; // in samples
   duration: number; // in samples
   pending?: boolean; // true if clip is awaiting server confirmation
+  selected?: boolean; // true if clip is selected (FR-7)
 }
 
 export interface ClipDragState {
@@ -203,9 +204,10 @@ export function drawClips(options: DrawClipsOptions): void {
     const trackIndex = trackIndexMap.get(clip.trackId);
     if (trackIndex === undefined) continue;
 
-    // Check if clip is being dragged or pending
+    // Check if clip is being dragged, pending, or selected
     const isDragging = clipDragState?.clipId === clip._id;
     const isPending = clip.pending === true;
+    const isSelected = clip.selected === true;
 
     // Use drag position if dragging, otherwise original position
     const effectiveStartTime = isDragging ? clipDragState.currentStartTime : clip.startTime;
@@ -254,10 +256,11 @@ export function drawClips(options: DrawClipsOptions): void {
       }
     }
 
-    // Draw clip border (dashed for pending)
-    ctx.strokeStyle = trackColor;
+    // Draw clip border (dashed for pending, bright for selected)
+    // FR-7: Selected clips display distinct border color
+    ctx.strokeStyle = isSelected ? "#ffffff" : trackColor;
     ctx.globalAlpha = isPending ? 0.6 : isDragging ? 0.7 : 1;
-    ctx.lineWidth = isDragging ? 2 : 1;
+    ctx.lineWidth = isSelected ? 2 : isDragging ? 2 : 1;
     if (isPending) {
       ctx.setLineDash([4, 4]);
     }
@@ -266,6 +269,20 @@ export function drawClips(options: DrawClipsOptions): void {
     ctx.stroke();
     if (isPending) {
       ctx.setLineDash([]);
+    }
+
+    // Draw selection glow for selected clips (FR-7)
+    if (isSelected && !isPending) {
+      ctx.save();
+      ctx.shadowColor = "#ffffff";
+      ctx.shadowBlur = 4;
+      ctx.strokeStyle = "#ffffff";
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(clipX, clipY, clipWidth, clipHeight, CLIP_BORDER_RADIUS);
+      ctx.stroke();
+      ctx.restore();
     }
 
     // Draw clip name

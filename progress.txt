@@ -257,3 +257,41 @@ Implemented visual indicators for clips awaiting server confirmation (optimistic
 - The PRD for optimistic updates is now COMPLETE - all tasks are checked off
 - If implementing upload progress percentage, consider adding a progress bar inside the pending clip
 - The stripe pattern is created per-render (could be cached for performance if needed)
+
+## 2026-01-29 - Clip Selection State (FR-1 through FR-9)
+
+### Completed
+Implemented clip selection for the timeline canvas, enabling multi-clip operations.
+
+**New file:** `apps/web/src/hooks/useClipSelection.ts`
+- `selectClip()` - Single click selects one clip (FR-1)
+- `toggleClipSelection()` - Shift+click adds/removes from selection (FR-2, FR-3)
+- `clearSelection()` - Deselect all clips (FR-5, FR-6)
+- `selectAllOnFocusedTrack()` - Cmd+A selects all clips on focused track (FR-4)
+- `focusedTrackId` state for Cmd+A behavior and track indicator
+
+**Files modified:**
+1. `apps/web/src/lib/canvasRenderer.ts`
+   - Added `selected` property to `ClipRenderData`
+   - Selected clips render with white border (2px), subtle glow effect
+
+2. `apps/web/src/hooks/useTimelineCanvasEvents.ts`
+   - Added `onSelectClip`, `onToggleClipSelection`, `onClearSelection` callbacks
+   - Click on clip → select (or shift+click → toggle)
+   - Click empty area → clear selection and seek
+
+3. `apps/web/src/components/VirtualizedTrackList.tsx`
+   - Added `focusedTrackId` prop and `isFocused` to TrackHeader
+   - Focused track shows 2px left border accent (FR-9)
+
+4. `apps/web/src/routes/project.$id.tsx`
+   - Wired up `useClipSelection` hook
+   - Added Escape key → clear selection (FR-6)
+   - Added Cmd+A → select all on focused track (FR-4)
+   - Passed selection state to canvas and track list
+
+### Notes for next person
+- Next priority: "Implement Delete/Backspace to delete selected clips"
+- Pending clips (temp IDs) cannot be selected per FR-8
+- Selection is scoped to single track per FR-3 - shift+clicking on different track clears previous selection
+- `selectedClipIds` is a Set for O(1) lookup

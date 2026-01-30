@@ -22,6 +22,7 @@ import SignUpForm from "@/components/sign-up-form";
 import { VirtualizedTrackList } from "@/components/VirtualizedTrackList";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
 import { useClipDrag, type ClipData } from "@/hooks/useClipDrag";
+import { useClipSelection } from "@/hooks/useClipSelection";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
 import { useTimelineCanvasEvents } from "@/hooks/useTimelineCanvasEvents";
 import { useTimelineFileDrop } from "@/hooks/useTimelineFileDrop";
@@ -222,6 +223,21 @@ function ProjectEditor() {
     clipUrls,
   });
 
+  // Clip selection state (FR-1 through FR-9)
+  const clipsForSelection = (clips ?? []).map((clip) => ({
+    _id: clip._id,
+    trackId: clip.trackId,
+    pending: isPending(clip),
+  }));
+  const {
+    selectedClipIds,
+    focusedTrackId,
+    selectClip,
+    toggleClipSelection,
+    clearSelection,
+    selectAllOnFocusedTrack,
+  } = useClipSelection({ clips: clipsForSelection });
+
   // Update project name when project loads
   useEffect(() => {
     if (project) {
@@ -312,11 +328,22 @@ function ProjectEditor() {
         e.preventDefault();
         handleAddTrack();
       }
+
+      // FR-6: Escape deselects all clips
+      if (e.code === "Escape") {
+        clearSelection();
+      }
+
+      // FR-4: Cmd+A / Ctrl+A selects all clips on focused track
+      if ((e.metaKey || e.ctrlKey) && e.code === "KeyA") {
+        e.preventDefault();
+        selectAllOnFocusedTrack();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleTogglePlayStop, handleAddTrack]);
+  }, [handleTogglePlayStop, handleAddTrack, clearSelection, selectAllOnFocusedTrack]);
 
   // Loading state
   if (project === undefined || tracks === undefined) {
@@ -458,6 +485,7 @@ function ProjectEditor() {
             ref={trackListRef}
             tracks={tracksWithOptimisticUpdates ?? []}
             scrollTop={scrollTop}
+            focusedTrackId={focusedTrackId}
             onScrollChange={setScrollTop}
             onMuteChange={handleUpdateTrackMute}
             onSoloChange={handleUpdateTrackSolo}
@@ -481,7 +509,9 @@ function ProjectEditor() {
                 value={[masterGain]}
                 onValueChange={(val) => setMasterGain(Array.isArray(val) ? (val[0] ?? 0) : val)}
               />
-              <span className="w-16 text-right font-mono text-xs whitespace-nowrap">{formatGain(masterGain)}</span>
+              <span className="w-16 text-right font-mono text-xs whitespace-nowrap">
+                {formatGain(masterGain)}
+              </span>
             </div>
           </div>
         </div>
@@ -505,6 +535,10 @@ function ProjectEditor() {
             onScrollChange={setScrollTop}
             onSeek={seek}
             projectId={id as Id<"projects">}
+            selectedClipIds={selectedClipIds}
+            onSelectClip={selectClip}
+            onToggleClipSelection={toggleClipSelection}
+            onClearSelection={clearSelection}
           />
         </div>
       </div>
@@ -521,6 +555,10 @@ interface TimelineCanvasProps {
   onScrollChange: (scrollTop: number) => void;
   onSeek: (time: number) => void | Promise<void>;
   projectId: Id<"projects">;
+  selectedClipIds: Set<string>;
+  onSelectClip: (clipId: string, trackId: string) => void;
+  onToggleClipSelection: (clipId: string, trackId: string) => void;
+  onClearSelection: () => void;
 }
 
 function TimelineCanvas({
@@ -532,6 +570,10 @@ function TimelineCanvas({
   onScrollChange,
   onSeek,
   projectId,
+  selectedClipIds,
+  onSelectClip,
+  onToggleClipSelection,
+  onClearSelection,
 }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -611,6 +653,9 @@ function TimelineCanvas({
       justFinishedDrag,
       handleClipMouseMove,
       handleClipMouseLeave,
+      onSelectClip,
+      onToggleClipSelection,
+      onClearSelection,
     });
 
   // File drag-drop state and handlers (FR-29-33)
@@ -661,6 +706,12 @@ function TimelineCanvas({
     return () => observer.disconnect();
   }, []);
 
+  // Transform clips to include selection state for rendering
+  const clipsWithSelection = clips.map((clip) => ({
+    ...clip,
+    selected: selectedClipIds.has(clip._id),
+  }));
+
   // Draw canvas
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -670,7 +721,7 @@ function TimelineCanvas({
       canvas,
       dimensions,
       tracks,
-      clips,
+      clips: clipsWithSelection,
       sampleRate,
       playheadTime,
       scrollLeft,
@@ -686,7 +737,7 @@ function TimelineCanvas({
   }, [
     dimensions,
     tracks,
-    clips,
+    clipsWithSelection,
     sampleRate,
     playheadTime,
     scrollLeft,
