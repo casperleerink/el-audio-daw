@@ -314,3 +314,38 @@ Implemented Delete/Backspace keyboard shortcut to delete all selected clips.
 - The `deleteClip` mutation also deletes the associated audio file from storage (FR-13)
 - Deletion happens in parallel for all selected clips for better performance
 - Selection is cleared immediately (optimistic behavior) - if deletion fails, clip reappears via Convex rollback
+
+## 2026-01-29 - Trim Handles on Clip Edges (FR-14, FR-15)
+
+### Completed
+Implemented visual trim handles on clip edges with cursor feedback.
+
+**Files modified:**
+1. `apps/web/src/lib/timelineConstants.ts`
+   - Added `TRIM_HANDLE_WIDTH = 8` constant
+
+2. `apps/web/src/hooks/useClipDrag.ts`
+   - Added `ClipHoverZone` type ("left" | "right" | "body")
+   - Added `ClipAtPosition` interface returning clip + zone
+   - `findClipAtPosition` now detects which zone is hovered (FR-14: 8px edge zones)
+   - `handleMouseDown` only starts drag on body, not trim handles
+
+3. `apps/web/src/hooks/useTimelineCanvasEvents.ts`
+   - Added `hoveredClipId` and `hoveredClipZone` state
+   - `handleMouseMove` tracks hovered clip and zone
+   - Returns hover state for cursor and rendering
+
+4. `apps/web/src/lib/canvasRenderer.ts`
+   - Added `ClipHoverZone` type and `hoverZone` to `ClipRenderData`
+   - Draws semi-transparent white overlays on trim handles when hovered
+   - Left/right handles highlight on hover, both show faintly when hovering body
+
+5. `apps/web/src/routes/project.$id.tsx`
+   - Passes `hoveredClipId`/`hoveredClipZone` to clips for rendering
+   - Cursor changes to `ew-resize` when hovering trim handles (FR-15)
+
+### Notes for next person
+- Next priority: "Implement trim drag logic constrained to audio boundaries" (FR-16 through FR-22)
+- Trim handles only appear on clips wide enough (>= 2x handle width)
+- Clicking trim handle zones currently does nothing - trim drag needs implementation
+- Selection still works when clicking trim handles

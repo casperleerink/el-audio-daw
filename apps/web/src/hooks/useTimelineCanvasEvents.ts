@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
+import type { ClipHoverZone } from "./useClipDrag";
 
 /** Clip data with trackId for selection */
 interface ClipWithTrack {
   _id: string;
   trackId: string;
   pending?: boolean;
+}
+
+/** Result from findClipAtPosition including zone information */
+interface ClipAtPositionResult {
+  clip: ClipWithTrack;
+  zone: ClipHoverZone;
 }
 
 interface UseTimelineCanvasEventsOptions {
@@ -28,8 +35,8 @@ interface UseTimelineCanvasEventsOptions {
   onSeek: (time: number) => void | Promise<void>;
   /** Handle wheel zoom (ctrl/cmd + scroll). Returns true if handled. */
   handleWheelZoom: (e: React.WheelEvent, cursorX: number) => boolean;
-  /** Find clip at a given screen position */
-  findClipAtPosition: (clientX: number, clientY: number) => ClipWithTrack | null;
+  /** Find clip at a given screen position - returns clip and hover zone */
+  findClipAtPosition: (clientX: number, clientY: number) => ClipAtPositionResult | null;
   /** Whether a clip drag just finished (prevents seeking on drag end) */
   justFinishedDrag: boolean;
   /** Handle clip mouse move during drag */
@@ -49,6 +56,10 @@ interface UseTimelineCanvasEventsReturn {
   hoverX: number | null;
   /** Current hover time in seconds (null if not hovering) */
   hoverTime: number | null;
+  /** Currently hovered clip ID (null if not hovering over a clip) */
+  hoveredClipId: string | null;
+  /** Which zone of the clip is being hovered (FR-14: left/right for trim handles) */
+  hoveredClipZone: ClipHoverZone | null;
   /** Click event handler for seeking */
   handleClick: (e: React.MouseEvent<HTMLCanvasElement>) => void;
   /** Mouse move event handler for hover indicator and clip dragging */
@@ -82,6 +93,8 @@ export function useTimelineCanvasEvents({
 }: UseTimelineCanvasEventsOptions): UseTimelineCanvasEventsReturn {
   const [hoverX, setHoverX] = useState<number | null>(null);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [hoveredClipId, setHoveredClipId] = useState<string | null>(null);
+  const [hoveredClipZone, setHoveredClipZone] = useState<ClipHoverZone | null>(null);
 
   // Attach wheel event listener with passive: false to allow preventDefault
   useEffect(() => {
@@ -136,9 +149,10 @@ export function useTimelineCanvasEvents({
       if (justFinishedDrag) return;
 
       // Check if clicking on a clip
-      const clip = findClipAtPosition(e.clientX, e.clientY);
+      const result = findClipAtPosition(e.clientX, e.clientY);
 
-      if (clip) {
+      if (result) {
+        const { clip } = result;
         // FR-8: Pending clips cannot be selected
         if (clip.pending) return;
 
@@ -175,7 +189,7 @@ export function useTimelineCanvasEvents({
     ],
   );
 
-  // Handle mouse move for hover indicator and clip dragging
+  // Handle mouse move for hover indicator, clip dragging, and trim handle detection (FR-14)
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const rect = canvasRef.current?.getBoundingClientRect();
@@ -189,20 +203,34 @@ export function useTimelineCanvasEvents({
       const time = scrolledX / pixelsPerSecond;
       setHoverX(canvasX);
       setHoverTime(Math.max(0, time));
+
+      // FR-14: Track which clip and zone is being hovered for trim handles
+      const result = findClipAtPosition(e.clientX, e.clientY);
+      if (result) {
+        setHoveredClipId(result.clip._id);
+        setHoveredClipZone(result.zone);
+      } else {
+        setHoveredClipId(null);
+        setHoveredClipZone(null);
+      }
     },
-    [canvasRef, scrollLeft, pixelsPerSecond, handleClipMouseMove],
+    [canvasRef, scrollLeft, pixelsPerSecond, handleClipMouseMove, findClipAtPosition],
   );
 
   // Handle mouse leave to clear hover state and end clip drag
   const handleMouseLeave = useCallback(() => {
     setHoverX(null);
     setHoverTime(null);
+    setHoveredClipId(null);
+    setHoveredClipZone(null);
     handleClipMouseLeave();
   }, [handleClipMouseLeave]);
 
   return {
     hoverX,
     hoverTime,
+    hoveredClipId,
+    hoveredClipZone,
     handleClick,
     handleMouseMove,
     handleMouseLeave,

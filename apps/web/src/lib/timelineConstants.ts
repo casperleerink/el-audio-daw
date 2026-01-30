@@ -18,6 +18,9 @@ export const CLIP_PADDING = 2;
 /** Border radius for clip rectangles */
 export const CLIP_BORDER_RADIUS = 4;
 
+/** Width of trim handle grab zones on clip edges (FR-14) */
+export const TRIM_HANDLE_WIDTH = 8;
+
 /** Default zoom level (pixels per second) */
 export const DEFAULT_PIXELS_PER_SECOND = 20;
 

@@ -3,7 +3,7 @@
  * Extracted from TimelineCanvas component to improve testability and readability.
  */
 
-import { CLIP_BORDER_RADIUS, CLIP_PADDING } from "./timelineConstants";
+import { CLIP_BORDER_RADIUS, CLIP_PADDING, TRIM_HANDLE_WIDTH } from "./timelineConstants";
 
 export interface CanvasColors {
   background: string;
@@ -23,6 +23,9 @@ export interface TimelineRenderContext {
   trackHeight: number;
 }
 
+/** Which zone of a clip is being hovered (FR-14) */
+export type ClipHoverZone = "left" | "right" | "body";
+
 export interface ClipRenderData {
   _id: string;
   trackId: string;
@@ -31,6 +34,7 @@ export interface ClipRenderData {
   duration: number; // in samples
   pending?: boolean; // true if clip is awaiting server confirmation
   selected?: boolean; // true if clip is selected (FR-7)
+  hoverZone?: ClipHoverZone | null; // which part of clip is hovered (FR-14)
 }
 
 export interface ClipDragState {
@@ -282,6 +286,45 @@ export function drawClips(options: DrawClipsOptions): void {
       ctx.beginPath();
       ctx.roundRect(clipX, clipY, clipWidth, clipHeight, CLIP_BORDER_RADIUS);
       ctx.stroke();
+      ctx.restore();
+    }
+
+    // FR-14: Draw trim handles when clip is hovered (not pending, not dragging)
+    const hoverZone = clip.hoverZone;
+    if (hoverZone && !isPending && !isDragging && clipWidth >= TRIM_HANDLE_WIDTH * 2) {
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = "#ffffff";
+
+      // Draw the hovered handle with highlight
+      if (hoverZone === "left" || hoverZone === "body") {
+        // Left handle
+        const leftHandleAlpha = hoverZone === "left" ? 0.5 : 0.2;
+        ctx.globalAlpha = leftHandleAlpha;
+        ctx.beginPath();
+        ctx.roundRect(clipX, clipY, TRIM_HANDLE_WIDTH, clipHeight, [
+          CLIP_BORDER_RADIUS,
+          0,
+          0,
+          CLIP_BORDER_RADIUS,
+        ]);
+        ctx.fill();
+      }
+
+      if (hoverZone === "right" || hoverZone === "body") {
+        // Right handle
+        const rightHandleAlpha = hoverZone === "right" ? 0.5 : 0.2;
+        ctx.globalAlpha = rightHandleAlpha;
+        ctx.beginPath();
+        ctx.roundRect(clipX + clipWidth - TRIM_HANDLE_WIDTH, clipY, TRIM_HANDLE_WIDTH, clipHeight, [
+          0,
+          CLIP_BORDER_RADIUS,
+          CLIP_BORDER_RADIUS,
+          0,
+        ]);
+        ctx.fill();
+      }
+
       ctx.restore();
     }
 

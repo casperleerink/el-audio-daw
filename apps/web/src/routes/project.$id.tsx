@@ -668,27 +668,34 @@ function TimelineCanvas({
     updateClipPosition,
   });
 
-  // Canvas event handlers (wheel, click, hover)
-  const { hoverX, hoverTime, handleClick, handleMouseMove, handleMouseLeave } =
-    useTimelineCanvasEvents({
-      containerRef,
-      canvasRef,
-      scrollLeft,
-      scrollTop,
-      setScrollLeft,
-      maxScrollTop,
-      pixelsPerSecond,
-      onScrollChange,
-      onSeek,
-      handleWheelZoom,
-      findClipAtPosition,
-      justFinishedDrag,
-      handleClipMouseMove,
-      handleClipMouseLeave,
-      onSelectClip,
-      onToggleClipSelection,
-      onClearSelection,
-    });
+  // Canvas event handlers (wheel, click, hover, trim handle detection)
+  const {
+    hoverX,
+    hoverTime,
+    hoveredClipId,
+    hoveredClipZone,
+    handleClick,
+    handleMouseMove,
+    handleMouseLeave,
+  } = useTimelineCanvasEvents({
+    containerRef,
+    canvasRef,
+    scrollLeft,
+    scrollTop,
+    setScrollLeft,
+    maxScrollTop,
+    pixelsPerSecond,
+    onScrollChange,
+    onSeek,
+    handleWheelZoom,
+    findClipAtPosition,
+    justFinishedDrag,
+    handleClipMouseMove,
+    handleClipMouseLeave,
+    onSelectClip,
+    onToggleClipSelection,
+    onClearSelection,
+  });
 
   // File drag-drop state and handlers (FR-29-33)
   const {
@@ -738,10 +745,12 @@ function TimelineCanvas({
     return () => observer.disconnect();
   }, []);
 
-  // Transform clips to include selection state for rendering
-  const clipsWithSelection = clips.map((clip) => ({
+  // Transform clips to include selection and hover state for rendering
+  const clipsWithState = clips.map((clip) => ({
     ...clip,
     selected: selectedClipIds.has(clip._id),
+    // FR-14: Include hover zone for trim handle rendering
+    hoverZone: clip._id === hoveredClipId ? hoveredClipZone : null,
   }));
 
   // Draw canvas
@@ -753,7 +762,7 @@ function TimelineCanvas({
       canvas,
       dimensions,
       tracks,
-      clips: clipsWithSelection,
+      clips: clipsWithState,
       sampleRate,
       playheadTime,
       scrollLeft,
@@ -769,7 +778,7 @@ function TimelineCanvas({
   }, [
     dimensions,
     tracks,
-    clipsWithSelection,
+    clipsWithState,
     sampleRate,
     playheadTime,
     scrollLeft,
@@ -777,6 +786,8 @@ function TimelineCanvas({
     pixelsPerSecond,
     hoverX,
     clipDragState,
+    hoveredClipId,
+    hoveredClipZone,
   ]);
 
   // Calculate drop indicator position (FR-30)
@@ -801,7 +812,13 @@ function TimelineCanvas({
     >
       <canvas
         ref={canvasRef}
-        className={`absolute inset-0 ${clipDragState ? "cursor-grabbing" : "cursor-crosshair"}`}
+        className={`absolute inset-0 ${
+          clipDragState
+            ? "cursor-grabbing"
+            : hoveredClipZone === "left" || hoveredClipZone === "right"
+              ? "cursor-ew-resize"
+              : "cursor-crosshair"
+        }`}
         style={{ width: dimensions.width, height: dimensions.height }}
         onMouseDown={handleClipMouseDown}
         onMouseMove={handleMouseMove}

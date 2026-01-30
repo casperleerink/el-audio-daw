@@ -21,7 +21,7 @@ Add core clip editing capabilities to the DAW: selection, deletion, trimming, co
 - [x] Add Cmd+A to select all clips on focused track
 - [x] Add focused track visual indicator (left border accent on track header)
 - [x] Implement Delete/Backspace to delete selected clips
-- [ ] Add trim handles to clip edges (8px grab zone)
+- [x] Add trim handles to clip edges (8px grab zone)
 - [ ] Implement trim drag logic constrained to audio boundaries
 - [ ] Update backend for trim mutations (audioStartTime, duration)
 - [ ] Implement Cmd+C to copy selected clips to clipboard

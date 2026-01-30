@@ -9,6 +9,12 @@ import {
   isInTrackArea,
   samplesToSeconds,
 } from "@/lib/timelineCalculations";
+import { TRIM_HANDLE_WIDTH } from "@/lib/timelineConstants";
+
+/**
+ * Describes which part of a clip is being hovered
+ */
+export type ClipHoverZone = "left" | "right" | "body";
 
 /**
  * Clip data structure for drag operations
@@ -66,13 +72,21 @@ interface UseClipDragParams {
   }) => Promise<unknown>;
 }
 
+/**
+ * Result of finding a clip at a position, including which zone is hovered
+ */
+export interface ClipAtPosition {
+  clip: ClipData;
+  zone: ClipHoverZone;
+}
+
 interface UseClipDragReturn {
   /** Current drag state, or null if not dragging */
   clipDragState: ClipDragState | null;
   /** Whether a drag just finished (used to prevent click-through to seek) */
   justFinishedDrag: boolean;
-  /** Find a clip at the given client coordinates */
-  findClipAtPosition: (clientX: number, clientY: number) => ClipData | null;
+  /** Find a clip at the given client coordinates - returns clip and hover zone */
+  findClipAtPosition: (clientX: number, clientY: number) => ClipAtPosition | null;
   /** Start dragging a clip (call on mousedown) */
   handleMouseDown: (e: React.MouseEvent<HTMLCanvasElement>) => void;
   /** Update clip position during drag (call on mousemove) */
@@ -110,9 +124,10 @@ export function useClipDrag({
 
   const { rulerHeight, trackHeight, clipPadding } = layoutParams;
 
-  // Find clip at mouse position (for drag-to-move)
+  // Find clip at mouse position (for drag-to-move and trim detection)
+  // FR-14: Returns which zone is hovered (left/right trim handles or body)
   const findClipAtPosition = useCallback(
-    (clientX: number, clientY: number): ClipData | null => {
+    (clientX: number, clientY: number): ClipAtPosition | null => {
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect || tracks.length === 0) return null;
 
@@ -154,7 +169,25 @@ export function useClipDrag({
           const clipHeight = trackHeight - clipPadding * 2 - 1;
 
           if (canvasY >= clipY && canvasY <= clipY + clipHeight) {
-            return clip;
+            // Calculate clip pixel boundaries for trim handle detection (FR-14)
+            const startTime = scrollLeft / pixelsPerSecond;
+            const clipX = (clipStartSeconds - startTime) * pixelsPerSecond;
+            const clipWidth = clipDurationSeconds * pixelsPerSecond;
+
+            // Determine which zone is hovered
+            const relativeX = canvasX - clipX;
+            let zone: ClipHoverZone = "body";
+
+            // Only show trim handles if clip is wide enough (at least 2x handle width)
+            if (clipWidth >= TRIM_HANDLE_WIDTH * 2) {
+              if (relativeX <= TRIM_HANDLE_WIDTH) {
+                zone = "left";
+              } else if (relativeX >= clipWidth - TRIM_HANDLE_WIDTH) {
+                zone = "right";
+              }
+            }
+
+            return { clip, zone };
           }
         }
       }
@@ -176,13 +209,19 @@ export function useClipDrag({
   );
 
   // Handle mousedown for clip dragging (FR-34)
+  // Only starts drag if clicking on clip body (not trim handles - those will be used for trimming)
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       // Check if clicking on a clip
-      const clip = findClipAtPosition(e.clientX, e.clientY);
-      if (clip) {
+      const result = findClipAtPosition(e.clientX, e.clientY);
+      if (result) {
+        const { clip, zone } = result;
         // Pending clips are not draggable until server confirms
         if (clip.pending) {
+          return;
+        }
+        // Only start drag if clicking on body (trim handles will be for trimming)
+        if (zone !== "body") {
           return;
         }
         e.preventDefault();
