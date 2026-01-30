@@ -17,8 +17,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { toast } from "sonner";
-
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import { VirtualizedTrackList } from "@/components/VirtualizedTrackList";
@@ -42,6 +40,7 @@ import {
   deleteClipOptimisticUpdate,
   updateClipPositionOptimisticUpdate,
 } from "@/lib/clipOptimisticUpdates";
+import { updateProjectOptimisticUpdate } from "@/lib/projectOptimisticUpdates";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -188,11 +187,12 @@ function ProjectEditor() {
   const reorderTracks = useMutation(api.tracks.reorderTracks).withOptimisticUpdate(
     reorderTracksOptimisticUpdate,
   );
-  const updateProject = useMutation(api.projects.updateProject);
+  const updateProject = useMutation(api.projects.updateProject).withOptimisticUpdate(
+    updateProjectOptimisticUpdate,
+  );
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
-  const [isSavingProjectName, setIsSavingProjectName] = useState(false);
   const [scrollTop, setScrollTop] = useState(0);
 
   const trackListRef = useRef<HTMLDivElement>(null);
@@ -280,15 +280,12 @@ function ProjectEditor() {
       return;
     }
 
-    setIsSavingProjectName(true);
+    // Optimistic update shows name change instantly, no loading state needed
+    setSettingsOpen(false);
     try {
       await updateProject({ id: id as any, name: projectName });
-      toast.success("Project renamed");
-      setSettingsOpen(false);
     } catch {
-      toast.error("Failed to rename project");
-    } finally {
-      setIsSavingProjectName(false);
+      showRollbackToast("rename project");
     }
   }, [updateProject, id, projectName, project]);
 
@@ -377,16 +374,7 @@ function ProjectEditor() {
               )}
             </div>
             <DialogFooter>
-              <Button onClick={handleSaveProjectName} disabled={isSavingProjectName}>
-                {isSavingProjectName ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save"
-                )}
-              </Button>
+              <Button onClick={handleSaveProjectName}>Save</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

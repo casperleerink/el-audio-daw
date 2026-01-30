@@ -127,3 +127,29 @@ Implemented commit-based pattern for gain sliders following FR-6 of the PRD. Gai
 - Next priority tasks: "Implement upload cancellation" or "Implement optimistic update for project"
 - The audio engine receives gain updates in real-time via `onGainChange`, providing instant audio feedback
 - Server mutations only fire on commit, reducing unnecessary network requests during slider drag
+
+## 2026-01-29 - Project Optimistic Update
+
+### Completed
+Implemented optimistic update for the `updateProject` mutation, enabling instant project name changes.
+
+**New file created:** `apps/web/src/lib/projectOptimisticUpdates.ts`
+- `updateProjectOptimisticUpdate` - Instantly applies name change to the `getProject` query cache
+
+**Files modified:**
+
+1. `apps/web/src/routes/project.$id.tsx`
+   - Wired up `updateProject` mutation with `withOptimisticUpdate`
+   - Removed `isSavingProjectName` loading state since optimistic updates make the action feel instant
+   - Replaced `toast.success`/`toast.error` with `showRollbackToast` for consistent error handling
+   - Simplified the settings dialog (no loading spinner on save button)
+   - Removed unused `toast` import from sonner
+
+### Architecture decisions
+- Project mutation follows the same pattern as track/clip mutations
+- The dialog now closes immediately on save, with the name change appearing instantly
+- On failure, Convex reverts the cache and `showRollbackToast` notifies the user
+
+### Notes for next person
+- Remaining tasks: "Implement upload cancellation", "Update audio engine sync", "Add pending state UI for clips"
+- The optimistic update pattern is now complete for all main entities: tracks, clips, and project

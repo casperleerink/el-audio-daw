@@ -46,7 +46,7 @@ Implement optimistic updates using Convex's built-in `optimisticUpdate` API for 
   - Cancel uploads when track is deleted
   - Use AbortController for fetch cancellation
 
-- [ ] Implement optimistic update for project
+- [x] Implement optimistic update for project
   - `updateProject` - instant name change
 
 - [ ] Update audio engine sync
