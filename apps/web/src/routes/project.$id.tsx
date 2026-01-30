@@ -42,6 +42,7 @@ import {
 import {
   deleteClipOptimisticUpdate,
   pasteClipsOptimisticUpdate,
+  splitClipOptimisticUpdate,
   trimClipOptimisticUpdate,
   updateClipPositionOptimisticUpdate,
 } from "@/lib/clipOptimisticUpdates";
@@ -201,6 +202,9 @@ function ProjectEditor() {
   const pasteClips = useMutation(api.clips.pasteClips).withOptimisticUpdate(
     pasteClipsOptimisticUpdate,
   );
+  const splitClip = useMutation(api.clips.splitClip).withOptimisticUpdate(
+    splitClipOptimisticUpdate,
+  );
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -331,6 +335,42 @@ function ProjectEditor() {
     await Promise.all(deletePromises);
   }, [selectedClipIds, clearSelection, deleteClip, id]);
 
+  // Split selected clips at playhead handler (FR-38 through FR-45)
+  const handleSplitClips = useCallback(async () => {
+    // FR-38: Split all selected clips at playhead position
+    if (selectedClipIds.size === 0 || !clips) return;
+
+    // Convert playhead time (seconds) to samples
+    const playheadTimeInSamples = Math.round(playheadTime * sampleRate);
+
+    // FR-39: Find selected clips that span the playhead
+    const clipsToSplit = clips.filter((clip) => {
+      if (!selectedClipIds.has(clip._id)) return false;
+      // Check if playhead is within clip bounds (exclusive of edges)
+      const clipEnd = clip.startTime + clip.duration;
+      return playheadTimeInSamples > clip.startTime && playheadTimeInSamples < clipEnd;
+    });
+
+    // FR-44: If playhead not intersecting any selected clips, do nothing
+    if (clipsToSplit.length === 0) return;
+
+    // FR-43: Clear selection (neither resulting clip will be selected)
+    clearSelection();
+
+    // FR-45: Split all qualifying clips in parallel with optimistic updates
+    const splitPromises = clipsToSplit.map((clip) =>
+      splitClip({
+        id: clip._id as any,
+        splitTime: playheadTimeInSamples,
+        projectId: id as any,
+      }).catch(() => {
+        showRollbackToast("split clip");
+      }),
+    );
+
+    await Promise.all(splitPromises);
+  }, [selectedClipIds, clips, playheadTime, sampleRate, clearSelection, splitClip, id]);
+
   // Update project name when project loads
   useEffect(() => {
     if (project) {
@@ -450,6 +490,12 @@ function ProjectEditor() {
         e.preventDefault();
         handlePasteClips();
       }
+
+      // FR-38: Cmd+E / Ctrl+E splits selected clips at playhead
+      if ((e.metaKey || e.ctrlKey) && e.code === "KeyE") {
+        e.preventDefault();
+        handleSplitClips();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -462,6 +508,7 @@ function ProjectEditor() {
     handleDeleteSelectedClips,
     handleCopyClips,
     handlePasteClips,
+    handleSplitClips,
   ]);
 
   // Loading state

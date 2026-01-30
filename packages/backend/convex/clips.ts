@@ -342,6 +342,78 @@ export const pasteClips = mutation({
 });
 
 /**
+ * Split a clip at a given position (FR-38 through FR-45)
+ *
+ * Creates two clips from one:
+ * - Left clip: original startTime, duration = splitTime - startTime, original audioStartTime
+ * - Right clip: startTime = splitTime, duration = original end - splitTime, audioStartTime adjusted
+ *
+ * Both clips reference the same audio file (no storage duplication).
+ * Gain setting is preserved on both clips.
+ *
+ * Note: projectId is optional but required for optimistic updates to work.
+ */
+export const splitClip = mutation({
+  args: {
+    id: v.id("clips"),
+    splitTime: v.number(), // Timeline position (in samples) to split at
+    projectId: v.optional(v.id("projects")),
+  },
+  handler: async (ctx, args) => {
+    const clip = await ctx.db.get(args.id);
+    if (!clip) {
+      throw new Error("Clip not found");
+    }
+
+    await requireProjectAccess(ctx, clip.projectId);
+
+    const clipEnd = clip.startTime + clip.duration;
+
+    // FR-39: Split only if splitTime is within clip bounds
+    if (args.splitTime <= clip.startTime || args.splitTime >= clipEnd) {
+      throw new Error("Split position must be within the clip boundaries");
+    }
+
+    const now = Date.now();
+
+    // FR-40: Calculate left clip properties
+    const leftDuration = args.splitTime - clip.startTime;
+
+    // FR-40: Calculate right clip properties
+    const rightStartTime = args.splitTime;
+    const rightDuration = clipEnd - args.splitTime;
+    // audioStartTime for right clip: advance by how much we cut from the left
+    const rightAudioStartTime = clip.audioStartTime + leftDuration;
+
+    // Update the original clip to become the left clip
+    await ctx.db.patch(args.id, {
+      duration: leftDuration,
+      updatedAt: now,
+    });
+
+    // Create the right clip (FR-41: same fileId, FR-42: same gain)
+    const rightClipId = await ctx.db.insert("clips", {
+      projectId: clip.projectId,
+      trackId: clip.trackId,
+      fileId: clip.fileId,
+      name: clip.name,
+      startTime: rightStartTime,
+      duration: rightDuration,
+      audioStartTime: rightAudioStartTime,
+      audioDuration: clip.audioDuration,
+      gain: clip.gain,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      leftClipId: args.id,
+      rightClipId,
+    };
+  },
+});
+
+/**
  * Get all clips for a project (FR-17)
  */
 export const getProjectClips = query({

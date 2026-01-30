@@ -49,6 +49,12 @@ type PasteClipsArgs = {
   }>;
 };
 
+type SplitClipArgs = {
+  id: Id<"clips">;
+  splitTime: number;
+  projectId?: Id<"projects">;
+};
+
 /**
  * Optimistic update for createClip mutation.
  * Instantly adds a new clip with a temp ID to the local cache.
@@ -232,6 +238,77 @@ export function pasteClipsOptimisticUpdate(
     localStore.setQuery(api.clips.getProjectClips, { projectId: args.projectId }, [
       ...current,
       ...newClips,
+    ]);
+  }
+}
+
+/**
+ * Optimistic update for splitClip mutation.
+ * Instantly updates the original clip's duration and adds a new right clip.
+ *
+ * Note: Requires projectId to be passed in args for optimistic update to work.
+ */
+export function splitClipOptimisticUpdate(
+  localStore: OptimisticLocalStore,
+  args: SplitClipArgs,
+): void {
+  if (!args.projectId) {
+    return;
+  }
+
+  const current = localStore.getQuery(api.clips.getProjectClips, {
+    projectId: args.projectId,
+  });
+
+  if (current !== undefined) {
+    const clip = current.find((c) => c._id === args.id);
+    if (!clip) return;
+
+    const clipEnd = clip.startTime + clip.duration;
+
+    // FR-39: Split only if splitTime is within clip bounds
+    if (args.splitTime <= clip.startTime || args.splitTime >= clipEnd) {
+      return;
+    }
+
+    const now = Date.now();
+
+    // FR-40: Calculate new properties
+    const leftDuration = args.splitTime - clip.startTime;
+    const rightStartTime = args.splitTime;
+    const rightDuration = clipEnd - args.splitTime;
+    const rightAudioStartTime = clip.audioStartTime + leftDuration;
+
+    // Create the right clip with temp ID
+    const rightClip: Clip = {
+      _id: tempId<"clips">(),
+      _creationTime: now,
+      projectId: clip.projectId,
+      trackId: clip.trackId,
+      fileId: clip.fileId,
+      name: clip.name,
+      startTime: rightStartTime,
+      duration: rightDuration,
+      audioStartTime: rightAudioStartTime,
+      audioDuration: clip.audioDuration,
+      gain: clip.gain,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // Update the original clip to become the left clip
+    const updated = current.map((c) => {
+      if (c._id !== args.id) return c;
+      return {
+        ...c,
+        duration: leftDuration,
+        updatedAt: now,
+      };
+    });
+
+    localStore.setQuery(api.clips.getProjectClips, { projectId: args.projectId }, [
+      ...updated,
+      rightClip,
     ]);
   }
 }

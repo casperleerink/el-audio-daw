@@ -464,3 +464,34 @@ Implemented vertical drag to move clips between tracks.
 - Next priority: split (Cmd+E, FR-38 through FR-45)
 - Multi-clip cross-track drag not implemented (single selection drag works)
 - Clip rendered at reduced opacity (0.5) during drag for visual feedback
+
+## 2026-01-29 - Split Clips at Playhead (FR-38 through FR-45)
+
+### Completed
+Implemented Cmd+E to split selected clips at playhead position.
+
+**New backend mutation:**
+- `splitClip` in `clips.ts` - splits a clip at a given timeline position, creating two clips from one
+
+**Files modified:**
+1. `packages/backend/convex/clips.ts` - Added `splitClip` mutation
+2. `apps/web/src/lib/clipOptimisticUpdates.ts` - Added `splitClipOptimisticUpdate` and `SplitClipArgs` type
+3. `apps/web/src/routes/project.$id.tsx`:
+   - Added `splitClip` mutation with optimistic update
+   - Added `handleSplitClips` callback
+   - Added Cmd+E keyboard shortcut
+
+**Behavior:**
+- FR-38: Cmd+E splits all selected clips at playhead position
+- FR-39: Split only affects clips where playhead intersects (within bounds)
+- FR-40: Creates left clip (original, shorter duration) and right clip (new, adjusted audioStartTime)
+- FR-41: Both clips reference same fileId (no storage duplication)
+- FR-42: Gain preserved on both clips
+- FR-43: Selection cleared after split (neither clip selected)
+- FR-44: If playhead doesn't intersect any selected clips, does nothing
+- FR-45: Uses optimistic updates
+
+### Notes for next person
+- PRD clip-editing.md is now COMPLETE - all tasks checked off
+- The split mutation modifies the original clip (becomes left) and creates a new clip (right)
+- Multi-clip split supported - all selected clips intersecting playhead are split in parallel
