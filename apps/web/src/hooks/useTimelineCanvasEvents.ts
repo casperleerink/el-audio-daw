@@ -1,6 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface UseTimelineCanvasEventsOptions {
+  /** Container element ref for wheel event attachment */
+  containerRef: React.RefObject<HTMLDivElement | null>;
   /** Canvas element ref for position calculations */
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   /** Horizontal scroll position in pixels */
@@ -34,8 +36,6 @@ interface UseTimelineCanvasEventsReturn {
   hoverX: number | null;
   /** Current hover time in seconds (null if not hovering) */
   hoverTime: number | null;
-  /** Wheel event handler for zoom and scroll */
-  handleWheel: (e: React.WheelEvent) => void;
   /** Click event handler for seeking */
   handleClick: (e: React.MouseEvent<HTMLCanvasElement>) => void;
   /** Mouse move event handler for hover indicator and clip dragging */
@@ -49,6 +49,7 @@ interface UseTimelineCanvasEventsReturn {
  * Handles wheel scroll/zoom, click-to-seek, and hover state tracking.
  */
 export function useTimelineCanvasEvents({
+  containerRef,
   canvasRef,
   scrollLeft,
   scrollTop,
@@ -66,16 +67,25 @@ export function useTimelineCanvasEvents({
   const [hoverX, setHoverX] = useState<number | null>(null);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
 
-  // Handle wheel for zoom and scroll
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+  // Attach wheel event listener with passive: false to allow preventDefault
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
 
       // Try zoom first (ctrl/cmd + scroll)
       const rect = canvasRef.current?.getBoundingClientRect();
       if (rect) {
         const cursorX = e.clientX - rect.left;
-        if (handleWheelZoom(e, cursorX)) {
+        // Create a minimal event-like object for handleWheelZoom
+        const wheelEvent = {
+          deltaY: e.deltaY,
+          ctrlKey: e.ctrlKey,
+          metaKey: e.metaKey,
+        } as React.WheelEvent;
+        if (handleWheelZoom(wheelEvent, cursorX)) {
           return;
         }
       }
@@ -89,9 +99,11 @@ export function useTimelineCanvasEvents({
         const newScrollTop = Math.min(maxScrollTop, Math.max(0, scrollTop + e.deltaY));
         onScrollChange(newScrollTop);
       }
-    },
-    [canvasRef, maxScrollTop, scrollTop, onScrollChange, handleWheelZoom, setScrollLeft],
-  );
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => container.removeEventListener("wheel", handleWheel);
+  }, [containerRef, canvasRef, maxScrollTop, scrollTop, onScrollChange, handleWheelZoom, setScrollLeft]);
 
   // Handle click for seeking (only if not ending a clip drag)
   const handleClick = useCallback(
@@ -141,7 +153,6 @@ export function useTimelineCanvasEvents({
   return {
     hoverX,
     hoverTime,
-    handleWheel,
     handleClick,
     handleMouseMove,
     handleMouseLeave,

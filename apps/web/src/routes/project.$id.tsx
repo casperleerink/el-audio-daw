@@ -481,7 +481,7 @@ function ProjectEditor() {
                 value={[masterGain]}
                 onValueChange={(val) => setMasterGain(Array.isArray(val) ? (val[0] ?? 0) : val)}
               />
-              <span className="w-16 text-right font-mono text-xs">{formatGain(masterGain)}</span>
+              <span className="w-16 text-right font-mono text-xs whitespace-nowrap">{formatGain(masterGain)}</span>
             </div>
           </div>
         </div>
@@ -595,8 +595,9 @@ function TimelineCanvas({
   });
 
   // Canvas event handlers (wheel, click, hover)
-  const { hoverX, hoverTime, handleWheel, handleClick, handleMouseMove, handleMouseLeave } =
+  const { hoverX, hoverTime, handleClick, handleMouseMove, handleMouseLeave } =
     useTimelineCanvasEvents({
+      containerRef,
       canvasRef,
       scrollLeft,
       scrollTop,
@@ -710,7 +711,6 @@ function TimelineCanvas({
     <div
       ref={containerRef}
       className="relative h-full w-full touch-none overflow-hidden"
-      onWheel={handleWheel}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -762,7 +762,7 @@ function TimelineCanvas({
       )}
 
       {/* Zoom controls */}
-      <div className="absolute right-2 top-0.5 z-10 flex items-center gap-0.5">
+      <div className="absolute right-0 top-0 z-10 flex h-6 items-center gap-0.5 border-b bg-background">
         <Tooltip delay={500}>
           <TooltipTrigger
             render={

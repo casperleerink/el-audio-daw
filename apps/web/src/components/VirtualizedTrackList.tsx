@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { useTrackNameEdit } from "@/hooks/useTrackNameEdit";
 import { useTrackReorder } from "@/hooks/useTrackReorder";
+import { getTrackColor } from "@/lib/canvasRenderer";
 import { formatGain } from "@/lib/formatters";
 import { TRACK_HEADER_HEIGHT } from "@/lib/timelineConstants";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ interface TrackData {
 
 interface TrackHeaderProps {
   track: TrackData;
+  index: number;
   isDragging?: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
@@ -36,6 +38,7 @@ interface TrackHeaderProps {
 
 function TrackHeader({
   track,
+  index,
   isDragging,
   onDragStart,
   onDragEnd,
@@ -46,6 +49,7 @@ function TrackHeader({
   onNameChange,
   onDelete,
 }: TrackHeaderProps) {
+  const trackColor = getTrackColor(index);
   const { isEditing, editName, inputRef, startEditing, setEditName, handleSubmit, handleKeyDown } =
     useTrackNameEdit({
       initialName: track.name,
@@ -56,11 +60,17 @@ function TrackHeader({
   // Sync from server when not actively dragging
   const [localGain, setLocalGain] = useState(track.gain);
   const isDraggingGainRef = useRef(false);
+  // Track the last committed server value (before optimistic updates)
+  const serverGainRef = useRef(track.gain);
+
+  // Only enable dragging when grip handle is being used
+  const [isDragHandleActive, setIsDragHandleActive] = useState(false);
 
   // Sync local gain from server state when not dragging
   useEffect(() => {
     if (!isDraggingGainRef.current) {
       setLocalGain(track.gain);
+      serverGainRef.current = track.gain;
     }
   }, [track.gain]);
 
@@ -78,26 +88,35 @@ function TrackHeader({
     (value: number | readonly number[]) => {
       isDraggingGainRef.current = false;
       const gainValue = Array.isArray(value) ? (value[0] ?? 0) : value;
-      // Only commit to server if value changed from original
-      if (gainValue !== track.gain) {
+      // Only commit to server if value changed from original server value
+      // (compare against serverGainRef, not track.gain which has optimistic updates)
+      if (gainValue !== serverGainRef.current) {
         onGainCommit(gainValue);
       }
     },
-    [onGainCommit, track.gain],
+    [onGainCommit],
   );
 
   return (
     <div
       className={`box-border h-[60px] border-b p-2 transition-all duration-150 ${isDragging ? "scale-[0.98] opacity-50 shadow-lg ring-2 ring-primary/30" : ""}`}
-      draggable
+      style={{
+        background: `linear-gradient(to right, color-mix(in srgb, ${trackColor} 15%, transparent), transparent 60%)`,
+      }}
+      draggable={isDragHandleActive}
       onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      onDragEnd={() => {
+        setIsDragHandleActive(false);
+        onDragEnd();
+      }}
     >
       {/* Track Name Row */}
       <div className="mb-1 flex items-center gap-1">
         <div
           className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
-          onMouseDown={(e) => e.stopPropagation()}
+          onMouseDown={() => setIsDragHandleActive(true)}
+          onMouseUp={() => setIsDragHandleActive(false)}
+          onMouseLeave={() => setIsDragHandleActive(false)}
         >
           <GripVertical className="size-3" />
         </div>
@@ -170,7 +189,7 @@ function TrackHeader({
           onValueChange={(val) => handleGainChange(Array.isArray(val) ? (val[0] ?? 0) : val)}
           onValueCommit={handleGainCommit}
         />
-        <span className="w-12 text-right font-mono text-[10px] text-muted-foreground">
+        <span className="w-12 text-right font-mono text-[10px] text-muted-foreground whitespace-nowrap">
           {formatGain(localGain)}
         </span>
       </div>
@@ -301,6 +320,7 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
                 )}
                 <TrackHeader
                   track={track}
+                  index={virtualRow.index}
                   isDragging={isDragging}
                   onDragStart={(e) => handleDragStart(e, track._id)}
                   onDragEnd={handleDragEnd}
