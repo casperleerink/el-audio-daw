@@ -253,6 +253,81 @@ export const deleteClip = mutation({
 });
 
 /**
+ * Paste clips from clipboard - batch create clips reusing existing fileIds (FR-28)
+ *
+ * Creates new clip records that reference the same audio files as the source clips.
+ * No storage duplication occurs - clips are just references to existing audio.
+ */
+export const pasteClips = mutation({
+  args: {
+    projectId: v.id("projects"),
+    trackId: v.id("tracks"),
+    clips: v.array(
+      v.object({
+        fileId: v.id("_storage"),
+        name: v.string(),
+        startTime: v.number(),
+        duration: v.number(),
+        audioStartTime: v.number(),
+        audioDuration: v.number(),
+        gain: v.number(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    await requireProjectAccess(ctx, args.projectId);
+
+    // Verify track belongs to project
+    const track = await ctx.db.get(args.trackId);
+    if (!track || track.projectId !== args.projectId) {
+      throw new Error("Track not found in this project");
+    }
+
+    const createdClipIds: string[] = [];
+    const now = Date.now();
+
+    // Sort clips by start time to handle overlaps in order
+    const sortedClips = [...args.clips].sort((a, b) => a.startTime - b.startTime);
+
+    for (const clip of sortedClips) {
+      // Validate position
+      if (clip.startTime < 0) {
+        throw new Error("Start time cannot be negative");
+      }
+      if (clip.duration <= 0) {
+        throw new Error("Duration must be positive");
+      }
+
+      const clipEnd = clip.startTime + clip.duration;
+
+      // Handle clip overlap (FR-12)
+      await handleClipOverlap(ctx.db, args.trackId, clip.startTime, clipEnd);
+
+      // Extend project duration if needed (FR-13)
+      await extendProjectDurationIfNeeded(ctx.db, args.projectId, clipEnd);
+
+      const clipId = await ctx.db.insert("clips", {
+        projectId: args.projectId,
+        trackId: args.trackId,
+        fileId: clip.fileId,
+        name: clip.name,
+        startTime: clip.startTime,
+        duration: clip.duration,
+        audioStartTime: clip.audioStartTime,
+        audioDuration: clip.audioDuration,
+        gain: clip.gain,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      createdClipIds.push(clipId);
+    }
+
+    return createdClipIds;
+  },
+});
+
+/**
  * Get all clips for a project (FR-17)
  */
 export const getProjectClips = query({

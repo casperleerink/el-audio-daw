@@ -386,3 +386,37 @@ Implemented full trim drag functionality with audio boundary constraints.
 - Next priorities: copy/paste (Cmd+C/V), cross-track drag, or split (Cmd+E)
 - Older clips without audioDuration fall back to audioStartTime + duration
 - trimDragState is separate from clipDragState - only one active at a time
+
+## 2026-01-29 - Copy/Paste Clips (FR-23 through FR-30)
+
+### Completed
+Implemented copy/paste for clips via Cmd+C and Cmd+V keyboard shortcuts.
+
+**New files:**
+1. `apps/web/src/hooks/useClipClipboard.ts` - Internal clipboard hook storing clip data in a ref (persists across renders, not page refresh)
+
+**New backend mutation:**
+- `pasteClips` in `clips.ts` - batch creates clips reusing existing fileIds (no storage duplication per FR-28)
+
+**Files modified:**
+1. `apps/web/src/lib/clipOptimisticUpdates.ts` - Added `pasteClipsOptimisticUpdate` for instant paste feedback
+2. `apps/web/src/routes/project.$id.tsx`:
+   - Added `useClipClipboard` hook
+   - Added `handleCopyClips` (FR-23, FR-24)
+   - Added `handlePasteClips` (FR-25 through FR-29)
+   - Added Cmd+C and Cmd+V keyboard shortcuts
+
+**Copy/paste behavior:**
+- FR-23: Cmd+C copies selected clips to internal clipboard (not system clipboard)
+- FR-24: Clipboard stores fileId, duration, audioStartTime, audioDuration, gain, relative offsets
+- FR-25: Cmd+V pastes at playhead position
+- FR-26: First clip aligns to playhead, others maintain relative offsets
+- FR-27: Pasted clips go to same track as source
+- FR-28: Paste creates new clip records reusing same fileId (no storage duplication)
+- FR-29: Uses optimistic updates with pending state
+- FR-30: Empty clipboard → Cmd+V does nothing
+
+### Notes for next person
+- Next priorities: cross-track drag (FR-31 through FR-37) or split (Cmd+E, FR-38 through FR-45)
+- Clipboard is stored in a React ref, not context - simple approach works since copy/paste is local to project page
+- Pasted clips appear immediately with temp IDs, replaced by real IDs when server confirms

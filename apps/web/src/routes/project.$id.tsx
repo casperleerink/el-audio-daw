@@ -21,6 +21,7 @@ import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import { VirtualizedTrackList } from "@/components/VirtualizedTrackList";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
+import { useClipClipboard } from "@/hooks/useClipClipboard";
 import { useClipDrag, type ClipData } from "@/hooks/useClipDrag";
 import { useClipSelection } from "@/hooks/useClipSelection";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
@@ -40,6 +41,7 @@ import {
 } from "@/lib/trackOptimisticUpdates";
 import {
   deleteClipOptimisticUpdate,
+  pasteClipsOptimisticUpdate,
   trimClipOptimisticUpdate,
   updateClipPositionOptimisticUpdate,
 } from "@/lib/clipOptimisticUpdates";
@@ -196,6 +198,9 @@ function ProjectEditor() {
   const deleteClip = useMutation(api.clips.deleteClip).withOptimisticUpdate(
     deleteClipOptimisticUpdate,
   );
+  const pasteClips = useMutation(api.clips.pasteClips).withOptimisticUpdate(
+    pasteClipsOptimisticUpdate,
+  );
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -241,6 +246,69 @@ function ProjectEditor() {
     clearSelection,
     selectAllOnFocusedTrack,
   } = useClipSelection({ clips: clipsForSelection });
+
+  // Clipboard for copy/paste (FR-23 through FR-30)
+  const { copyClips, getClipboardData, hasClips } = useClipClipboard();
+
+  // Sample rate for time conversions
+  const sampleRate = project?.sampleRate ?? 44100;
+
+  // Copy selected clips handler (FR-23, FR-24)
+  const handleCopyClips = useCallback(() => {
+    if (selectedClipIds.size === 0 || !clips) return;
+
+    // Get full clip data for selected clips
+    const clipsWithData = clips.map((clip) => ({
+      _id: clip._id,
+      trackId: clip.trackId,
+      fileId: clip.fileId,
+      name: clip.name,
+      startTime: clip.startTime,
+      duration: clip.duration,
+      audioStartTime: clip.audioStartTime,
+      audioDuration: clip.audioDuration ?? clip.audioStartTime + clip.duration,
+      gain: clip.gain,
+    }));
+
+    copyClips(selectedClipIds, clipsWithData);
+  }, [selectedClipIds, clips, copyClips]);
+
+  // Paste clips at playhead handler (FR-25 through FR-29)
+  const handlePasteClips = useCallback(async () => {
+    // FR-30: If no clips in clipboard, do nothing
+    if (!hasClips()) return;
+
+    const clipboardData = getClipboardData();
+    if (!clipboardData || clipboardData.clips.length === 0) return;
+
+    // Target track is the same track as source (FR-27)
+    const targetTrackId = clipboardData.sourceTrackId;
+
+    // Convert playhead time (seconds) to samples
+    const playheadTimeInSamples = Math.round(playheadTime * sampleRate);
+
+    // Build clips array with calculated start times (FR-26)
+    const clipsToCreate = clipboardData.clips.map((clip) => ({
+      fileId: clip.fileId,
+      name: clip.name,
+      startTime: playheadTimeInSamples + clip.offsetFromFirst,
+      duration: clip.duration,
+      audioStartTime: clip.audioStartTime,
+      audioDuration: clip.audioDuration,
+      gain: clip.gain,
+    }));
+
+    // FR-29: Use optimistic updates
+    try {
+      await pasteClips({
+        projectId: id as any,
+        trackId: targetTrackId as any,
+        clips: clipsToCreate,
+      });
+    } catch {
+      showRollbackToast("paste clips");
+    }
+  }, [hasClips, getClipboardData, playheadTime, sampleRate, pasteClips, id]);
 
   // Delete selected clips handler (FR-10 through FR-13)
   const handleDeleteSelectedClips = useCallback(async () => {
@@ -370,6 +438,18 @@ function ProjectEditor() {
         e.preventDefault();
         handleDeleteSelectedClips();
       }
+
+      // FR-23: Cmd+C / Ctrl+C copies selected clips to clipboard
+      if ((e.metaKey || e.ctrlKey) && e.code === "KeyC") {
+        e.preventDefault();
+        handleCopyClips();
+      }
+
+      // FR-25: Cmd+V / Ctrl+V pastes clips at playhead position
+      if ((e.metaKey || e.ctrlKey) && e.code === "KeyV") {
+        e.preventDefault();
+        handlePasteClips();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -380,6 +460,8 @@ function ProjectEditor() {
     clearSelection,
     selectAllOnFocusedTrack,
     handleDeleteSelectedClips,
+    handleCopyClips,
+    handlePasteClips,
   ]);
 
   // Loading state
