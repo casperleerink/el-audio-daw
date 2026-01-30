@@ -36,7 +36,7 @@ Implement optimistic updates using Convex's built-in `optimisticUpdate` API for 
   - `updateClipPosition` - instant position change on drag (commit on drop)
   - `deleteClip` - instant removal
 
-- [ ] Implement commit-based updates for continuous interactions
+- [x] Implement commit-based updates for continuous interactions
   - Gain sliders: local state + audio engine update immediately, server on commit
   - Track reorder: local order during drag, server on drop
   - Clip drag: local position during drag, server on drop

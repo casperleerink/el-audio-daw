@@ -14,6 +14,9 @@ type BaseTrack = {
  * Hook for managing optimistic updates to track properties (mute, solo, gain).
  * Provides immediate UI feedback while mutations are in flight, with automatic
  * rollback on failure.
+ *
+ * For mute/solo: immediate update + server mutation (single action)
+ * For gain: separate local update vs commit (for continuous slider interactions)
  */
 export function useOptimisticTrackUpdates<T extends BaseTrack>(
   tracks: T[] | undefined,
@@ -56,7 +59,8 @@ export function useOptimisticTrackUpdates<T extends BaseTrack>(
     });
   }, []);
 
-  const createUpdateHandler = useCallback(
+  // Handler for immediate update + server mutation (mute/solo)
+  const createImmediateUpdateHandler = useCallback(
     <K extends keyof TrackUpdate>(key: K) =>
       async (trackId: string, value: NonNullable<TrackUpdate[K]>) => {
         applyOptimisticUpdate(trackId, { [key]: value } as TrackUpdate);
@@ -71,9 +75,39 @@ export function useOptimisticTrackUpdates<T extends BaseTrack>(
     [updateTrack, applyOptimisticUpdate, clearOptimisticUpdate],
   );
 
-  const handleUpdateTrackMute = useMemo(() => createUpdateHandler("muted"), [createUpdateHandler]);
-  const handleUpdateTrackSolo = useMemo(() => createUpdateHandler("solo"), [createUpdateHandler]);
-  const handleUpdateTrackGain = useMemo(() => createUpdateHandler("gain"), [createUpdateHandler]);
+  const handleUpdateTrackMute = useMemo(
+    () => createImmediateUpdateHandler("muted"),
+    [createImmediateUpdateHandler],
+  );
+  const handleUpdateTrackSolo = useMemo(
+    () => createImmediateUpdateHandler("solo"),
+    [createImmediateUpdateHandler],
+  );
+
+  // Gain handlers: separate local update from server commit
+  // This enables real-time audio feedback during slider drag
+
+  /** Apply local optimistic update for gain (no server call) - use for real-time feedback */
+  const handleUpdateTrackGain = useCallback(
+    (trackId: string, value: number) => {
+      applyOptimisticUpdate(trackId, { gain: value });
+    },
+    [applyOptimisticUpdate],
+  );
+
+  /** Commit gain to server (on slider release) - clears optimistic state on completion */
+  const handleCommitTrackGain = useCallback(
+    async (trackId: string, value: number) => {
+      try {
+        await updateTrack({ id: trackId, gain: value });
+      } catch {
+        toast.error("Failed to update track gain");
+      } finally {
+        clearOptimisticUpdate(trackId, ["gain"]);
+      }
+    },
+    [updateTrack, clearOptimisticUpdate],
+  );
 
   // Merge server tracks with optimistic updates
   const tracksWithOptimisticUpdates = useMemo(() => {
@@ -95,5 +129,6 @@ export function useOptimisticTrackUpdates<T extends BaseTrack>(
     handleUpdateTrackMute,
     handleUpdateTrackSolo,
     handleUpdateTrackGain,
+    handleCommitTrackGain,
   };
 }

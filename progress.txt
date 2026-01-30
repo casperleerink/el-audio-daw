@@ -88,3 +88,42 @@ Implemented optimistic updates for all clip mutations using Convex's `withOptimi
 - The `updateClipPosition` and `deleteClip` mutations now accept optional `projectId` - always pass it for optimistic updates
 - Use `isPending()` from `@/lib/optimistic` to check if a clip has a temp ID (pending confirmation)
 - The clip deletion UI needs to be implemented before `deleteClip` can be fully utilized
+
+## 2026-01-29 - Commit-Based Updates for Continuous Interactions
+
+### Completed
+Implemented commit-based pattern for gain sliders following FR-6 of the PRD. Gain now updates the audio engine in real-time during slider drag, but only commits to the server on slider release.
+
+**Files modified:**
+
+1. `apps/web/src/components/ui/slider.tsx`
+   - Added `onValueCommit` prop that fires on pointer up
+   - Tracks current value in a ref to pass to commit callback
+
+2. `apps/web/src/components/VirtualizedTrackList.tsx`
+   - Added `onGainCommit` prop to `TrackHeaderProps` and `VirtualizedTrackListProps`
+   - `TrackHeader` now uses local `localGain` state for real-time slider feedback
+   - `handleGainChange` updates local state + calls `onGainChange` for audio engine
+   - `handleGainCommit` commits to server only when value differs from original
+   - Added `isDraggingGainRef` to prevent server state from overwriting local state during drag
+
+3. `apps/web/src/hooks/useOptimisticTrackUpdates.ts`
+   - Separated gain handlers: `handleUpdateTrackGain` (local only) vs `handleCommitTrackGain` (server)
+   - `handleUpdateTrackGain` now only applies local optimistic state (no server call)
+   - `handleCommitTrackGain` sends to server and clears optimistic state on completion
+   - Mute/solo continue to use immediate update pattern (single click actions)
+
+4. `apps/web/src/routes/project.$id.tsx`
+   - Wired up both `onGainChange` and `onGainCommit` to `VirtualizedTrackList`
+
+### Architecture decisions
+- Gain slider now follows the commit-based pattern from FR-6
+- Track reorder and clip drag were already using commit-based patterns (no changes needed)
+- Mute/solo remain immediate (they're discrete toggles, not continuous interactions)
+- The Slider component's `onValueCommit` uses `onPointerUp` to detect release
+
+### Notes for next person
+- All continuous interactions (gain, track reorder, clip drag) now use commit-based pattern
+- Next priority tasks: "Implement upload cancellation" or "Implement optimistic update for project"
+- The audio engine receives gain updates in real-time via `onGainChange`, providing instant audio feedback
+- Server mutations only fire on commit, reducing unnecessary network requests during slider drag

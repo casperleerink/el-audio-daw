@@ -202,6 +202,7 @@ function ProjectEditor() {
     handleUpdateTrackMute,
     handleUpdateTrackSolo,
     handleUpdateTrackGain,
+    handleCommitTrackGain,
   } = useOptimisticTrackUpdates(tracks, updateTrack);
 
   const {
@@ -469,6 +470,7 @@ function ProjectEditor() {
             onMuteChange={handleUpdateTrackMute}
             onSoloChange={handleUpdateTrackSolo}
             onGainChange={handleUpdateTrackGain}
+            onGainCommit={handleCommitTrackGain}
             onNameChange={handleUpdateTrackName}
             onDelete={handleDeleteTrack}
             onReorder={handleReorderTracks}

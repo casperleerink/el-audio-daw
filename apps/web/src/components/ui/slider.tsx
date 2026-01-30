@@ -3,18 +3,36 @@ import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 
 import { cn } from "@/lib/utils";
 
+interface SliderProps extends SliderPrimitive.Root.Props {
+  /** Called when the user releases the slider (mouseup/touchend) */
+  onValueCommit?: (value: number | readonly number[]) => void;
+}
+
 function Slider({
   className,
   defaultValue,
   value,
   min = 0,
   max = 100,
+  onValueCommit,
   ...props
-}: SliderPrimitive.Root.Props) {
+}: SliderProps) {
   const _values = React.useMemo(
     () => (Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min, max]),
     [value, defaultValue, min, max],
   );
+
+  // Track current value for commit callback
+  const currentValueRef = React.useRef(value);
+  React.useEffect(() => {
+    currentValueRef.current = value;
+  }, [value]);
+
+  const handlePointerUp = React.useCallback(() => {
+    if (onValueCommit && currentValueRef.current !== undefined) {
+      onValueCommit(currentValueRef.current);
+    }
+  }, [onValueCommit]);
 
   return (
     <SliderPrimitive.Root
@@ -25,6 +43,7 @@ function Slider({
       min={min}
       max={max}
       thumbAlignment="edge"
+      onPointerUp={handlePointerUp}
       {...props}
     >
       <SliderPrimitive.Control className="data-vertical:min-h-40 relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:w-auto data-vertical:flex-col">

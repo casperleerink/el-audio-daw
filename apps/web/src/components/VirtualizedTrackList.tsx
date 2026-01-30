@@ -1,6 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { GripVertical, Pencil, Plus, Trash2, VolumeX } from "lucide-react";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { useTrackNameEdit } from "@/hooks/useTrackNameEdit";
 import { useTrackReorder } from "@/hooks/useTrackReorder";
@@ -26,7 +26,10 @@ interface TrackHeaderProps {
   onDragEnd: () => void;
   onMuteChange: (muted: boolean) => void;
   onSoloChange: (solo: boolean) => void;
+  /** Called on every gain change for real-time audio feedback */
   onGainChange: (gain: number) => void;
+  /** Called when gain change is committed (slider released) for server sync */
+  onGainCommit: (gain: number) => void;
   onNameChange: (name: string) => void;
   onDelete: () => void;
 }
@@ -39,6 +42,7 @@ function TrackHeader({
   onMuteChange,
   onSoloChange,
   onGainChange,
+  onGainCommit,
   onNameChange,
   onDelete,
 }: TrackHeaderProps) {
@@ -47,6 +51,40 @@ function TrackHeader({
       initialName: track.name,
       onNameChange,
     });
+
+  // Local gain state for real-time slider feedback
+  // Sync from server when not actively dragging
+  const [localGain, setLocalGain] = useState(track.gain);
+  const isDraggingGainRef = useRef(false);
+
+  // Sync local gain from server state when not dragging
+  useEffect(() => {
+    if (!isDraggingGainRef.current) {
+      setLocalGain(track.gain);
+    }
+  }, [track.gain]);
+
+  const handleGainChange = useCallback(
+    (value: number) => {
+      isDraggingGainRef.current = true;
+      setLocalGain(value);
+      // Update audio engine immediately for real-time feedback
+      onGainChange(value);
+    },
+    [onGainChange],
+  );
+
+  const handleGainCommit = useCallback(
+    (value: number | readonly number[]) => {
+      isDraggingGainRef.current = false;
+      const gainValue = Array.isArray(value) ? (value[0] ?? 0) : value;
+      // Only commit to server if value changed from original
+      if (gainValue !== track.gain) {
+        onGainCommit(gainValue);
+      }
+    },
+    [onGainCommit, track.gain],
+  );
 
   return (
     <div
@@ -128,11 +166,12 @@ function TrackHeader({
           min={-60}
           max={12}
           step={0.1}
-          value={[track.gain]}
-          onValueChange={(val) => onGainChange(Array.isArray(val) ? (val[0] ?? 0) : val)}
+          value={[localGain]}
+          onValueChange={(val) => handleGainChange(Array.isArray(val) ? (val[0] ?? 0) : val)}
+          onValueCommit={handleGainCommit}
         />
         <span className="w-12 text-right font-mono text-[10px] text-muted-foreground">
-          {formatGain(track.gain)}
+          {formatGain(localGain)}
         </span>
       </div>
     </div>
@@ -145,7 +184,10 @@ export interface VirtualizedTrackListProps {
   onScrollChange: (scrollTop: number) => void;
   onMuteChange: (trackId: string, muted: boolean) => void;
   onSoloChange: (trackId: string, solo: boolean) => void;
+  /** Called on every gain change for real-time audio feedback */
   onGainChange: (trackId: string, gain: number) => void;
+  /** Called when gain change is committed (slider released) for server sync */
+  onGainCommit: (trackId: string, gain: number) => void;
   onNameChange: (trackId: string, name: string) => void;
   onDelete: (trackId: string) => void;
   onReorder: (trackIds: string[]) => void;
@@ -161,6 +203,7 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
       onMuteChange,
       onSoloChange,
       onGainChange,
+      onGainCommit,
       onNameChange,
       onDelete,
       onReorder,
@@ -264,6 +307,7 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
                   onMuteChange={(muted) => onMuteChange(track._id, muted)}
                   onSoloChange={(solo) => onSoloChange(track._id, solo)}
                   onGainChange={(gain) => onGainChange(track._id, gain)}
+                  onGainCommit={(gain) => onGainCommit(track._id, gain)}
                   onNameChange={(name) => onNameChange(track._id, name)}
                   onDelete={() => onDelete(track._id)}
                 />
