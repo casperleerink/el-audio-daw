@@ -416,122 +416,150 @@ export class AudioEngine {
     );
 
     // Build track signals
-    const trackSignals: { left: NodeRepr_t; right: NodeRepr_t }[] = tracks.map((track) => {
-      // Determine if this track should be audible (FR-22)
-      const shouldPlay = anySoloed ? track.solo : !track.muted;
+    const trackSignals: { left: NodeRepr_t; right: NodeRepr_t }[] = tracks.map(
+      (track) => {
+        // Determine if this track should be audible (FR-22)
+        const shouldPlay = anySoloed ? track.solo : !track.muted;
 
-      // Get track gain value (0 if muted/not-soloed, otherwise convert from dB)
-      const trackGainValue = shouldPlay ? dbToGain(track.gain) : 0;
+        // Get track gain value (0 if muted/not-soloed, otherwise convert from dB)
+        const trackGainValue = shouldPlay ? dbToGain(track.gain) : 0;
 
-      // Get all clips for this track (FR-21)
-      const trackClips = clips.filter((clip) => clip.trackId === track.id);
+        // Get all clips for this track (FR-21)
+        const trackClips = clips.filter((clip) => clip.trackId === track.id);
 
-      // Render each clip using el.sampleseq (FR-19, FR-23)
-      // NOTE: We use two separate el.sampleseq calls for stereo instead of el.mc.sampleseq
-      // because el.mc.sampleseq doesn't correctly resolve :0/:1 VFS paths
-      const clipSignals: { left: NodeRepr_t; right: NodeRepr_t }[] = trackClips.map((clip) => {
-        const vfsEntry = this.vfsEntries.get(clip.fileId);
-        if (!vfsEntry) {
-          // Audio not loaded yet, return silence
-          return {
-            left: el.const({ key: `clip-${clip.id}-left-empty`, value: 0 }),
-            right: el.const({ key: `clip-${clip.id}-right-empty`, value: 0 }),
-          };
-        }
+        // Render each clip using el.sampleseq (FR-19, FR-23)
+        // NOTE: We use two separate el.sampleseq calls for stereo instead of el.mc.sampleseq
+        // because el.mc.sampleseq doesn't correctly resolve :0/:1 VFS paths
+        const clipSignals: { left: NodeRepr_t; right: NodeRepr_t }[] =
+          trackClips.map((clip) => {
+            const vfsEntry = this.vfsEntries.get(clip.fileId);
+            if (!vfsEntry) {
+              // Audio not loaded yet, return silence
+              return {
+                left: el.const({ key: `clip-${clip.id}-left-empty`, value: 0 }),
+                right: el.const({
+                  key: `clip-${clip.id}-right-empty`,
+                  value: 0,
+                }),
+              };
+            }
 
-        // Calculate times in seconds for el.sampleseq
-        const startTimeSeconds = clip.startTime / sampleRate;
-        const clipDurationSeconds = clip.duration / sampleRate;
-        // duration prop is the actual audio file duration, not the clip timeline duration
-        const sampleDurationSeconds = vfsEntry.duration / vfsEntry.sampleRate;
+            // Calculate times in seconds for el.sampleseq
+            const startTimeSeconds = clip.startTime / sampleRate;
+            const clipDurationSeconds = clip.duration / sampleRate;
+            // duration prop is the actual audio file duration, not the clip timeline duration
+            const sampleDurationSeconds =
+              vfsEntry.duration / vfsEntry.sampleRate;
 
-        // Clip gain (FR-20)
-        const clipGainValue = dbToGain(clip.gain);
+            // Clip gain (FR-20)
+            const clipGainValue = dbToGain(clip.gain);
 
-        // Build sequence: trigger at start, stop at end of clip on timeline
-        const seq = [
-          { time: startTimeSeconds, value: 1 },
-          { time: startTimeSeconds + clipDurationSeconds, value: 0 },
-        ];
+            // Build sequence: trigger at start, stop at end of clip on timeline
+            const seq = [
+              { time: startTimeSeconds, value: 1 },
+              { time: startTimeSeconds + clipDurationSeconds, value: 0 },
+            ];
 
-        // Validate values before passing to Elementary
-        const hasInvalidValue =
-          !Number.isFinite(startTimeSeconds) ||
-          !Number.isFinite(clipDurationSeconds) ||
-          !Number.isFinite(sampleDurationSeconds) ||
-          !Number.isFinite(clipGainValue);
+            // Validate values before passing to Elementary
+            const hasInvalidValue =
+              !Number.isFinite(startTimeSeconds) ||
+              !Number.isFinite(clipDurationSeconds) ||
+              !Number.isFinite(sampleDurationSeconds) ||
+              !Number.isFinite(clipGainValue);
 
-        if (hasInvalidValue) {
-          console.error(`[AudioEngine] Invalid values for clip ${clip.id}, skipping`);
-          return {
-            left: el.const({ key: `clip-${clip.id}-left-invalid`, value: 0 }),
-            right: el.const({ key: `clip-${clip.id}-right-invalid`, value: 0 }),
-          };
-        }
+            if (hasInvalidValue) {
+              console.error(
+                `[AudioEngine] Invalid values for clip ${clip.id}, skipping`,
+              );
+              return {
+                left: el.const({
+                  key: `clip-${clip.id}-left-invalid`,
+                  value: 0,
+                }),
+                right: el.const({
+                  key: `clip-${clip.id}-right-invalid`,
+                  value: 0,
+                }),
+              };
+            }
 
-        // Get explicit VFS paths for left and right channels
-        // Mono: use fileId directly; Stereo: use fileId:0 and fileId:1
-        const leftPath = vfsEntry.channels === 1 ? clip.fileId : `${clip.fileId}:0`;
-        const rightPath = vfsEntry.channels === 1 ? clip.fileId : `${clip.fileId}:1`;
+            // Get explicit VFS paths for left and right channels
+            // Mono: use fileId directly; Stereo: use fileId:0 and fileId:1
+            const leftPath =
+              vfsEntry.channels === 1 ? clip.fileId : `${clip.fileId}:0`;
+            const rightPath =
+              vfsEntry.channels === 1 ? clip.fileId : `${clip.fileId}:1`;
 
-        // Create sampleseq for left channel
-        const leftSignal = el.sampleseq(
-          {
-            key: `clip-${clip.id}-left`,
-            seq,
-            path: leftPath,
-            duration: sampleDurationSeconds,
-          },
-          timeInSeconds,
+            // Create sampleseq for left channel
+            const leftSignal = el.sampleseq(
+              {
+                key: `clip-${clip.id}-left`,
+                seq,
+                path: leftPath,
+                duration: sampleDurationSeconds,
+              },
+              timeInSeconds,
+            );
+
+            // Create sampleseq for right channel
+            const rightSignal = el.sampleseq(
+              {
+                key: `clip-${clip.id}-right`,
+                seq,
+                path: rightPath,
+                duration: sampleDurationSeconds,
+              },
+              timeInSeconds,
+            );
+
+            // Apply clip gain to both channels
+            return {
+              left: el.mul(
+                el.const({
+                  key: `clip-${clip.id}-gain-l`,
+                  value: clipGainValue,
+                }),
+                leftSignal,
+              ),
+              right: el.mul(
+                el.const({
+                  key: `clip-${clip.id}-gain-r`,
+                  value: clipGainValue,
+                }),
+                rightSignal,
+              ),
+            };
+          });
+
+        // Sum all clips on this track (FR-21)
+        const { left: trackLeft, right: trackRight } = this.sumStereoSignals(
+          clipSignals,
+          `track-${track.id}`,
         );
 
-        // Create sampleseq for right channel
-        const rightSignal = el.sampleseq(
-          {
-            key: `clip-${clip.id}-right`,
-            seq,
-            path: rightPath,
-            duration: sampleDurationSeconds,
-          },
-          timeInSeconds,
+        // Apply track gain with smoothing (FR-20)
+        const smoothedGain = el.sm(
+          el.const({ key: `track-${track.id}-gain`, value: trackGainValue }),
         );
 
-        // Apply clip gain to both channels
         return {
-          left: el.mul(
-            el.const({ key: `clip-${clip.id}-gain-l`, value: clipGainValue }),
-            leftSignal,
-          ),
-          right: el.mul(
-            el.const({ key: `clip-${clip.id}-gain-r`, value: clipGainValue }),
-            rightSignal,
-          ),
+          left: el.mul(smoothedGain, trackLeft),
+          right: el.mul(smoothedGain, trackRight),
         };
-      });
-
-      // Sum all clips on this track (FR-21)
-      const { left: trackLeft, right: trackRight } = this.sumStereoSignals(
-        clipSignals,
-        `track-${track.id}`,
-      );
-
-      // Apply track gain with smoothing (FR-20)
-      const smoothedGain = el.sm(
-        el.const({ key: `track-${track.id}-gain`, value: trackGainValue }),
-      );
-
-      return {
-        left: el.mul(smoothedGain, trackLeft),
-        right: el.mul(smoothedGain, trackRight),
-      };
-    });
+      },
+    );
 
     // Sum all tracks (or silence if no tracks)
-    const { left: summedLeft, right: summedRight } = this.sumStereoSignals(trackSignals, "sum");
+    const { left: summedLeft, right: summedRight } = this.sumStereoSignals(
+      trackSignals,
+      "sum",
+    );
 
     // Apply master gain with smoothing
     const masterGainValue = dbToGain(masterGain);
-    const smoothedMasterGain = el.sm(el.const({ key: "master-gain", value: masterGainValue }));
+    const smoothedMasterGain = el.sm(
+      el.const({ key: "master-gain", value: masterGainValue }),
+    );
 
     const masterLeft = el.mul(smoothedMasterGain, summedLeft);
     const masterRight = el.mul(smoothedMasterGain, summedRight);
