@@ -20,6 +20,7 @@ export interface ClipData {
   name: string;
   startTime: number; // in samples
   duration: number; // in samples
+  pending?: boolean; // true if clip is awaiting server confirmation
 }
 
 /**
@@ -180,6 +181,10 @@ export function useClipDrag({
       // Check if clicking on a clip
       const clip = findClipAtPosition(e.clientX, e.clientY);
       if (clip) {
+        // Pending clips are not draggable until server confirms
+        if (clip.pending) {
+          return;
+        }
         e.preventDefault();
         setClipDragState({
           clipId: clip._id,

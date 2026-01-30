@@ -215,3 +215,45 @@ Implemented upload cancellation for track deletion following FR-7 of the PRD. Wh
 - The upload registry utilities can also be used to show pending upload count in UI if needed
 - If implementing upload progress, the AbortController could be extended to track upload percentage
 - The pattern can be reused for any other cancellable async operations
+
+## 2026-01-29 - Pending State UI for Clips
+
+### Completed
+Implemented visual indicators for clips awaiting server confirmation (optimistic clips with temp IDs).
+
+**Files modified:**
+
+1. `apps/web/src/lib/canvasRenderer.ts`
+   - Extended `ClipRenderData` interface with optional `pending` flag
+   - Added `createPendingPattern()` function to generate diagonal stripe overlay
+   - Modified `drawClips()` to render pending clips with:
+     - Lower opacity (0.4 vs 0.7 for confirmed clips)
+     - Diagonal stripe pattern overlay
+     - Dashed border instead of solid
+     - Reduced text opacity
+
+2. `apps/web/src/hooks/useClipDrag.ts`
+   - Extended `ClipData` interface with optional `pending` flag
+   - Modified `handleMouseDown` to prevent dragging pending clips (they cannot be moved until server confirms)
+
+3. `apps/web/src/routes/project.$id.tsx`
+   - Imported `isPending` utility from `@/lib/optimistic`
+   - Updated clip mapping to include `pending: isPending(clip)` flag
+
+### Architecture decisions
+- Pending clips are identified using the existing `isPending()` utility which checks for `temp_` prefix in IDs
+- Visual indicators use canvas rendering: diagonal stripes + dashed border + reduced opacity
+- Pending clips are explicitly non-draggable per PRD decisions ("Pending clips are NOT draggable until server confirms")
+- No additional React state needed - pending state flows through from Convex optimistic updates
+
+### Visual design for pending clips
+- Background: Same track color but with 0.4 opacity (vs 0.7 for confirmed)
+- Overlay: Diagonal stripe pattern using semi-transparent white
+- Border: Dashed line (4px on, 4px off) at 0.6 opacity
+- Text: Reduced to 0.5 opacity
+- Interaction: Cannot be dragged (handleMouseDown returns early)
+
+### Notes for next person
+- The PRD for optimistic updates is now COMPLETE - all tasks are checked off
+- If implementing upload progress percentage, consider adding a progress bar inside the pending clip
+- The stripe pattern is created per-render (could be cached for performance if needed)

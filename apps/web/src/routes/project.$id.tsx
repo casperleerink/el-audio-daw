@@ -28,7 +28,7 @@ import { useTimelineFileDrop } from "@/hooks/useTimelineFileDrop";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { renderTimeline } from "@/lib/canvasRenderer";
 import { formatGain, formatTime } from "@/lib/formatters";
-import { showRollbackToast } from "@/lib/optimistic";
+import { isPending, showRollbackToast } from "@/lib/optimistic";
 import { cancelUploadsForTrack } from "@/lib/uploadRegistry";
 import { CLIP_PADDING, RULER_HEIGHT, TRACK_HEIGHT } from "@/lib/timelineConstants";
 import {
@@ -497,6 +497,7 @@ function ProjectEditor() {
               name: clip.name,
               startTime: clip.startTime,
               duration: clip.duration,
+              pending: isPending(clip),
             }))}
             sampleRate={project?.sampleRate ?? 44100}
             playheadTime={playheadTime}

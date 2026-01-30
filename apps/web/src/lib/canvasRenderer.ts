@@ -29,6 +29,7 @@ export interface ClipRenderData {
   name: string;
   startTime: number; // in samples
   duration: number; // in samples
+  pending?: boolean; // true if clip is awaiting server confirmation
 }
 
 export interface ClipDragState {
@@ -161,6 +162,31 @@ interface DrawClipsOptions {
 }
 
 /**
+ * Create a diagonal stripe pattern for pending clips
+ */
+function createPendingPattern(ctx: CanvasRenderingContext2D, color: string): CanvasPattern | null {
+  const patternCanvas = document.createElement("canvas");
+  const patternSize = 8;
+  patternCanvas.width = patternSize;
+  patternCanvas.height = patternSize;
+  const patternCtx = patternCanvas.getContext("2d");
+  if (!patternCtx) return null;
+
+  // Transparent background
+  patternCtx.clearRect(0, 0, patternSize, patternSize);
+
+  // Draw diagonal stripe
+  patternCtx.strokeStyle = color;
+  patternCtx.lineWidth = 2;
+  patternCtx.beginPath();
+  patternCtx.moveTo(0, patternSize);
+  patternCtx.lineTo(patternSize, 0);
+  patternCtx.stroke();
+
+  return ctx.createPattern(patternCanvas, "repeat");
+}
+
+/**
  * Draw all clips on the timeline
  */
 export function drawClips(options: DrawClipsOptions): void {
@@ -177,8 +203,9 @@ export function drawClips(options: DrawClipsOptions): void {
     const trackIndex = trackIndexMap.get(clip.trackId);
     if (trackIndex === undefined) continue;
 
-    // Check if clip is being dragged
+    // Check if clip is being dragged or pending
     const isDragging = clipDragState?.clipId === clip._id;
+    const isPending = clip.pending === true;
 
     // Use drag position if dragging, otherwise original position
     const effectiveStartTime = isDragging ? clipDragState.currentStartTime : clip.startTime;
@@ -207,23 +234,44 @@ export function drawClips(options: DrawClipsOptions): void {
 
     // Draw clip background
     ctx.fillStyle = trackColor;
-    ctx.globalAlpha = isDragging ? 0.5 : 0.7;
+    // Pending clips have lower opacity, dragging clips even lower
+    ctx.globalAlpha = isPending ? 0.4 : isDragging ? 0.5 : 0.7;
     ctx.beginPath();
     ctx.roundRect(clipX, clipY, clipWidth, clipHeight, CLIP_BORDER_RADIUS);
     ctx.fill();
 
-    // Draw clip border
+    // Draw stripe pattern overlay for pending clips
+    if (isPending) {
+      const pattern = createPendingPattern(ctx, "rgba(255, 255, 255, 0.15)");
+      if (pattern) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(clipX, clipY, clipWidth, clipHeight, CLIP_BORDER_RADIUS);
+        ctx.clip();
+        ctx.fillStyle = pattern;
+        ctx.fillRect(clipX, clipY, clipWidth, clipHeight);
+        ctx.restore();
+      }
+    }
+
+    // Draw clip border (dashed for pending)
     ctx.strokeStyle = trackColor;
-    ctx.globalAlpha = isDragging ? 0.7 : 1;
+    ctx.globalAlpha = isPending ? 0.6 : isDragging ? 0.7 : 1;
     ctx.lineWidth = isDragging ? 2 : 1;
+    if (isPending) {
+      ctx.setLineDash([4, 4]);
+    }
     ctx.beginPath();
     ctx.roundRect(clipX, clipY, clipWidth, clipHeight, CLIP_BORDER_RADIUS);
     ctx.stroke();
+    if (isPending) {
+      ctx.setLineDash([]);
+    }
 
     // Draw clip name
     if (clipWidth > 30) {
       ctx.fillStyle = "#ffffff";
-      ctx.globalAlpha = isDragging ? 0.6 : 0.9;
+      ctx.globalAlpha = isPending ? 0.5 : isDragging ? 0.6 : 0.9;
       ctx.font = "11px sans-serif";
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";

@@ -53,7 +53,7 @@ Implement optimistic updates using Convex's built-in `optimisticUpdate` API for 
   - Engine reads from Convex query cache (includes optimistic state)
   - Verify engine reacts to optimistic track gain/mute/solo changes
 
-- [ ] Add pending state UI for clips
+- [x] Add pending state UI for clips
   - Visual indicator for clips awaiting server confirmation
   - Handle upload progress → validation → confirmation flow
 
