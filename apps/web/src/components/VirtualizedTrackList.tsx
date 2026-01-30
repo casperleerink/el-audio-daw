@@ -9,6 +9,7 @@ import { formatGain } from "@/lib/formatters";
 import { TRACK_HEADER_HEIGHT } from "@/lib/timelineConstants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Knob } from "@/components/ui/knob";
 import { Slider } from "@/components/ui/slider";
 import { Toggle } from "@/components/ui/toggle";
 import { TrackMeter } from "@/components/TrackMeter";
@@ -19,6 +20,7 @@ interface TrackData {
   muted: boolean;
   solo: boolean;
   gain: number;
+  pan?: number;
 }
 
 interface TrackHeaderProps {
@@ -34,6 +36,10 @@ interface TrackHeaderProps {
   onGainChange: (gain: number) => void;
   /** Called when gain change is committed (slider released) for server sync */
   onGainCommit: (gain: number) => void;
+  /** Called on every pan change for real-time audio feedback */
+  onPanChange: (pan: number) => void;
+  /** Called when pan change is committed (knob released) for server sync */
+  onPanCommit: (pan: number) => void;
   onNameChange: (name: string) => void;
   onDelete: () => void;
 }
@@ -49,6 +55,8 @@ function TrackHeader({
   onSoloChange,
   onGainChange,
   onGainCommit,
+  onPanChange,
+  onPanCommit,
   onNameChange,
   onDelete,
 }: TrackHeaderProps) {
@@ -66,6 +74,11 @@ function TrackHeader({
   // Track the last committed server value (before optimistic updates)
   const serverGainRef = useRef(track.gain);
 
+  // Local pan state for real-time knob feedback
+  const [localPan, setLocalPan] = useState(track.pan ?? 0);
+  const isDraggingPanRef = useRef(false);
+  const serverPanRef = useRef(track.pan ?? 0);
+
   // Only enable dragging when grip handle is being used
   const [isDragHandleActive, setIsDragHandleActive] = useState(false);
 
@@ -76,6 +89,15 @@ function TrackHeader({
       serverGainRef.current = track.gain;
     }
   }, [track.gain]);
+
+  // Sync local pan from server state when not dragging
+  useEffect(() => {
+    if (!isDraggingPanRef.current) {
+      const pan = track.pan ?? 0;
+      setLocalPan(pan);
+      serverPanRef.current = pan;
+    }
+  }, [track.pan]);
 
   const handleGainChange = useCallback(
     (value: number) => {
@@ -100,12 +122,40 @@ function TrackHeader({
     [onGainCommit],
   );
 
+  const handlePanChange = useCallback(
+    (value: number) => {
+      isDraggingPanRef.current = true;
+      setLocalPan(value);
+      // Update audio engine immediately for real-time feedback
+      onPanChange(value);
+    },
+    [onPanChange],
+  );
+
+  const handlePanCommit = useCallback(
+    (value: number) => {
+      isDraggingPanRef.current = false;
+      // Only commit to server if value changed from original server value
+      if (value !== serverPanRef.current) {
+        onPanCommit(value);
+      }
+    },
+    [onPanCommit],
+  );
+
+  // Format pan value for display
+  const formatPan = (pan: number) => {
+    if (!Number.isFinite(pan)) return "C";
+    if (Math.abs(pan) < 0.01) return "C";
+    if (pan <= -0.99) return "L";
+    if (pan >= 0.99) return "R";
+    const pct = Math.round(Math.abs(pan) * 50);
+    return pan < 0 ? `${pct}L` : `${pct}R`;
+  };
+
   return (
     <div
-      className={`box-border h-[60px] border-b p-2 transition-all duration-150 ${isDragging ? "scale-[0.98] opacity-50 shadow-lg ring-2 ring-primary/30" : ""} ${isFocused ? "border-l-2 border-l-primary pl-1.5" : ""}`}
-      style={{
-        background: `linear-gradient(to right, color-mix(in srgb, ${trackColor} 15%, transparent), transparent 60%)`,
-      }}
+      className={`box-border flex h-[100px] border-b transition-all duration-150 ${isDragging ? "scale-[0.98] opacity-50 shadow-lg ring-2 ring-primary/30" : ""}`}
       draggable={isDragHandleActive}
       onDragStart={onDragStart}
       onDragEnd={() => {
@@ -113,92 +163,123 @@ function TrackHeader({
         onDragEnd();
       }}
     >
-      {/* Track Name Row */}
-      <div className="mb-1 flex items-center gap-1">
-        <div
-          className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
-          onMouseDown={() => setIsDragHandleActive(true)}
-          onMouseUp={() => setIsDragHandleActive(false)}
-          onMouseLeave={() => setIsDragHandleActive(false)}
-        >
-          <GripVertical className="size-3" />
-        </div>
-        {isEditing ? (
-          <div className="flex flex-1 items-center gap-1">
-            <Input
-              ref={inputRef}
-              className="h-6 flex-1 border-ring text-xs ring-1 ring-ring/50"
-              value={editName}
-              maxLength={50}
-              onChange={(e) => setEditName(e.target.value)}
-              onBlur={handleSubmit}
-              onKeyDown={handleKeyDown}
-            />
-            {editName.length >= 40 && (
-              <span
-                className={`shrink-0 text-[10px] ${editName.length >= 50 ? "text-destructive" : "text-muted-foreground"}`}
-              >
-                {editName.length}/50
-              </span>
-            )}
-          </div>
-        ) : (
-          <button
-            className="group flex flex-1 items-center gap-1 truncate text-left text-xs font-medium hover:text-foreground/80"
-            onClick={startEditing}
+      {/* Color strip */}
+      <div
+        className={`w-1 shrink-0 ${isFocused ? "ring-1 ring-inset ring-white/50" : ""}`}
+        style={{ backgroundColor: trackColor }}
+      />
+
+      {/* Main content area */}
+      <div className="flex flex-1 flex-col justify-between px-2 py-2">
+        {/* Row 1: Drag handle, name, delete */}
+        <div className="flex items-center gap-1">
+          <div
+            className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+            onMouseDown={() => setIsDragHandleActive(true)}
+            onMouseUp={() => setIsDragHandleActive(false)}
+            onMouseLeave={() => setIsDragHandleActive(false)}
           >
-            <span className="truncate">{track.name}</span>
-            <Pencil className="size-2.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-          </button>
-        )}
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          className="text-muted-foreground hover:text-destructive"
-          onClick={onDelete}
-        >
-          <Trash2 className="size-3" />
-        </Button>
+            <GripVertical className="size-4" />
+          </div>
+          {isEditing ? (
+            <div className="flex flex-1 items-center gap-1">
+              <Input
+                ref={inputRef}
+                className="h-6 flex-1 border-ring text-xs ring-1 ring-ring/50"
+                value={editName}
+                maxLength={50}
+                onChange={(e) => setEditName(e.target.value)}
+                onBlur={handleSubmit}
+                onKeyDown={handleKeyDown}
+              />
+              {editName.length >= 40 && (
+                <span
+                  className={`shrink-0 text-[10px] ${editName.length >= 50 ? "text-destructive" : "text-muted-foreground"}`}
+                >
+                  {editName.length}/50
+                </span>
+              )}
+            </div>
+          ) : (
+            <button
+              className="group flex flex-1 items-center gap-1 truncate text-left text-sm font-medium hover:text-foreground/80"
+              onClick={startEditing}
+            >
+              <span className="truncate">{track.name}</span>
+              <Pencil className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+            </button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={onDelete}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
+
+        {/* Row 2: M/S buttons, pan control - at bottom */}
+        <div className="flex items-center justify-between">
+          <div className="flex gap-1">
+            <Toggle
+              size="sm"
+              pressed={track.muted}
+              onPressedChange={onMuteChange}
+              className="h-7 w-7 bg-muted/50 px-0 hover:bg-muted data-[state=on]:bg-yellow-500 data-[state=on]:text-yellow-950 data-[state=on]:hover:bg-yellow-400"
+            >
+              {track.muted ? (
+                <VolumeX className="size-3.5" />
+              ) : (
+                <span className="text-xs font-semibold">M</span>
+              )}
+            </Toggle>
+            <Toggle
+              size="sm"
+              pressed={track.solo}
+              onPressedChange={onSoloChange}
+              className="h-7 w-7 bg-muted/50 px-0 hover:bg-muted data-[state=on]:bg-green-500 data-[state=on]:text-green-950 data-[state=on]:hover:bg-green-400"
+            >
+              <span className="text-xs font-semibold">S</span>
+            </Toggle>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Knob
+              value={localPan}
+              min={-1}
+              max={1}
+              step={0.02}
+              size={26}
+              onChange={handlePanChange}
+              onCommit={handlePanCommit}
+            />
+            <span className="w-6 text-center font-mono text-[10px] text-muted-foreground">
+              {formatPan(localPan)}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Controls Row */}
-      <div className="flex items-center gap-1">
-        <Toggle
-          size="sm"
-          pressed={track.muted}
-          onPressedChange={onMuteChange}
-          className="h-6 w-7 px-0 data-[state=on]:bg-yellow-500/20 data-[state=on]:text-yellow-600"
-        >
-          {track.muted ? (
-            <VolumeX className="size-3" />
-          ) : (
-            <span className="text-[10px] font-semibold">M</span>
-          )}
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={track.solo}
-          onPressedChange={onSoloChange}
-          className="h-6 w-7 px-0 data-[state=on]:bg-green-500/20 data-[state=on]:text-green-600"
-        >
-          <span className="text-[10px] font-semibold">S</span>
-        </Toggle>
-        <div className="relative mx-1 h-6 flex-1">
-          {/* Meter bars - positioned behind slider */}
-          <TrackMeter trackId={track._id} />
-          {/* Slider - on top with transparent track */}
-          <Slider
-            className="absolute inset-0 z-10 flex items-center"
-            transparentTrack
-            min={-60}
-            max={12}
-            step={0.1}
-            value={[localGain]}
-            onValueChange={(val) => handleGainChange(Array.isArray(val) ? (val[0] ?? 0) : val)}
-            onValueCommit={handleGainCommit}
-          />
+      {/* Right section: Vertical meter with integrated fader */}
+      <div className="flex w-[60px] shrink-0 flex-col items-center justify-between border-l border-border/50 px-1.5 py-1.5">
+        <div className="relative flex flex-1 items-center justify-center">
+          {/* Meter bars as visual track */}
+          <TrackMeter trackId={track._id} orientation="vertical" />
+          {/* Slider overlaid on meter - transparent track, only thumb visible */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Slider
+              orientation="vertical"
+              min={-60}
+              max={12}
+              step={0.1}
+              value={[localGain]}
+              transparentTrack
+              onValueChange={(val) => handleGainChange(Array.isArray(val) ? (val[0] ?? 0) : val)}
+              onValueCommit={handleGainCommit}
+            />
+          </div>
         </div>
-        <span className="w-12 text-right font-mono text-[10px] text-muted-foreground whitespace-nowrap">
+        <span className="mt-1 whitespace-nowrap font-mono text-[10px] text-muted-foreground">
           {formatGain(localGain)}
         </span>
       </div>
@@ -217,6 +298,10 @@ export interface VirtualizedTrackListProps {
   onGainChange: (trackId: string, gain: number) => void;
   /** Called when gain change is committed (slider released) for server sync */
   onGainCommit: (trackId: string, gain: number) => void;
+  /** Called on every pan change for real-time audio feedback */
+  onPanChange: (trackId: string, pan: number) => void;
+  /** Called when pan change is committed (knob released) for server sync */
+  onPanCommit: (trackId: string, pan: number) => void;
   onNameChange: (trackId: string, name: string) => void;
   onDelete: (trackId: string) => void;
   onReorder: (trackIds: string[]) => void;
@@ -234,6 +319,8 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
       onSoloChange,
       onGainChange,
       onGainCommit,
+      onPanChange,
+      onPanCommit,
       onNameChange,
       onDelete,
       onReorder,
@@ -340,6 +427,8 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
                   onSoloChange={(solo) => onSoloChange(track._id, solo)}
                   onGainChange={(gain) => onGainChange(track._id, gain)}
                   onGainCommit={(gain) => onGainCommit(track._id, gain)}
+                  onPanChange={(pan) => onPanChange(track._id, pan)}
+                  onPanCommit={(pan) => onPanCommit(track._id, pan)}
                   onNameChange={(name) => onNameChange(track._id, name)}
                   onDelete={() => onDelete(track._id)}
                 />

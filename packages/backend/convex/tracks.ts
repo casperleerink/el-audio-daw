@@ -29,6 +29,7 @@ export const createTrack = mutation({
       muted: false,
       solo: false,
       gain: 0, // 0 dB
+      pan: 0, // center
       createdAt: now,
       updatedAt: now,
     });
@@ -46,6 +47,7 @@ export const updateTrack = mutation({
     muted: v.optional(v.boolean()),
     solo: v.optional(v.boolean()),
     gain: v.optional(v.number()),
+    pan: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const track = await ctx.db.get(args.id);
@@ -63,6 +65,7 @@ export const updateTrack = mutation({
     if (args.muted !== undefined) updates.muted = args.muted;
     if (args.solo !== undefined) updates.solo = args.solo;
     if (args.gain !== undefined) updates.gain = args.gain;
+    if (args.pan !== undefined) updates.pan = args.pan;
 
     await ctx.db.patch(args.id, updates);
   },

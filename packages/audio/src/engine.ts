@@ -7,6 +7,7 @@ export interface TrackState {
   muted: boolean;
   solo: boolean;
   gain: number; // in dB, -60 to +12
+  pan: number; // stereo pan: -1 (left) to +1 (right), 0 = center
 }
 
 /**
@@ -588,9 +589,23 @@ export class AudioEngine {
       const gainedLeft = el.mul(smoothedGain, trackLeft);
       const gainedRight = el.mul(smoothedGain, trackRight);
 
-      // Add metering (post-fader)
-      const meteredLeft = el.meter({ name: `track-${track.id}-L` }, gainedLeft);
-      const meteredRight = el.meter({ name: `track-${track.id}-R` }, gainedRight);
+      // Apply pan (constant power pan law)
+      // pan: -1 (left) to +1 (right), convert to angle: 0 to π/2
+      const panValue = track.pan ?? 0;
+      const panAngle = ((panValue + 1) * Math.PI) / 4;
+      const smoothedPanLeft = el.sm(
+        el.const({ key: `track-${track.id}-pan-l`, value: Math.cos(panAngle) }),
+      );
+      const smoothedPanRight = el.sm(
+        el.const({ key: `track-${track.id}-pan-r`, value: Math.sin(panAngle) }),
+      );
+
+      const pannedLeft = el.mul(smoothedPanLeft, gainedLeft);
+      const pannedRight = el.mul(smoothedPanRight, gainedRight);
+
+      // Add metering (post-fader, post-pan)
+      const meteredLeft = el.meter({ name: `track-${track.id}-L` }, pannedLeft);
+      const meteredRight = el.meter({ name: `track-${track.id}-R` }, pannedRight);
 
       return {
         left: meteredLeft,

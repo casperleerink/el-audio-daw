@@ -4,10 +4,10 @@
  */
 
 /** Height of each track lane in pixels */
-export const TRACK_HEIGHT = 60;
+export const TRACK_HEIGHT = 100;
 
 /** Height of the track header in the sidebar (matches track lane height for alignment) */
-export const TRACK_HEADER_HEIGHT = 60;
+export const TRACK_HEADER_HEIGHT = 100;
 
 /** Height of the time ruler at the top in pixels */
 export const RULER_HEIGHT = 24;

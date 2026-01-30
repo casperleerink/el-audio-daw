@@ -18,6 +18,7 @@ type UpdateTrackArgs = {
   muted?: boolean;
   solo?: boolean;
   gain?: number;
+  pan?: number;
 };
 
 type DeleteTrackArgs = {
@@ -56,6 +57,7 @@ export function createTrackOptimisticUpdate(
       muted: false,
       solo: false,
       gain: 0,
+      pan: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -98,6 +100,7 @@ export function updateTrackOptimisticUpdate(
         muted: args.muted ?? track.muted,
         solo: args.solo ?? track.solo,
         gain: args.gain ?? track.gain,
+        pan: args.pan ?? track.pan,
         updatedAt: now,
       };
     });

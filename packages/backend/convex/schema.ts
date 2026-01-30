@@ -28,6 +28,7 @@ export default defineSchema({
     muted: v.boolean(),
     solo: v.boolean(),
     gain: v.number(),
+    pan: v.optional(v.number()), // Stereo pan: -1 (left) to +1 (right), 0 = center
     createdAt: v.number(),
     updatedAt: v.number(),
   })

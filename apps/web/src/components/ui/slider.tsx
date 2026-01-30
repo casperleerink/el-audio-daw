@@ -49,11 +49,11 @@ function Slider({
       onPointerUp={handlePointerUp}
       {...props}
     >
-      <SliderPrimitive.Control className="data-vertical:min-h-40 relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:w-auto data-vertical:flex-col">
+      <SliderPrimitive.Control className="relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:w-auto data-vertical:flex-col">
         <SliderPrimitive.Track
           data-slot="slider-track"
           className={cn(
-            "rounded-none data-horizontal:h-1 data-horizontal:w-full data-vertical:h-full data-vertical:w-1 relative grow overflow-hidden select-none",
+            "rounded-sm data-horizontal:h-1.5 data-horizontal:w-full data-vertical:h-full data-vertical:w-2 relative grow overflow-hidden select-none",
             transparentTrack ? "bg-transparent" : "bg-muted",
           )}
         >

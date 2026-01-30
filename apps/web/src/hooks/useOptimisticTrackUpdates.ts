@@ -1,32 +1,36 @@
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-type TrackUpdate = { muted?: boolean; solo?: boolean; gain?: number };
+type TrackUpdate = { muted?: boolean; solo?: boolean; gain?: number; pan?: number };
 
 type BaseTrack = {
   _id: string;
   muted: boolean;
   solo: boolean;
   gain: number;
+  pan?: number;
 };
 
 /**
- * Hook for managing optimistic updates to track properties (mute, solo, gain).
+ * Hook for managing optimistic updates to track properties (mute, solo, gain, pan).
  * Provides immediate UI feedback while mutations are in flight, with automatic
  * rollback on failure.
  *
  * For mute/solo: immediate update + server mutation (single action)
- * For gain: separate local update vs commit (for continuous slider interactions)
+ * For gain/pan: separate local update vs commit (for continuous slider/knob interactions)
  */
 export function useOptimisticTrackUpdates<T extends BaseTrack>(
   tracks: T[] | undefined,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   updateTrack: (args: {
     id: any;
+    projectId?: any;
     muted?: boolean;
     solo?: boolean;
     gain?: number;
+    pan?: number;
   }) => Promise<unknown>,
+  projectId?: string,
 ) {
   const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, TrackUpdate>>(new Map());
 
@@ -65,14 +69,14 @@ export function useOptimisticTrackUpdates<T extends BaseTrack>(
       async (trackId: string, value: NonNullable<TrackUpdate[K]>) => {
         applyOptimisticUpdate(trackId, { [key]: value } as TrackUpdate);
         try {
-          await updateTrack({ id: trackId, [key]: value });
+          await updateTrack({ id: trackId, projectId, [key]: value });
         } catch {
           toast.error("Failed to update track");
         } finally {
           clearOptimisticUpdate(trackId, [key]);
         }
       },
-    [updateTrack, applyOptimisticUpdate, clearOptimisticUpdate],
+    [updateTrack, projectId, applyOptimisticUpdate, clearOptimisticUpdate],
   );
 
   const handleUpdateTrackMute = useMemo(
@@ -99,20 +103,45 @@ export function useOptimisticTrackUpdates<T extends BaseTrack>(
   const handleCommitTrackGain = useCallback(
     async (trackId: string, value: number) => {
       try {
-        await updateTrack({ id: trackId, gain: value });
+        await updateTrack({ id: trackId, projectId, gain: value });
       } catch {
         toast.error("Failed to update track gain");
       } finally {
         clearOptimisticUpdate(trackId, ["gain"]);
       }
     },
-    [updateTrack, clearOptimisticUpdate],
+    [updateTrack, projectId, clearOptimisticUpdate],
+  );
+
+  // Pan handlers: separate local update from server commit
+  // This enables real-time audio feedback during knob drag
+
+  /** Apply local optimistic update for pan (no server call) - use for real-time feedback */
+  const handleUpdateTrackPan = useCallback(
+    (trackId: string, value: number) => {
+      applyOptimisticUpdate(trackId, { pan: value });
+    },
+    [applyOptimisticUpdate],
+  );
+
+  /** Commit pan to server (on knob release) - clears optimistic state on completion */
+  const handleCommitTrackPan = useCallback(
+    async (trackId: string, value: number) => {
+      try {
+        await updateTrack({ id: trackId, projectId, pan: value });
+      } catch {
+        toast.error("Failed to update track pan");
+      } finally {
+        clearOptimisticUpdate(trackId, ["pan"]);
+      }
+    },
+    [updateTrack, projectId, clearOptimisticUpdate],
   );
 
   // Merge server tracks with optimistic updates
-  const tracksWithOptimisticUpdates = useMemo(() => {
+  const tracksWithOptimisticUpdates = useMemo((): T[] | undefined => {
     if (!tracks) return undefined;
-    return tracks.map((track) => {
+    return tracks.map((track): T => {
       const updates = optimisticUpdates.get(track._id);
       if (!updates) return track;
       return {
@@ -120,7 +149,8 @@ export function useOptimisticTrackUpdates<T extends BaseTrack>(
         muted: updates.muted ?? track.muted,
         solo: updates.solo ?? track.solo,
         gain: updates.gain ?? track.gain,
-      };
+        pan: updates.pan ?? track.pan,
+      } as T;
     });
   }, [tracks, optimisticUpdates]);
 
@@ -130,5 +160,7 @@ export function useOptimisticTrackUpdates<T extends BaseTrack>(
     handleUpdateTrackSolo,
     handleUpdateTrackGain,
     handleCommitTrackGain,
+    handleUpdateTrackPan,
+    handleCommitTrackPan,
   };
 }

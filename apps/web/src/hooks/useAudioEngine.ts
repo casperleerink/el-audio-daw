@@ -8,6 +8,7 @@ type TrackData = {
   muted: boolean;
   solo: boolean;
   gain: number;
+  pan?: number;
 };
 
 type ClipData = {
@@ -85,6 +86,7 @@ export function useAudioEngine({ sampleRate, tracks, clips, clipUrls }: UseAudio
       muted: t.muted,
       solo: t.solo,
       gain: t.gain,
+      pan: t.pan ?? 0,
     }));
 
     engineRef.current.setTracks(trackStates);
