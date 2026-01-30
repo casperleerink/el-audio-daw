@@ -11,6 +11,7 @@ import {
   isInTrackArea,
   secondsToSamples,
 } from "@/lib/timelineCalculations";
+import { registerUpload, unregisterUpload } from "@/lib/uploadRegistry";
 import { useSyncRef } from "./useSyncRef";
 
 interface Track {
@@ -175,6 +176,11 @@ export function useTimelineFileDrop({
         return;
       }
 
+      const trackId = dropPosition.trackId as Id<"tracks">;
+
+      // Register this upload with the upload registry for cancellation support
+      const abortController = registerUpload(trackId, file.name);
+
       setIsUploading(true);
 
       try {
@@ -191,11 +197,17 @@ export function useTimelineFileDrop({
         // Generate upload URL
         const uploadUrl = await generateUploadUrl({ projectId });
 
-        // Upload file to Convex storage
+        // Check if aborted before starting fetch
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        // Upload file to Convex storage with AbortController signal
         const response = await fetch(uploadUrl, {
           method: "POST",
           headers: { "Content-Type": file.type },
           body: file,
+          signal: abortController.signal,
         });
 
         if (!response.ok) {
@@ -203,6 +215,11 @@ export function useTimelineFileDrop({
         }
 
         const { storageId } = (await response.json()) as { storageId: Id<"_storage"> };
+
+        // Check if aborted after upload but before validation
+        if (abortController.signal.aborted) {
+          return;
+        }
 
         // Validate uploaded file
         await validateUploadedFile({
@@ -212,11 +229,16 @@ export function useTimelineFileDrop({
           size: file.size,
         });
 
+        // Check if aborted after validation but before clip creation
+        if (abortController.signal.aborted) {
+          return;
+        }
+
         // Create clip record
         const clipName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
         await createClip({
           projectId,
-          trackId: dropPosition.trackId as Id<"tracks">,
+          trackId,
           fileId: storageId,
           name: clipName,
           startTime: dropPosition.dropTimeInSamples,
@@ -225,9 +247,16 @@ export function useTimelineFileDrop({
 
         toast.success(`Added "${clipName}" to timeline`);
       } catch (error) {
+        // Don't show error toast for intentional cancellation (AbortError)
+        if (error instanceof Error && error.name === "AbortError") {
+          // Intentional cancellation - no error toast needed
+          return;
+        }
         console.error("Failed to upload audio file:", error);
         toast.error(error instanceof Error ? error.message : "Failed to upload audio file");
       } finally {
+        // Always unregister the upload when done
+        unregisterUpload(trackId, abortController);
         setIsUploading(false);
       }
     },

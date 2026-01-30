@@ -41,7 +41,7 @@ Implement optimistic updates using Convex's built-in `optimisticUpdate` API for 
   - Track reorder: local order during drag, server on drop
   - Clip drag: local position during drag, server on drop
 
-- [ ] Implement upload cancellation
+- [x] Implement upload cancellation
   - Track pending uploads per track
   - Cancel uploads when track is deleted
   - Use AbortController for fetch cancellation

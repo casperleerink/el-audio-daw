@@ -29,6 +29,7 @@ import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { renderTimeline } from "@/lib/canvasRenderer";
 import { formatGain, formatTime } from "@/lib/formatters";
 import { showRollbackToast } from "@/lib/optimistic";
+import { cancelUploadsForTrack } from "@/lib/uploadRegistry";
 import { CLIP_PADDING, RULER_HEIGHT, TRACK_HEIGHT } from "@/lib/timelineConstants";
 import {
   createTrackOptimisticUpdate,
@@ -251,6 +252,9 @@ function ProjectEditor() {
 
   const handleDeleteTrack = useCallback(
     async (trackId: string) => {
+      // Cancel any pending uploads for this track before deletion (FR-7)
+      cancelUploadsForTrack(trackId as Id<"tracks">);
+
       // Optimistic update removes track instantly, no loading state needed
       // Pass projectId for optimistic update cache invalidation
       try {

@@ -177,3 +177,41 @@ The audio engine sync works correctly through the following flow:
 - Remaining tasks: "Implement upload cancellation", "Add pending state UI for clips"
 - Audio engine sync is verified working - optimistic changes to gain/mute/solo immediately affect audio output
 - The gain slider uses a commit-based pattern: local state + optimistic update during drag, server mutation on release
+
+## 2026-01-29 - Upload Cancellation
+
+### Completed
+Implemented upload cancellation for track deletion following FR-7 of the PRD. When a track is deleted while uploads are in progress, those uploads are now cancelled via AbortController.
+
+**New file created:** `apps/web/src/lib/uploadRegistry.ts`
+- `registerUpload(trackId, fileName)` - Registers an upload and returns an AbortController for fetch signal
+- `unregisterUpload(trackId, abortController)` - Cleans up after upload completes (success or failure)
+- `cancelUploadsForTrack(trackId)` - Aborts all pending uploads for a track (called during deletion)
+- `hasPendingUploads(trackId)` - Check if track has pending uploads
+- `getPendingUploadCount(trackId)` - Get count of pending uploads for a track
+
+**Files modified:**
+
+1. `apps/web/src/hooks/useTimelineFileDrop.ts`
+   - Integrated with upload registry: each upload gets an AbortController registered at start
+   - Passes `signal` to fetch call for cancellation support
+   - Checks `abortController.signal.aborted` before each async step (decode → upload → validate → create)
+   - AbortError is caught and silently ignored (intentional cancellation, no error toast)
+   - Always unregisters upload in finally block
+
+2. `apps/web/src/routes/project.$id.tsx`
+   - `handleDeleteTrack` now calls `cancelUploadsForTrack(trackId)` before deletion
+   - Imported `cancelUploadsForTrack` from uploadRegistry
+
+### Architecture decisions
+- Upload registry uses a module-level Map to track pending uploads (simple, no React context needed)
+- Each upload is keyed by trackId, allowing multiple concurrent uploads per track
+- AbortController signal is passed to fetch for native browser cancellation
+- Early exit checks after each async step ensure we don't proceed after cancellation
+- No error toast for AbortError since cancellation is intentional user action
+
+### Notes for next person
+- Remaining task: "Add pending state UI for clips"
+- The upload registry utilities can also be used to show pending upload count in UI if needed
+- If implementing upload progress, the AbortController could be extended to track upload percentage
+- The pattern can be reused for any other cancellable async operations
