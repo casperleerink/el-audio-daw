@@ -40,6 +40,8 @@ export const createTrack = mutation({
 export const updateTrack = mutation({
   args: {
     id: v.id("tracks"),
+    // projectId is optional - only used for optimistic update cache invalidation
+    projectId: v.optional(v.id("projects")),
     name: v.optional(v.string()),
     muted: v.optional(v.boolean()),
     solo: v.optional(v.boolean()),
@@ -69,6 +71,8 @@ export const updateTrack = mutation({
 export const deleteTrack = mutation({
   args: {
     id: v.id("tracks"),
+    // projectId is optional - only used for optimistic update cache invalidation
+    projectId: v.optional(v.id("projects")),
   },
   handler: async (ctx, args) => {
     const track = await ctx.db.get(args.id);

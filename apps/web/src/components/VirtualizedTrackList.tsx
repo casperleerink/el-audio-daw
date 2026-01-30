@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { GripVertical, Loader2, Pencil, Plus, Trash2, VolumeX } from "lucide-react";
+import { GripVertical, Pencil, Plus, Trash2, VolumeX } from "lucide-react";
 import React, { useCallback, useEffect, useRef } from "react";
 
 import { useTrackNameEdit } from "@/hooks/useTrackNameEdit";
@@ -22,7 +22,6 @@ interface TrackData {
 interface TrackHeaderProps {
   track: TrackData;
   isDragging?: boolean;
-  isDeleting?: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onMuteChange: (muted: boolean) => void;
@@ -35,7 +34,6 @@ interface TrackHeaderProps {
 function TrackHeader({
   track,
   isDragging,
-  isDeleting,
   onDragStart,
   onDragEnd,
   onMuteChange,
@@ -98,9 +96,8 @@ function TrackHeader({
           size="icon-xs"
           className="text-muted-foreground hover:text-destructive"
           onClick={onDelete}
-          disabled={isDeleting}
         >
-          {isDeleting ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
+          <Trash2 className="size-3" />
         </Button>
       </div>
 
@@ -152,9 +149,7 @@ export interface VirtualizedTrackListProps {
   onNameChange: (trackId: string, name: string) => void;
   onDelete: (trackId: string) => void;
   onReorder: (trackIds: string[]) => void;
-  deletingTrackId: string | null;
   onAddTrack: () => void;
-  isAddingTrack: boolean;
 }
 
 export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackListProps>(
@@ -169,9 +164,7 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
       onNameChange,
       onDelete,
       onReorder,
-      deletingTrackId,
       onAddTrack,
-      isAddingTrack,
     },
     ref,
   ) {
@@ -215,12 +208,8 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
       return (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 text-center">
           <p className="text-sm text-muted-foreground">No tracks yet</p>
-          <Button onClick={onAddTrack} disabled={isAddingTrack}>
-            {isAddingTrack ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Plus className="size-4" />
-            )}
+          <Button onClick={onAddTrack}>
+            <Plus className="size-4" />
             Add Track
           </Button>
         </div>
@@ -270,7 +259,6 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
                 <TrackHeader
                   track={track}
                   isDragging={isDragging}
-                  isDeleting={deletingTrackId === track._id}
                   onDragStart={(e) => handleDragStart(e, track._id)}
                   onDragEnd={handleDragEnd}
                   onMuteChange={(muted) => onMuteChange(track._id, muted)}

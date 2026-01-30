@@ -17,3 +17,38 @@ Created `apps/web/src/lib/optimistic.ts` with the following utilities:
 - These utilities are foundational - the next task should be implementing optimistic updates for track mutations
 - The existing `useOptimisticTrackUpdates` hook in `apps/web/src/hooks/` handles track control updates (mute/solo/gain) but doesn't use Convex's `withOptimisticUpdate` API - it uses local React state instead
 - Consider whether to refactor that hook to use these new utilities or keep both patterns depending on use case
+
+## 2026-01-29 - Track Mutations Optimistic Updates
+
+### Completed
+Implemented optimistic updates for all track mutations using Convex's `withOptimisticUpdate` API.
+
+**New file created:** `apps/web/src/lib/trackOptimisticUpdates.ts`
+- `createTrackOptimisticUpdate` - Instantly adds a new track with a temp ID
+- `updateTrackOptimisticUpdate` - Instantly applies name/mute/solo/gain changes
+- `deleteTrackOptimisticUpdate` - Instantly removes track from list
+- `reorderTracksOptimisticUpdate` - Instantly reorders tracks in the cache
+
+**Files modified:**
+1. `packages/backend/convex/tracks.ts`
+   - Added optional `projectId` arg to `updateTrack` and `deleteTrack` mutations (used for optimistic update cache invalidation)
+
+2. `apps/web/src/routes/project.$id.tsx`
+   - Wired up all track mutations with `withOptimisticUpdate`
+   - Removed loading states (`isAddingTrack`, `deletingTrackId`) since optimistic updates make actions feel instant
+   - Replaced manual error toasts with `showRollbackToast` for consistent error handling
+
+3. `apps/web/src/components/VirtualizedTrackList.tsx`
+   - Removed `isAddingTrack` and `deletingTrackId` props
+   - Removed `isDeleting` prop from TrackHeader
+   - Simplified UI since loading states are no longer needed
+
+### Architecture decisions
+- Track mutations now use Convex's native `withOptimisticUpdate` for instant feedback
+- The existing `useOptimisticTrackUpdates` hook remains for mute/solo/gain controls since those use a commit-based pattern (local state during interaction, server update on commit)
+- Both patterns coexist: Convex optimistic updates for CRUD operations, local React state for continuous interactions
+
+### Notes for next person
+- Next priority task: Implement optimistic updates for clip mutations
+- The `updateTrack` and `deleteTrack` mutations now accept an optional `projectId` arg - always pass it to enable optimistic updates
+- If you need to check if a track is pending (temp ID), use the `isPending()` utility from `@/lib/optimistic`

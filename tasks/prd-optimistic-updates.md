@@ -25,7 +25,7 @@ Implement optimistic updates using Convex's built-in `optimisticUpdate` API for 
   - Helper to wrap mutations with optimistic behavior
   - Toast notification on rollback
 
-- [ ] Implement optimistic updates for track mutations
+- [x] Implement optimistic updates for track mutations
   - `createTrack` - instant track appears with temp ID
   - `updateTrack` - instant name/mute/solo/gain changes
   - `deleteTrack` - instant removal from list, cancel pending uploads

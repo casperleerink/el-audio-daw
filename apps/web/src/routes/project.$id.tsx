@@ -30,7 +30,14 @@ import { useTimelineFileDrop } from "@/hooks/useTimelineFileDrop";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { renderTimeline } from "@/lib/canvasRenderer";
 import { formatGain, formatTime } from "@/lib/formatters";
+import { showRollbackToast } from "@/lib/optimistic";
 import { CLIP_PADDING, RULER_HEIGHT, TRACK_HEIGHT } from "@/lib/timelineConstants";
+import {
+  createTrackOptimisticUpdate,
+  deleteTrackOptimisticUpdate,
+  reorderTracksOptimisticUpdate,
+  updateTrackOptimisticUpdate,
+} from "@/lib/trackOptimisticUpdates";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -165,18 +172,24 @@ function ProjectEditor() {
   const clips = useQuery(api.clips.getProjectClips, { projectId: id as any });
   const clipUrls = useQuery(api.clips.getProjectClipUrls, { projectId: id as any });
 
-  const createTrack = useMutation(api.tracks.createTrack);
-  const updateTrack = useMutation(api.tracks.updateTrack);
-  const deleteTrack = useMutation(api.tracks.deleteTrack);
-  const reorderTracks = useMutation(api.tracks.reorderTracks);
+  const createTrack = useMutation(api.tracks.createTrack).withOptimisticUpdate(
+    createTrackOptimisticUpdate,
+  );
+  const updateTrack = useMutation(api.tracks.updateTrack).withOptimisticUpdate(
+    updateTrackOptimisticUpdate,
+  );
+  const deleteTrack = useMutation(api.tracks.deleteTrack).withOptimisticUpdate(
+    deleteTrackOptimisticUpdate,
+  );
+  const reorderTracks = useMutation(api.tracks.reorderTracks).withOptimisticUpdate(
+    reorderTracksOptimisticUpdate,
+  );
   const updateProject = useMutation(api.projects.updateProject);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [isSavingProjectName, setIsSavingProjectName] = useState(false);
   const [scrollTop, setScrollTop] = useState(0);
-  const [isAddingTrack, setIsAddingTrack] = useState(false);
-  const [deletingTrackId, setDeletingTrackId] = useState<string | null>(null);
 
   const trackListRef = useRef<HTMLDivElement>(null);
 
@@ -211,49 +224,46 @@ function ProjectEditor() {
   }, [project]);
 
   const handleAddTrack = useCallback(async () => {
-    setIsAddingTrack(true);
+    // Optimistic update shows track instantly, no loading state needed
     try {
       await createTrack({ projectId: id as any });
-      toast.success("Track added");
     } catch {
-      toast.error("Failed to create track");
-    } finally {
-      setIsAddingTrack(false);
+      showRollbackToast("create track");
     }
   }, [createTrack, id]);
 
   const handleUpdateTrackName = useCallback(
     async (trackId: string, name: string) => {
+      // Pass projectId for optimistic update cache invalidation
       try {
-        await updateTrack({ id: trackId as any, name });
+        await updateTrack({ id: trackId as any, projectId: id as any, name });
       } catch {
-        toast.error("Failed to update track");
+        showRollbackToast("update track name");
       }
     },
-    [updateTrack],
+    [updateTrack, id],
   );
 
   const handleDeleteTrack = useCallback(
     async (trackId: string) => {
-      setDeletingTrackId(trackId);
+      // Optimistic update removes track instantly, no loading state needed
+      // Pass projectId for optimistic update cache invalidation
       try {
-        await deleteTrack({ id: trackId as any });
-        toast.success("Track deleted");
+        await deleteTrack({ id: trackId as any, projectId: id as any });
       } catch {
-        toast.error("Failed to delete track");
-      } finally {
-        setDeletingTrackId(null);
+        showRollbackToast("delete track");
       }
     },
-    [deleteTrack],
+    [deleteTrack, id],
   );
 
   const handleReorderTracks = useCallback(
     async (trackIds: string[]) => {
+      // Optimistic update reorders tracks instantly
       try {
         await reorderTracks({ projectId: id as any, trackIds: trackIds as any });
       } catch {
-        toast.error("Failed to reorder tracks");
+        showRollbackToast("reorder tracks");
       }
     },
     [reorderTracks, id],
@@ -426,17 +436,8 @@ function ProjectEditor() {
           <Tooltip delay={500}>
             <TooltipTrigger
               render={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddTrack}
-                  disabled={isAddingTrack}
-                >
-                  {isAddingTrack ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Plus className="size-4" />
-                  )}
+                <Button variant="outline" size="sm" onClick={handleAddTrack}>
+                  <Plus className="size-4" />
                   Add Track
                 </Button>
               }
@@ -467,9 +468,7 @@ function ProjectEditor() {
             onNameChange={handleUpdateTrackName}
             onDelete={handleDeleteTrack}
             onReorder={handleReorderTracks}
-            deletingTrackId={deletingTrackId}
             onAddTrack={handleAddTrack}
-            isAddingTrack={isAddingTrack}
           />
 
           {/* Master Track */}
