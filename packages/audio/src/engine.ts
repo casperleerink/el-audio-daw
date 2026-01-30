@@ -447,13 +447,21 @@ export class AudioEngine {
         const clipDurationSeconds = clip.duration / sampleRate;
         // duration prop is the actual audio file duration, not the clip timeline duration
         const sampleDurationSeconds = vfsEntry.duration / vfsEntry.sampleRate;
+        // Offset into the source audio file (for trimming)
+        const audioStartTimeSeconds = clip.audioStartTime / sampleRate;
 
         // Clip gain (FR-20)
         const clipGainValue = dbToGain(clip.gain);
 
-        // Build sequence: trigger at start, stop at end of clip on timeline
+        // To start playback at audioStartTime into the audio file, we need to trigger
+        // early. el.sampleseq calculates position as (currentTime - triggerTime), so:
+        // position = startTime - triggerTime = audioStartTime
+        // Therefore: triggerTime = startTime - audioStartTime
+        const effectiveTriggerTime = Math.max(0, startTimeSeconds - audioStartTimeSeconds);
+
+        // Build sequence: trigger early (for offset), stop at end of clip on timeline
         const seq = [
-          { time: startTimeSeconds, value: 1 },
+          { time: effectiveTriggerTime, value: 1 },
           { time: startTimeSeconds + clipDurationSeconds, value: 0 },
         ];
 
@@ -462,6 +470,7 @@ export class AudioEngine {
           !Number.isFinite(startTimeSeconds) ||
           !Number.isFinite(clipDurationSeconds) ||
           !Number.isFinite(sampleDurationSeconds) ||
+          !Number.isFinite(audioStartTimeSeconds) ||
           !Number.isFinite(clipGainValue);
 
         if (hasInvalidValue) {
@@ -505,21 +514,28 @@ export class AudioEngine {
           timeInSeconds,
         );
 
-        // Apply clip gain to both channels
+        // Gate to silence the pre-roll audio (between effectiveTriggerTime and startTime)
+        // el.ge returns 1 when time >= startTime, 0 otherwise
+        const gateSignal = el.ge(
+          timeInSeconds,
+          el.const({ key: `clip-${clip.id}-gate-threshold`, value: startTimeSeconds }),
+        );
+
+        // Apply gate and clip gain to both channels
         return {
           left: el.mul(
             el.const({
               key: `clip-${clip.id}-gain-l`,
               value: clipGainValue,
             }),
-            leftSignal,
+            el.mul(gateSignal, leftSignal),
           ),
           right: el.mul(
             el.const({
               key: `clip-${clip.id}-gain-r`,
               value: clipGainValue,
             }),
-            rightSignal,
+            el.mul(gateSignal, rightSignal),
           ),
         };
       });

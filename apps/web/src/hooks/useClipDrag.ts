@@ -438,13 +438,6 @@ export function useClipDrag({
 
   // Handle mouseup for clip dragging (FR-36) or trim commit (FR-21)
   const handleMouseUp = useCallback(async () => {
-    // Mark that we just finished a drag to prevent click from seeking
-    justFinishedDragRef.current = true;
-    // Reset the flag on next tick
-    requestAnimationFrame(() => {
-      justFinishedDragRef.current = false;
-    });
-
     // Handle clip move drag commit (horizontal and cross-track)
     if (clipDragState) {
       const { clipId, originalStartTime, currentStartTime, originalTrackId, currentTrackId } =
@@ -455,6 +448,14 @@ export function useClipDrag({
       const trackChanged = currentTrackId !== originalTrackId;
 
       if (positionChanged || trackChanged) {
+        // Mark that we just finished a drag to prevent click from seeking
+        // Only set this when actual movement occurred (not just a click)
+        justFinishedDragRef.current = true;
+        // Reset the flag on next tick
+        requestAnimationFrame(() => {
+          justFinishedDragRef.current = false;
+        });
+
         try {
           await updateClipPosition({
             id: clipId as Id<"clips">,
@@ -492,6 +493,12 @@ export function useClipDrag({
         currentDuration !== originalDuration;
 
       if (hasChanged) {
+        // Mark that we just finished a trim drag to prevent click from seeking
+        justFinishedDragRef.current = true;
+        requestAnimationFrame(() => {
+          justFinishedDragRef.current = false;
+        });
+
         try {
           await trimClip({
             id: clipId as Id<"clips">,
