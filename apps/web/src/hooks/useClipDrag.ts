@@ -447,6 +447,9 @@ export function useClipDrag({
       const positionChanged = currentStartTime !== originalStartTime;
       const trackChanged = currentTrackId !== originalTrackId;
 
+      // Clear drag state immediately to prevent further mouse moves from updating it
+      setClipDragState(null);
+
       if (positionChanged || trackChanged) {
         // Mark that we just finished a drag to prevent click from seeking
         // Only set this when actual movement occurred (not just a click)
@@ -470,7 +473,6 @@ export function useClipDrag({
         }
       }
 
-      setClipDragState(null);
       return;
     }
 
@@ -492,6 +494,9 @@ export function useClipDrag({
         currentAudioStartTime !== originalAudioStartTime ||
         currentDuration !== originalDuration;
 
+      // Clear trim state immediately to prevent further mouse moves from updating it
+      setTrimDragState(null);
+
       if (hasChanged) {
         // Mark that we just finished a trim drag to prevent click from seeking
         justFinishedDragRef.current = true;
@@ -512,8 +517,6 @@ export function useClipDrag({
           toast.error("Failed to trim clip. Changes reverted.");
         }
       }
-
-      setTrimDragState(null);
     }
   }, [clipDragState, trimDragState, projectId, updateClipPosition, trimClip]);
 

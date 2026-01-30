@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Toggle } from "@/components/ui/toggle";
+import { TrackMeter } from "@/components/TrackMeter";
 
 interface TrackData {
   _id: string;
@@ -182,15 +183,21 @@ function TrackHeader({
         >
           <span className="text-[10px] font-semibold">S</span>
         </Toggle>
-        <Slider
-          className="mx-1 flex-1"
-          min={-60}
-          max={12}
-          step={0.1}
-          value={[localGain]}
-          onValueChange={(val) => handleGainChange(Array.isArray(val) ? (val[0] ?? 0) : val)}
-          onValueCommit={handleGainCommit}
-        />
+        <div className="relative mx-1 h-6 flex-1">
+          {/* Meter bars - positioned behind slider */}
+          <TrackMeter trackId={track._id} />
+          {/* Slider - on top with transparent track */}
+          <Slider
+            className="absolute inset-0 z-10 flex items-center"
+            transparentTrack
+            min={-60}
+            max={12}
+            step={0.1}
+            value={[localGain]}
+            onValueChange={(val) => handleGainChange(Array.isArray(val) ? (val[0] ?? 0) : val)}
+            onValueCommit={handleGainCommit}
+          />
+        </div>
         <span className="w-12 text-right font-mono text-[10px] text-muted-foreground whitespace-nowrap">
           {formatGain(localGain)}
         </span>

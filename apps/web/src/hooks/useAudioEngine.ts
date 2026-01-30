@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AudioEngine, type ClipState, type TrackState } from "@el-audio-daw/audio";
+import { useMeterValues } from "./useMeterValues";
 
 type TrackData = {
   _id: string;
@@ -44,6 +45,9 @@ export function useAudioEngine({ sampleRate, tracks, clips, clipUrls }: UseAudio
   const [masterGain, setMasterGain] = useState(0);
 
   const engineRef = useRef<AudioEngine | null>(null);
+
+  // Meter subscription hook - will be initialized once engine is ready
+  const { subscribe: meterSubscribe } = useMeterValues(isEngineReady ? engineRef.current : null);
 
   // Initialize audio engine (called lazily on first transport action)
   const initializeEngine = useCallback(async () => {
@@ -196,5 +200,6 @@ export function useAudioEngine({ sampleRate, tracks, clips, clipUrls }: UseAudio
     stop,
     togglePlayStop,
     seek,
+    meterSubscribe,
   };
 }

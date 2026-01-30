@@ -48,6 +48,13 @@ export interface VFSEntry {
 
 type PlayheadCallback = (timeInSeconds: number) => void;
 
+export interface MeterValue {
+  min: number;
+  max: number;
+}
+
+type MeterCallback = (meters: Map<string, MeterValue>) => void;
+
 export class AudioEngine {
   private core: WebRenderer;
   private ctx: AudioContext | null = null;
@@ -66,6 +73,10 @@ export class AudioEngine {
   private vfsEntries: Map<string, VFSEntry> = new Map();
   /** Offset to convert el.time() to transport time (set when play starts) */
   private transportTimeOffset = 0;
+  /** Meter values from el.meter() events, keyed by source name */
+  private meterValues: Map<string, MeterValue> = new Map();
+  /** Callbacks for meter updates */
+  private meterCallbacks: Set<MeterCallback> = new Set();
 
   constructor() {
     this.core = new WebRenderer();
@@ -93,6 +104,11 @@ export class AudioEngine {
     // Listen for Elementary errors
     this.core.on("error", (e) => {
       console.error("[AudioEngine] Elementary error:", e);
+    });
+
+    // Listen for meter events from el.meter() nodes
+    this.core.on("meter", (e) => {
+      this.meterValues.set(e.source as string, { min: e.min as number, max: e.max as number });
     });
 
     this.initialized = true;
@@ -191,6 +207,16 @@ export class AudioEngine {
     this.playheadCallbacks.add(callback);
     return () => {
       this.playheadCallbacks.delete(callback);
+    };
+  }
+
+  /**
+   * Subscribe to meter value updates (batched per animation frame)
+   */
+  onMeterUpdate(callback: MeterCallback): () => void {
+    this.meterCallbacks.add(callback);
+    return () => {
+      this.meterCallbacks.delete(callback);
     };
   }
 
@@ -342,6 +368,14 @@ export class AudioEngine {
 
       this.playheadPosition = this.getPlayhead();
       this.notifyPlayheadListeners();
+
+      // Notify meter listeners with batched values
+      if (this.meterValues.size > 0) {
+        for (const callback of this.meterCallbacks) {
+          callback(this.meterValues);
+        }
+      }
+
       this.animationFrameId = requestAnimationFrame(update);
     };
 
@@ -551,9 +585,16 @@ export class AudioEngine {
         el.const({ key: `track-${track.id}-gain`, value: trackGainValue }),
       );
 
+      const gainedLeft = el.mul(smoothedGain, trackLeft);
+      const gainedRight = el.mul(smoothedGain, trackRight);
+
+      // Add metering (post-fader)
+      const meteredLeft = el.meter({ name: `track-${track.id}-L` }, gainedLeft);
+      const meteredRight = el.meter({ name: `track-${track.id}-R` }, gainedRight);
+
       return {
-        left: el.mul(smoothedGain, trackLeft),
-        right: el.mul(smoothedGain, trackRight),
+        left: meteredLeft,
+        right: meteredRight,
       };
     });
 
@@ -567,6 +608,10 @@ export class AudioEngine {
     const masterLeft = el.mul(smoothedMasterGain, summedLeft);
     const masterRight = el.mul(smoothedMasterGain, summedRight);
 
+    // Add master metering
+    const masterLeftMetered = el.meter({ name: "master-L" }, masterLeft);
+    const masterRightMetered = el.meter({ name: "master-R" }, masterRight);
+
     // Render silence when not playing
     if (!this.playing) {
       this.core.render(
@@ -576,7 +621,7 @@ export class AudioEngine {
       return;
     }
 
-    // Render stereo output
-    this.core.render(masterLeft, masterRight);
+    // Render stereo output with metering
+    this.core.render(masterLeftMetered, masterRightMetered);
   }
 }

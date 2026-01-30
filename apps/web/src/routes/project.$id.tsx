@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import { VirtualizedTrackList } from "@/components/VirtualizedTrackList";
+import { MeterProvider } from "@/contexts/MeterContext";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
 import { useClipClipboard } from "@/hooks/useClipClipboard";
 import { useClipDrag, type ClipData } from "@/hooks/useClipDrag";
@@ -229,6 +230,7 @@ function ProjectEditor() {
     stop: handleStop,
     togglePlayStop: handleTogglePlayStop,
     seek,
+    meterSubscribe,
   } = useAudioEngine({
     sampleRate: project?.sampleRate ?? 44100,
     tracks: tracksWithOptimisticUpdates,
@@ -647,21 +649,23 @@ function ProjectEditor() {
           {/* Spacer to align with timeline ruler */}
           <div className="h-6 shrink-0 border-b" />
           {/* Track Headers */}
-          <VirtualizedTrackList
-            ref={trackListRef}
-            tracks={tracksWithOptimisticUpdates ?? []}
-            scrollTop={scrollTop}
-            focusedTrackId={focusedTrackId}
-            onScrollChange={setScrollTop}
-            onMuteChange={handleUpdateTrackMute}
-            onSoloChange={handleUpdateTrackSolo}
-            onGainChange={handleUpdateTrackGain}
-            onGainCommit={handleCommitTrackGain}
-            onNameChange={handleUpdateTrackName}
-            onDelete={handleDeleteTrack}
-            onReorder={handleReorderTracks}
-            onAddTrack={handleAddTrack}
-          />
+          <MeterProvider subscribe={meterSubscribe}>
+            <VirtualizedTrackList
+              ref={trackListRef}
+              tracks={tracksWithOptimisticUpdates ?? []}
+              scrollTop={scrollTop}
+              focusedTrackId={focusedTrackId}
+              onScrollChange={setScrollTop}
+              onMuteChange={handleUpdateTrackMute}
+              onSoloChange={handleUpdateTrackSolo}
+              onGainChange={handleUpdateTrackGain}
+              onGainCommit={handleCommitTrackGain}
+              onNameChange={handleUpdateTrackName}
+              onDelete={handleDeleteTrack}
+              onReorder={handleReorderTracks}
+              onAddTrack={handleAddTrack}
+            />
+          </MeterProvider>
 
           {/* Master Track */}
           <div className="shrink-0 border-t bg-muted/30 p-2">
