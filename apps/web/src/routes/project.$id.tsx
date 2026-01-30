@@ -38,6 +38,10 @@ import {
   reorderTracksOptimisticUpdate,
   updateTrackOptimisticUpdate,
 } from "@/lib/trackOptimisticUpdates";
+import {
+  deleteClipOptimisticUpdate,
+  updateClipPositionOptimisticUpdate,
+} from "@/lib/clipOptimisticUpdates";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -560,8 +564,14 @@ function TimelineCanvas({
     dimensions,
   });
 
-  // Mutation for clip position update
-  const updateClipPosition = useMutation(api.clips.updateClipPosition);
+  // Mutation for clip position update with optimistic updates
+  const updateClipPosition = useMutation(api.clips.updateClipPosition).withOptimisticUpdate(
+    updateClipPositionOptimisticUpdate,
+  );
+  // Prepared for future clip deletion UI
+  const _deleteClip = useMutation(api.clips.deleteClip).withOptimisticUpdate(
+    deleteClipOptimisticUpdate,
+  );
 
   // Clip drag state and handlers (FR-34-38)
   const {
@@ -585,6 +595,7 @@ function TimelineCanvas({
       trackHeight: TRACK_HEIGHT,
       clipPadding: CLIP_PADDING,
     },
+    projectId,
     updateClipPosition,
   });
 

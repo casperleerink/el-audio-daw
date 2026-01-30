@@ -57,7 +57,12 @@ interface UseClipDragParams {
   pixelsPerSecond: number;
   sampleRate: number;
   layoutParams: LayoutParams;
-  updateClipPosition: (args: { id: Id<"clips">; startTime: number }) => Promise<unknown>;
+  projectId: Id<"projects">;
+  updateClipPosition: (args: {
+    id: Id<"clips">;
+    startTime: number;
+    projectId?: Id<"projects">;
+  }) => Promise<unknown>;
 }
 
 interface UseClipDragReturn {
@@ -96,6 +101,7 @@ export function useClipDrag({
   pixelsPerSecond,
   sampleRate,
   layoutParams,
+  projectId,
   updateClipPosition,
 }: UseClipDragParams): UseClipDragReturn {
   const [clipDragState, setClipDragState] = useState<ClipDragState | null>(null);
@@ -224,15 +230,16 @@ export function useClipDrag({
         await updateClipPosition({
           id: clipId as Id<"clips">,
           startTime: currentStartTime,
+          projectId,
         });
       } catch (error) {
         console.error("Failed to update clip position:", error);
-        toast.error("Failed to move clip");
+        toast.error("Failed to move clip. Changes reverted.");
       }
     }
 
     setClipDragState(null);
-  }, [clipDragState, updateClipPosition]);
+  }, [clipDragState, projectId, updateClipPosition]);
 
   // Handle mouse leave to cancel clip drag (FR-37)
   const handleMouseLeave = useCallback(() => {

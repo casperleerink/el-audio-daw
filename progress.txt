@@ -52,3 +52,39 @@ Implemented optimistic updates for all track mutations using Convex's `withOptim
 - Next priority task: Implement optimistic updates for clip mutations
 - The `updateTrack` and `deleteTrack` mutations now accept an optional `projectId` arg - always pass it to enable optimistic updates
 - If you need to check if a track is pending (temp ID), use the `isPending()` utility from `@/lib/optimistic`
+
+## 2026-01-29 - Clip Mutations Optimistic Updates
+
+### Completed
+Implemented optimistic updates for all clip mutations using Convex's `withOptimisticUpdate` API.
+
+**New file created:** `apps/web/src/lib/clipOptimisticUpdates.ts`
+- `createClipOptimisticUpdate` - Instantly adds a new clip with a temp ID to the cache
+- `updateClipPositionOptimisticUpdate` - Instantly updates clip's startTime in the cache (for drag operations)
+- `deleteClipOptimisticUpdate` - Instantly removes clip from the cache
+
+**Files modified:**
+1. `packages/backend/convex/clips.ts`
+   - Added optional `projectId` arg to `updateClipPosition` and `deleteClip` mutations (required for optimistic update cache invalidation)
+
+2. `apps/web/src/hooks/useClipDrag.ts`
+   - Added `projectId` parameter to the hook
+   - Updated mutation call to include `projectId` for optimistic updates
+   - Updated error toast to use rollback messaging
+
+3. `apps/web/src/routes/project.$id.tsx`
+   - Wired up `updateClipPosition` mutation with `withOptimisticUpdate`
+   - Prepared `deleteClip` mutation with optimistic updates (prefixed with `_` since no delete UI exists yet)
+   - Passed `projectId` to `useClipDrag` hook
+
+### Architecture decisions
+- Clip mutations follow the same pattern as track mutations
+- `updateClipPosition` is used for drag-to-move operations - optimistic update provides instant visual feedback when dropping a clip
+- `deleteClip` is prepared but not wired to UI yet (no clip delete UI exists)
+- `createClip` optimistic update exists but isn't used during upload flow yet - the upload flow currently waits for server confirmation
+
+### Notes for next person
+- Next priority tasks: "Implement commit-based updates for continuous interactions" or "Add pending state UI for clips"
+- The `updateClipPosition` and `deleteClip` mutations now accept optional `projectId` - always pass it for optimistic updates
+- Use `isPending()` from `@/lib/optimistic` to check if a clip has a temp ID (pending confirmation)
+- The clip deletion UI needs to be implemented before `deleteClip` can be fully utilized

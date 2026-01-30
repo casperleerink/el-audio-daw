@@ -134,11 +134,15 @@ export const createClip = mutation({
 
 /**
  * Update clip position (for dragging) (FR-34-38)
+ *
+ * Note: projectId is optional but required for optimistic updates to work.
+ * Without projectId, the mutation will still execute but won't update the cache optimistically.
  */
 export const updateClipPosition = mutation({
   args: {
     id: v.id("clips"),
     startTime: v.number(),
+    projectId: v.optional(v.id("projects")),
   },
   handler: async (ctx, args) => {
     const clip = await ctx.db.get(args.id);
@@ -167,10 +171,14 @@ export const updateClipPosition = mutation({
 
 /**
  * Delete a clip
+ *
+ * Note: projectId is optional but required for optimistic updates to work.
+ * Without projectId, the mutation will still execute but won't update the cache optimistically.
  */
 export const deleteClip = mutation({
   args: {
     id: v.id("clips"),
+    projectId: v.optional(v.id("projects")),
   },
   handler: async (ctx, args) => {
     const clip = await ctx.db.get(args.id);

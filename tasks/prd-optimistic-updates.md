@@ -31,7 +31,7 @@ Implement optimistic updates using Convex's built-in `optimisticUpdate` API for 
   - `deleteTrack` - instant removal from list, cancel pending uploads
   - `reorderTracks` - instant order change (commit on drop)
 
-- [ ] Implement optimistic updates for clip mutations
+- [x] Implement optimistic updates for clip mutations
   - `createClip` - show pending clip during upload flow (not draggable until confirmed)
   - `updateClipPosition` - instant position change on drag (commit on drop)
   - `deleteClip` - instant removal
