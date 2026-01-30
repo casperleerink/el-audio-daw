@@ -59,26 +59,27 @@ Elementary Pre-FX → WAM Plugin → Elementary Post-FX → Destination
 The second renderer receives audio from the WAM plugin through its audio input, then processes it with Elementary nodes.
 
 This pattern allows flexible effect ordering:
+
 - Elementary EQ → WAM Compressor → Elementary Delay → WAM Reverb
 
 Consecutive Elementary effects should be grouped into single renderers to minimize complexity.
 
 ## Latency Considerations
 
-| Source | Latency |
-|--------|---------|
-| Web Audio render quantum | 128 samples (~2.9ms at 44.1kHz) |
-| Chained AudioWorkletNodes | No additional latency (same callback) |
-| WAM plugin internal | Depends on plugin (lookahead, FFT, etc.) |
+| Source                    | Latency                                  |
+| ------------------------- | ---------------------------------------- |
+| Web Audio render quantum  | 128 samples (~2.9ms at 44.1kHz)          |
+| Chained AudioWorkletNodes | No additional latency (same callback)    |
+| WAM plugin internal       | Depends on plugin (lookahead, FFT, etc.) |
 
 Chaining multiple AudioWorkletNodes (Elementary renderers and WAM plugins) does not add cumulative buffer delays. All nodes in the Web Audio graph process within the same render quantum.
 
 ## Trade-offs
 
-| Approach | Pros | Cons |
-|----------|------|------|
-| Single renderer, post-FX WAMs | Simple architecture | No mid-chain inserts |
-| Multi-renderer with interleaving | Full flexibility | Complex state management, multiple render calls |
+| Approach                         | Pros                | Cons                                            |
+| -------------------------------- | ------------------- | ----------------------------------------------- |
+| Single renderer, post-FX WAMs    | Simple architecture | No mid-chain inserts                            |
+| Multi-renderer with interleaving | Full flexibility    | Complex state management, multiple render calls |
 
 ## Limitations
 
