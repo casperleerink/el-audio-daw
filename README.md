@@ -1,17 +1,29 @@
 # el-audio-daw
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Router, Convex, and more.
+> **⚠️ Experimental / Alpha**
+>
+> This project is in early development and should not be used for serious work. APIs and features may change without notice. Use at your own risk.
 
-## Features
+A browser-based Digital Audio Workstation (DAW) built with [Elementary Audio](https://www.elementary.audio/) for real-time DSP processing.
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Router** - File-based routing with full type safety
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **shadcn/ui** - Reusable UI components
-- **Convex** - Reactive backend-as-a-service platform
-- **Authentication** - Better-Auth
-- **Oxlint** - Oxlint + Oxfmt (linting & formatting)
-- **Turborepo** - Optimized monorepo build system
+## About
+
+el-audio-daw is a collaborative audio workstation that runs entirely in the browser. It uses Elementary Audio's functional, declarative approach to audio DSP, enabling low-latency audio processing through WebAudio.
+
+### Current Features
+
+- **Multi-track audio** - Create and manage multiple audio tracks with individual gain, mute, and solo controls
+- **Real-time collaboration** - Projects sync in real-time across clients via Convex
+- **Audio file upload** - Upload and play audio clips on tracks
+- **Optimistic UI** - Responsive controls with instant feedback and automatic rollback on errors
+
+## Tech Stack
+
+- **Audio Engine**: Elementary Audio (`@elemaudio/core`, `@elemaudio/web-renderer`)
+- **Frontend**: React 19, Vite, TanStack Router, Tailwind CSS v4
+- **Backend**: Convex (real-time sync + file storage)
+- **Auth**: Better-Auth
+- **Monorepo**: Bun workspaces + Turborepo
 
 ## Getting Started
 
@@ -51,9 +63,12 @@ Your app will connect to the Convex cloud backend automatically.
 ```
 el-audio-daw/
 ├── apps/
-│   ├── web/         # Frontend application (React + TanStack Router)
+│   └── web/         # Frontend application (React + TanStack Router)
 ├── packages/
+│   ├── audio/       # Audio engine using Elementary Audio for real-time DSP
 │   ├── backend/     # Convex backend functions and schema
+│   ├── config/      # Shared TypeScript/tooling configs
+│   └── env/         # Shared environment variable validation
 ```
 
 ## Available Scripts
