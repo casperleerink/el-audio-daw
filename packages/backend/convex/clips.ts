@@ -123,6 +123,7 @@ export const createClip = mutation({
       startTime: args.startTime,
       duration: args.duration,
       audioStartTime: 0, // Default for new clips (FR-9)
+      audioDuration: args.duration, // Store original audio duration (immutable)
       gain: 0, // Default 0 dB (FR-9)
       createdAt: now,
       updatedAt: now,
@@ -164,6 +165,61 @@ export const updateClipPosition = mutation({
 
     await ctx.db.patch(args.id, {
       startTime: newStartTime,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Trim a clip by adjusting its boundaries (FR-14 through FR-22)
+ *
+ * Left trim: adjusts startTime and audioStartTime together (keeping audio aligned)
+ * Right trim: adjusts duration only
+ *
+ * Note: projectId is optional but required for optimistic updates to work.
+ */
+export const trimClip = mutation({
+  args: {
+    id: v.id("clips"),
+    startTime: v.number(),
+    audioStartTime: v.number(),
+    duration: v.number(),
+    projectId: v.optional(v.id("projects")),
+  },
+  handler: async (ctx, args) => {
+    const clip = await ctx.db.get(args.id);
+    if (!clip) {
+      throw new Error("Clip not found");
+    }
+
+    await requireProjectAccess(ctx, clip.projectId);
+
+    // Validate constraints (FR-18, FR-19, FR-20)
+    if (args.audioStartTime < 0) {
+      throw new Error("Cannot trim before audio start (audioStartTime < 0)");
+    }
+    if (args.duration <= 0) {
+      throw new Error("Duration must be positive");
+    }
+    if (args.audioStartTime + args.duration > clip.audioDuration) {
+      throw new Error("Cannot extend beyond audio end");
+    }
+    if (args.startTime < 0) {
+      throw new Error("Start time cannot be negative");
+    }
+
+    const newClipEnd = args.startTime + args.duration;
+
+    // Handle clip overlap after trim
+    await handleClipOverlap(ctx.db, clip.trackId, args.startTime, newClipEnd, args.id);
+
+    // Extend project duration if needed
+    await extendProjectDurationIfNeeded(ctx.db, clip.projectId, newClipEnd);
+
+    await ctx.db.patch(args.id, {
+      startTime: args.startTime,
+      audioStartTime: args.audioStartTime,
+      duration: args.duration,
       updatedAt: Date.now(),
     });
   },

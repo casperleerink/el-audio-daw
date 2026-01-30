@@ -349,3 +349,40 @@ Implemented visual trim handles on clip edges with cursor feedback.
 - Trim handles only appear on clips wide enough (>= 2x handle width)
 - Clicking trim handle zones currently does nothing - trim drag needs implementation
 - Selection still works when clicking trim handles
+
+## 2026-01-29 - Trim Drag Logic (FR-16 through FR-22)
+
+### Completed
+Implemented full trim drag functionality with audio boundary constraints.
+
+**Schema changes:**
+- Added `audioDuration` field to clips table (stores original audio file duration, immutable)
+
+**New backend mutation:**
+- `trimClip` in `clips.ts` - updates startTime, audioStartTime, duration with validation for FR-18/FR-19
+
+**Files modified:**
+1. `packages/backend/convex/schema.ts` - Added `audioDuration` field
+2. `packages/backend/convex/clips.ts` - Added `audioDuration` to createClip, added `trimClip` mutation
+3. `apps/web/src/lib/clipOptimisticUpdates.ts` - Added `trimClipOptimisticUpdate`, updated createClip to include audioDuration
+4. `apps/web/src/hooks/useClipDrag.ts`:
+   - Added `TrimDragState` interface
+   - Added `audioStartTime`/`audioDuration` to ClipData
+   - handleMouseDown starts trim drag when clicking handles
+   - handleMouseMove calculates new trim values with constraints
+   - handleMouseUp commits trim via mutation
+5. `apps/web/src/lib/canvasRenderer.ts` - Added `TrimDragState`, clips show live trim preview during drag
+6. `apps/web/src/routes/project.$id.tsx` - Wired up trimClip mutation, passes trimDragState to renderer
+
+**Trim behavior:**
+- Left handle: adjusts startTime and audioStartTime together (FR-16)
+- Right handle: adjusts duration only (FR-17)
+- Constrained: audioStartTime >= 0 (FR-18), audioStartTime + duration <= audioDuration (FR-19)
+- Minimum duration: 1 sample (FR-20)
+- Uses optimistic updates (FR-21)
+- Visual feedback during drag (FR-22)
+
+### Notes for next person
+- Next priorities: copy/paste (Cmd+C/V), cross-track drag, or split (Cmd+E)
+- Older clips without audioDuration fall back to audioStartTime + duration
+- trimDragState is separate from clipDragState - only one active at a time

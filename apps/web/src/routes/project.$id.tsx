@@ -40,6 +40,7 @@ import {
 } from "@/lib/trackOptimisticUpdates";
 import {
   deleteClipOptimisticUpdate,
+  trimClipOptimisticUpdate,
   updateClipPositionOptimisticUpdate,
 } from "@/lib/clipOptimisticUpdates";
 import { updateProjectOptimisticUpdate } from "@/lib/projectOptimisticUpdates";
@@ -563,6 +564,9 @@ function ProjectEditor() {
               name: clip.name,
               startTime: clip.startTime,
               duration: clip.duration,
+              audioStartTime: clip.audioStartTime,
+              // audioDuration may not exist on older clips, fallback to audioStartTime + duration
+              audioDuration: clip.audioDuration ?? clip.audioStartTime + clip.duration,
               pending: isPending(clip),
             }))}
             sampleRate={project?.sampleRate ?? 44100}
@@ -642,9 +646,13 @@ function TimelineCanvas({
     updateClipPositionOptimisticUpdate,
   );
 
-  // Clip drag state and handlers (FR-34-38)
+  // Mutation for clip trim with optimistic updates (FR-21)
+  const trimClip = useMutation(api.clips.trimClip).withOptimisticUpdate(trimClipOptimisticUpdate);
+
+  // Clip drag and trim state and handlers (FR-34-38, FR-16-22)
   const {
     clipDragState,
+    trimDragState,
     justFinishedDrag,
     findClipAtPosition,
     handleMouseDown: handleClipMouseDown,
@@ -666,6 +674,7 @@ function TimelineCanvas({
     },
     projectId,
     updateClipPosition,
+    trimClip,
   });
 
   // Canvas event handlers (wheel, click, hover, trim handle detection)
@@ -772,6 +781,13 @@ function TimelineCanvas({
       clipDragState: clipDragState
         ? { clipId: clipDragState.clipId, currentStartTime: clipDragState.currentStartTime }
         : null,
+      trimDragState: trimDragState
+        ? {
+            clipId: trimDragState.clipId,
+            currentStartTime: trimDragState.currentStartTime,
+            currentDuration: trimDragState.currentDuration,
+          }
+        : null,
       rulerHeight: RULER_HEIGHT,
       trackHeight: TRACK_HEIGHT,
     });
@@ -786,6 +802,7 @@ function TimelineCanvas({
     pixelsPerSecond,
     hoverX,
     clipDragState,
+    trimDragState,
     hoveredClipId,
     hoveredClipZone,
   ]);

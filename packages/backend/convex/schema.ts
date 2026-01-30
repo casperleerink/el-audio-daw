@@ -40,8 +40,9 @@ export default defineSchema({
     fileId: v.id("_storage"), // Convex storage ID, also used as VFS key
     name: v.string(), // Original filename
     startTime: v.number(), // Position on timeline in samples
-    duration: v.number(), // Clip length in samples
-    audioStartTime: v.number(), // Offset into source audio in samples (for future trimming)
+    duration: v.number(), // Clip length in samples (visible/playable portion)
+    audioStartTime: v.number(), // Offset into source audio in samples (for trimming)
+    audioDuration: v.number(), // Original audio file duration in samples (immutable after creation)
     gain: v.number(), // Clip gain in dB
     createdAt: v.number(),
     updatedAt: v.number(),

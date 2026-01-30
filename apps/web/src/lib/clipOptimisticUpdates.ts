@@ -26,6 +26,14 @@ type DeleteClipArgs = {
   projectId?: Id<"projects">;
 };
 
+type TrimClipArgs = {
+  id: Id<"clips">;
+  startTime: number;
+  audioStartTime: number;
+  duration: number;
+  projectId?: Id<"projects">;
+};
+
 /**
  * Optimistic update for createClip mutation.
  * Instantly adds a new clip with a temp ID to the local cache.
@@ -53,6 +61,7 @@ export function createClipOptimisticUpdate(
       startTime: args.startTime,
       duration: args.duration,
       audioStartTime: 0,
+      audioDuration: args.duration, // Store original audio duration
       gain: 0,
       createdAt: now,
       updatedAt: now,
@@ -128,5 +137,41 @@ export function deleteClipOptimisticUpdate(
   if (current !== undefined) {
     const filtered = current.filter((clip) => clip._id !== args.id);
     localStore.setQuery(api.clips.getProjectClips, { projectId: args.projectId }, filtered);
+  }
+}
+
+/**
+ * Optimistic update for trimClip mutation.
+ * Instantly updates the clip's trim boundaries in the local cache.
+ *
+ * Note: Requires projectId to be passed in args for optimistic update to work.
+ */
+export function trimClipOptimisticUpdate(
+  localStore: OptimisticLocalStore,
+  args: TrimClipArgs,
+): void {
+  if (!args.projectId) {
+    return;
+  }
+
+  const current = localStore.getQuery(api.clips.getProjectClips, {
+    projectId: args.projectId,
+  });
+
+  if (current !== undefined) {
+    const now = Date.now();
+
+    const updated = current.map((clip) => {
+      if (clip._id !== args.id) return clip;
+      return {
+        ...clip,
+        startTime: args.startTime,
+        audioStartTime: args.audioStartTime,
+        duration: args.duration,
+        updatedAt: now,
+      };
+    });
+
+    localStore.setQuery(api.clips.getProjectClips, { projectId: args.projectId }, updated);
   }
 }

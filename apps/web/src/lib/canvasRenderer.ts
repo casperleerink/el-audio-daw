@@ -42,6 +42,12 @@ export interface ClipDragState {
   currentStartTime: number;
 }
 
+export interface TrimDragState {
+  clipId: string;
+  currentStartTime: number;
+  currentDuration: number;
+}
+
 /**
  * Get CSS color values from computed styles with fallbacks
  */
@@ -164,6 +170,7 @@ interface DrawClipsOptions {
   trackIndexMap: Map<string, number>;
   sampleRate: number;
   clipDragState: ClipDragState | null;
+  trimDragState: TrimDragState | null;
 }
 
 /**
@@ -195,7 +202,7 @@ function createPendingPattern(ctx: CanvasRenderingContext2D, color: string): Can
  * Draw all clips on the timeline
  */
 export function drawClips(options: DrawClipsOptions): void {
-  const { renderCtx, clips, trackIndexMap, sampleRate, clipDragState } = options;
+  const { renderCtx, clips, trackIndexMap, sampleRate, clipDragState, trimDragState } = options;
   const { ctx, width, height, scrollLeft, scrollTop, pixelsPerSecond, rulerHeight, trackHeight } =
     renderCtx;
 
@@ -208,17 +215,26 @@ export function drawClips(options: DrawClipsOptions): void {
     const trackIndex = trackIndexMap.get(clip.trackId);
     if (trackIndex === undefined) continue;
 
-    // Check if clip is being dragged, pending, or selected
+    // Check if clip is being dragged, trimmed, pending, or selected
     const isDragging = clipDragState?.clipId === clip._id;
+    const isTrimming = trimDragState?.clipId === clip._id;
     const isPending = clip.pending === true;
     const isSelected = clip.selected === true;
 
-    // Use drag position if dragging, otherwise original position
-    const effectiveStartTime = isDragging ? clipDragState.currentStartTime : clip.startTime;
+    // Use drag/trim position if active, otherwise original position
+    let effectiveStartTime = clip.startTime;
+    let effectiveDuration = clip.duration;
+
+    if (isDragging) {
+      effectiveStartTime = clipDragState.currentStartTime;
+    } else if (isTrimming) {
+      effectiveStartTime = trimDragState.currentStartTime;
+      effectiveDuration = trimDragState.currentDuration;
+    }
 
     // Convert clip times from samples to seconds
     const clipStartSeconds = effectiveStartTime / sampleRate;
-    const clipDurationSeconds = clip.duration / sampleRate;
+    const clipDurationSeconds = effectiveDuration / sampleRate;
     const clipEndSeconds = clipStartSeconds + clipDurationSeconds;
 
     // Skip clips outside visible time range
@@ -396,6 +412,7 @@ interface RenderTimelineOptions {
   pixelsPerSecond: number;
   hoverX: number | null;
   clipDragState: ClipDragState | null;
+  trimDragState: TrimDragState | null;
   rulerHeight: number;
   trackHeight: number;
 }
@@ -416,6 +433,7 @@ export function renderTimeline(options: RenderTimelineOptions): void {
     pixelsPerSecond,
     hoverX,
     clipDragState,
+    trimDragState,
     rulerHeight,
     trackHeight,
   } = options;
@@ -459,6 +477,7 @@ export function renderTimeline(options: RenderTimelineOptions): void {
     trackIndexMap,
     sampleRate,
     clipDragState,
+    trimDragState,
   });
   drawPlayhead(renderCtx, playheadTime);
   drawHoverIndicator(renderCtx, hoverX);
