@@ -8,13 +8,13 @@ fi
 for ((i=1; i<=$1; i++)); do
   echo "Iteration $i"
   echo "--------------------------------"
-  result=$(claude --dangerously-skip-permissions -p "@tasks/prd-optimistic-updates.md @progress.txt \
+  result=$(claude --dangerously-skip-permissions -p "@tasks/prd-clip-editing.md @progress.txt \
 1. Find the highest-priority task to work on and work only on that task. \
 This should be the one YOU decide has the highest priority - not necessarily the first in the list of tasks. \
 2. Check that the types check via bun run check-types and that the lints pass with bun run check. \
 3. Update the PRD with the work that was done. \
-4. Append your progress to the progress.txt file. \
-Use this to leave a note for the next person working in the codebase. \
+4. Append your progress to the progress.txt file, prefer conciseness over grammar. \
+Use this to leave a note for the next person working in the codebase. But keep it short! \
 5. Make a git commit of that task. \
 ONLY WORK ON A SINGLE TASK. \
 If, while implementing the task, you notice the PRD is complete, output <promise>COMPLETE</promise>. \
