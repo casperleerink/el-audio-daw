@@ -62,4 +62,26 @@ export default defineSchema({
   })
     .index("by_track", ["trackId"])
     .index("by_project", ["projectId"]),
+
+  trackEffects: defineTable({
+    trackId: v.id("tracks"),
+    order: v.number(), // Position in chain (0, 1, 2...)
+    enabled: v.boolean(), // Bypass toggle
+    effectData: v.union(
+      v.object({
+        type: v.literal("filter"),
+        cutoff: v.number(), // 20-20000 Hz
+        resonance: v.number(), // 0-1
+        filterType: v.union(
+          v.literal("lowpass"),
+          v.literal("highpass"),
+          v.literal("bandpass"),
+          v.literal("notch")
+        ),
+      })
+      // Future effects added as new union members
+    ),
+  })
+    .index("by_track", ["trackId"])
+    .index("by_track_order", ["trackId", "order"]),
 });
