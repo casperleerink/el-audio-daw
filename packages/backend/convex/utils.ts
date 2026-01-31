@@ -39,6 +39,23 @@ export async function requireProjectAccess(ctx: QueryCtx | MutationCtx, projectI
 }
 
 /**
+ * Ensure the user is authenticated and is the owner of the given project.
+ * Use this in mutations where owner-level access is required (e.g., deleting a project).
+ */
+export async function requireProjectOwner(ctx: QueryCtx | MutationCtx, projectId: Id<"projects">) {
+  const user = await requireAuth(ctx);
+  const projectUser = await ctx.db
+    .query("projectUsers")
+    .withIndex("by_project_and_user", (q) => q.eq("projectId", projectId).eq("userId", user._id))
+    .first();
+
+  if (!projectUser || projectUser.role !== "owner") {
+    throw new Error("Only project owner can perform this action");
+  }
+  return user;
+}
+
+/**
  * Check if a user has access to a project by verifying they are a projectUser.
  * Returns true if the user has access, false otherwise.
  */

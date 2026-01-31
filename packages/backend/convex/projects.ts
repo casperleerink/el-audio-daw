@@ -1,6 +1,12 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { checkQueryAccess, getAuthUser, requireAuth } from "./utils";
+import {
+  checkQueryAccess,
+  getAuthUser,
+  requireAuth,
+  requireProjectAccess,
+  requireProjectOwner,
+} from "./utils";
 
 export const createProject = mutation({
   args: {
@@ -33,16 +39,7 @@ export const updateProject = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
-
-    const projectUser = await ctx.db
-      .query("projectUsers")
-      .withIndex("by_project_and_user", (q) => q.eq("projectId", args.id).eq("userId", user._id))
-      .first();
-
-    if (!projectUser) {
-      throw new Error("Not authorized to update this project");
-    }
+    await requireProjectAccess(ctx, args.id);
 
     await ctx.db.patch(args.id, {
       name: args.name,
@@ -56,16 +53,7 @@ export const deleteProject = mutation({
     id: v.id("projects"),
   },
   handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
-
-    const projectUser = await ctx.db
-      .query("projectUsers")
-      .withIndex("by_project_and_user", (q) => q.eq("projectId", args.id).eq("userId", user._id))
-      .first();
-
-    if (!projectUser || projectUser.role !== "owner") {
-      throw new Error("Only project owner can delete the project");
-    }
+    await requireProjectOwner(ctx, args.id);
 
     // Delete all tracks
     const tracks = await ctx.db
