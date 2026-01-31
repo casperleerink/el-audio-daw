@@ -206,6 +206,44 @@ interface DrawClipsOptions {
   clipDragState: ClipDragState | null;
   trimDragState: TrimDragState | null;
   waveformCache: Map<string, WaveformData>;
+  animationTime?: number;
+}
+
+/**
+ * Draw a subtle shimmer effect for clips waiting for waveform.
+ */
+function drawWaveformLoadingShimmer(
+  ctx: CanvasRenderingContext2D,
+  clipX: number,
+  clipY: number,
+  clipWidth: number,
+  clipHeight: number,
+  time: number,
+): void {
+  ctx.save();
+
+  // Create shimmer gradient that moves over time
+  const shimmerWidth = clipWidth * 0.3;
+  const offset = ((time / 1000) % 2) * (clipWidth + shimmerWidth) - shimmerWidth;
+
+  const gradient = ctx.createLinearGradient(
+    clipX + offset,
+    0,
+    clipX + offset + shimmerWidth,
+    0,
+  );
+  gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
+  gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.1)");
+  gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+  ctx.beginPath();
+  ctx.roundRect(clipX, clipY, clipWidth, clipHeight, CLIP_BORDER_RADIUS);
+  ctx.clip();
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(clipX, clipY, clipWidth, clipHeight);
+
+  ctx.restore();
 }
 
 /**
@@ -237,8 +275,16 @@ function createPendingPattern(ctx: CanvasRenderingContext2D, color: string): Can
  * Draw all clips on the timeline
  */
 export function drawClips(options: DrawClipsOptions): void {
-  const { renderCtx, clips, trackIndexMap, sampleRate, clipDragState, trimDragState, waveformCache } =
-    options;
+  const {
+    renderCtx,
+    clips,
+    trackIndexMap,
+    sampleRate,
+    clipDragState,
+    trimDragState,
+    waveformCache,
+    animationTime,
+  } = options;
   const { ctx, width, height, scrollLeft, scrollTop, pixelsPerSecond, rulerHeight, trackHeight } =
     renderCtx;
 
@@ -317,7 +363,7 @@ export function drawClips(options: DrawClipsOptions): void {
       }
     }
 
-    // Draw waveform if available and clip is wide enough
+    // Draw waveform or shimmer
     if (!isPending && shouldDrawWaveform(clipWidth)) {
       const waveform = waveformCache.get(clip.audioFileId);
       if (waveform) {
@@ -334,6 +380,9 @@ export function drawClips(options: DrawClipsOptions): void {
           pixelsPerSecond,
           color: trackColor,
         });
+      } else if (animationTime !== undefined) {
+        // Show shimmer while waveform is loading
+        drawWaveformLoadingShimmer(ctx, clipX, clipY, clipWidth, clipHeight, animationTime);
       }
     }
 
@@ -480,6 +529,8 @@ interface RenderTimelineOptions {
   dragOriginalTrackId?: string | null;
   /** Waveform data cache keyed by audioFileId */
   waveformCache: Map<string, WaveformData>;
+  /** Animation time for shimmer effects (ms) */
+  animationTime?: number;
 }
 
 /**
@@ -503,6 +554,7 @@ export function renderTimeline(options: RenderTimelineOptions): void {
     trackHeight,
     dragOriginalTrackId,
     waveformCache,
+    animationTime,
   } = options;
 
   const ctx = canvas.getContext("2d");
@@ -548,6 +600,7 @@ export function renderTimeline(options: RenderTimelineOptions): void {
     clipDragState,
     trimDragState,
     waveformCache,
+    animationTime,
   });
   drawPlayhead(renderCtx, playheadTime);
   drawHoverIndicator(renderCtx, hoverX);
