@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { checkQueryAccess, requireProjectAccess } from "./utils";
 
 /**
@@ -129,6 +129,22 @@ export const getProjectWaveformUrls = query({
     }
 
     return result;
+  },
+});
+
+/**
+ * Internal mutation to set waveform storage ID.
+ * Called by the waveform generation action after processing.
+ */
+export const setWaveformStorageId = internalMutation({
+  args: {
+    audioFileId: v.id("audioFiles"),
+    waveformStorageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.audioFileId, {
+      waveformStorageId: args.waveformStorageId,
+    });
   },
 });
 

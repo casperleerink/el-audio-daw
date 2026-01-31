@@ -1,7 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
-import { action, internalMutation } from "./_generated/server";
+import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 
 // Mipmap levels: samples per bucket
@@ -305,26 +305,11 @@ export const generateWaveform = action({
     );
 
     // Update the audio file record
-    await ctx.runMutation(internal.waveform.setWaveformStorageId, {
+    await ctx.runMutation(internal.audioFiles.setWaveformStorageId, {
       audioFileId: args.audioFileId,
       waveformStorageId,
     });
 
     return { success: true, waveformStorageId };
-  },
-});
-
-/**
- * Internal mutation to set waveform storage ID.
- */
-export const setWaveformStorageId = internalMutation({
-  args: {
-    audioFileId: v.id("audioFiles"),
-    waveformStorageId: v.id("_storage"),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.audioFileId, {
-      waveformStorageId: args.waveformStorageId,
-    });
   },
 });
