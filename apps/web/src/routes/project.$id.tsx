@@ -33,6 +33,7 @@ import { useTimelineCanvasEvents } from "@/hooks/useTimelineCanvasEvents";
 import { useTimelineFileDrop } from "@/hooks/useTimelineFileDrop";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { renderTimeline } from "@/lib/canvasRenderer";
+import { fetchWaveform, clearWaveformCache, type WaveformData } from "@/lib/waveformCache";
 import { formatGain, formatTime } from "@/lib/formatters";
 import { isPending, showRollbackToast } from "@/lib/optimistic";
 import { cancelUploadsForTrack } from "@/lib/uploadRegistry";
@@ -185,8 +186,7 @@ function ProjectEditor() {
   const clips = useQuery(api.clips.getProjectClips, { projectId: id as any });
   const clipUrls = useQuery(api.clips.getProjectClipUrls, { projectId: id as any });
   const audioFiles = useQuery(api.audioFiles.getProjectAudioFiles, { projectId: id as any });
-  // waveformUrls will be used in later tasks for waveform rendering
-  const _waveformUrls = useQuery(api.audioFiles.getProjectWaveformUrls, { projectId: id as any });
+  const waveformUrls = useQuery(api.audioFiles.getProjectWaveformUrls, { projectId: id as any });
 
   const createTrack = useMutation(api.tracks.createTrack).withOptimisticUpdate(
     createTrackOptimisticUpdate,
@@ -687,6 +687,7 @@ function ProjectEditor() {
             onToggleClipSelection={toggleClipSelection}
             onClearSelection={clearSelection}
             getAudioFileDuration={getAudioFileDuration}
+            waveformUrls={waveformUrls ?? {}}
           />
         </div>
       </div>
@@ -709,6 +710,8 @@ interface TimelineCanvasProps {
   onClearSelection: () => void;
   /** Lookup function for audio file duration (for trim constraints) */
   getAudioFileDuration: (audioFileId: string) => number | undefined;
+  /** Waveform URLs keyed by audioFileId */
+  waveformUrls: Record<string, string | null>;
 }
 
 function TimelineCanvas({
@@ -725,10 +728,14 @@ function TimelineCanvas({
   onToggleClipSelection,
   onClearSelection,
   getAudioFileDuration,
+  waveformUrls,
 }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  // Waveform cache state (triggers re-render when waveforms load)
+  const [loadedWaveforms, setLoadedWaveforms] = useState<Map<string, WaveformData>>(new Map());
 
   // Calculate max vertical scroll (needed by hooks)
   const totalTrackHeight = tracks.length * TRACK_HEIGHT;
@@ -900,6 +907,30 @@ function TimelineCanvas({
     return () => observer.disconnect();
   }, []);
 
+  // Fetch waveforms when URLs become available
+  useEffect(() => {
+    const fetchAllWaveforms = async () => {
+      const entries = Object.entries(waveformUrls);
+
+      for (const [audioFileId, url] of entries) {
+        // Skip if already loaded or no URL
+        if (loadedWaveforms.has(audioFileId) || !url) continue;
+
+        const waveform = await fetchWaveform(audioFileId, url);
+        if (waveform) {
+          setLoadedWaveforms((prev) => new Map(prev).set(audioFileId, waveform));
+        }
+      }
+    };
+
+    fetchAllWaveforms();
+  }, [waveformUrls, loadedWaveforms]);
+
+  // Clear cache when unmounting
+  useEffect(() => {
+    return () => clearWaveformCache();
+  }, []);
+
   // Transform clips to include selection and hover state for rendering
   const clipsWithState = clips.map((clip) => ({
     ...clip,
@@ -941,6 +972,7 @@ function TimelineCanvas({
       rulerHeight: RULER_HEIGHT,
       trackHeight: TRACK_HEIGHT,
       dragOriginalTrackId: clipDragState?.originalTrackId,
+      waveformCache: loadedWaveforms,
     });
   }, [
     dimensions,
@@ -956,6 +988,7 @@ function TimelineCanvas({
     trimDragState,
     hoveredClipId,
     hoveredClipZone,
+    loadedWaveforms,
   ]);
 
   // Calculate drop indicator position (FR-30)
