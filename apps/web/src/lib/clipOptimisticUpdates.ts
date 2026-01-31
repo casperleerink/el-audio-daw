@@ -9,7 +9,7 @@ type Clip = Doc<"clips">;
 type CreateClipArgs = {
   projectId: Id<"projects">;
   trackId: Id<"tracks">;
-  fileId: Id<"_storage">;
+  audioFileId: Id<"audioFiles">;
   name: string;
   startTime: number;
   duration: number;
@@ -39,12 +39,11 @@ type PasteClipsArgs = {
   projectId: Id<"projects">;
   trackId: Id<"tracks">;
   clips: Array<{
-    fileId: Id<"_storage">;
+    audioFileId: Id<"audioFiles">;
     name: string;
     startTime: number;
     duration: number;
     audioStartTime: number;
-    audioDuration: number;
     gain: number;
   }>;
 };
@@ -76,12 +75,11 @@ export function createClipOptimisticUpdate(
         _creationTime: now,
         projectId: args.projectId,
         trackId: args.trackId,
-        fileId: args.fileId,
+        audioFileId: args.audioFileId,
         name: args.name,
         startTime: args.startTime,
         duration: args.duration,
         audioStartTime: 0,
-        audioDuration: args.duration,
         gain: 0,
         createdAt: now,
         updatedAt: now,
@@ -189,12 +187,11 @@ export function pasteClipsOptimisticUpdate(
         _creationTime: now,
         projectId: args.projectId,
         trackId: args.trackId,
-        fileId: clip.fileId,
+        audioFileId: clip.audioFileId,
         name: clip.name,
         startTime: clip.startTime,
         duration: clip.duration,
         audioStartTime: clip.audioStartTime,
-        audioDuration: clip.audioDuration,
         gain: clip.gain,
         createdAt: now,
         updatedAt: now,
@@ -237,12 +234,11 @@ export function splitClipOptimisticUpdate(
         _creationTime: now,
         projectId: clip.projectId,
         trackId: clip.trackId,
-        fileId: clip.fileId,
+        audioFileId: clip.audioFileId,
         name: clip.name,
         startTime: rightStartTime,
         duration: rightDuration,
         audioStartTime: rightAudioStartTime,
-        audioDuration: clip.audioDuration,
         gain: clip.gain,
         createdAt: now,
         updatedAt: now,
