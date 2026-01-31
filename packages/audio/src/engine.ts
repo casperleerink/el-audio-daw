@@ -28,9 +28,32 @@ export interface ClipState {
   gain: number;
 }
 
+/**
+ * Filter effect types matching Convex schema
+ */
+export type FilterType = "lowpass" | "highpass" | "bandpass" | "notch";
+
+export interface FilterEffectData {
+  type: "filter";
+  cutoff: number; // 20-20000 Hz
+  resonance: number; // 0-1
+  filterType: FilterType;
+}
+
+export type EffectData = FilterEffectData;
+
+export interface TrackEffect {
+  id: string;
+  trackId: string;
+  order: number;
+  enabled: boolean;
+  effectData: EffectData;
+}
+
 export interface AudioEngineState {
   tracks: TrackState[];
   clips: ClipState[];
+  effects: TrackEffect[];
   masterGain: number; // in dB, -60 to +12
 }
 
@@ -68,6 +91,7 @@ export class AudioEngine {
   private state: AudioEngineState = {
     tracks: [],
     clips: [],
+    effects: [],
     masterGain: 0,
   };
   /** Map of VFS keys (Convex storage IDs) to metadata about loaded audio */
@@ -235,6 +259,14 @@ export class AudioEngine {
    */
   setClips(clips: ClipState[]): void {
     this.state.clips = clips;
+    this.renderGraph();
+  }
+
+  /**
+   * Update effect states for all tracks
+   */
+  setEffects(effects: TrackEffect[]): void {
+    this.state.effects = effects;
     this.renderGraph();
   }
 
