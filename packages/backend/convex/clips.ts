@@ -84,7 +84,7 @@ export const createClip = mutation({
   args: {
     projectId: v.id("projects"),
     trackId: v.id("tracks"),
-    fileId: v.id("_storage"),
+    audioFileId: v.id("audioFiles"),
     name: v.string(),
     startTime: v.number(),
     duration: v.number(),
@@ -96,6 +96,12 @@ export const createClip = mutation({
     const track = await ctx.db.get(args.trackId);
     if (!track || track.projectId !== args.projectId) {
       throw new Error("Track not found in this project");
+    }
+
+    // Verify audio file belongs to project
+    const audioFile = await ctx.db.get(args.audioFileId);
+    if (!audioFile || audioFile.projectId !== args.projectId) {
+      throw new Error("Audio file not found in this project");
     }
 
     // Validate position
@@ -118,13 +124,12 @@ export const createClip = mutation({
     const clipId = await ctx.db.insert("clips", {
       projectId: args.projectId,
       trackId: args.trackId,
-      fileId: args.fileId,
+      audioFileId: args.audioFileId,
       name: args.name,
       startTime: args.startTime,
       duration: args.duration,
-      audioStartTime: 0, // Default for new clips (FR-9)
-      audioDuration: args.duration, // Store original audio duration (immutable)
-      gain: 0, // Default 0 dB (FR-9)
+      audioStartTime: 0,
+      gain: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -208,6 +213,12 @@ export const trimClip = mutation({
 
     await requireProjectAccess(ctx, clip.projectId);
 
+    // Get audio file to check audioDuration
+    const audioFile = await ctx.db.get(clip.audioFileId);
+    if (!audioFile) {
+      throw new Error("Audio file not found");
+    }
+
     // Validate constraints (FR-18, FR-19, FR-20)
     if (args.audioStartTime < 0) {
       throw new Error("Cannot trim before audio start (audioStartTime < 0)");
@@ -215,7 +226,7 @@ export const trimClip = mutation({
     if (args.duration <= 0) {
       throw new Error("Duration must be positive");
     }
-    if (args.audioStartTime + args.duration > clip.audioDuration) {
+    if (args.audioStartTime + args.duration > audioFile.duration) {
       throw new Error("Cannot extend beyond audio end");
     }
     if (args.startTime < 0) {
@@ -258,8 +269,9 @@ export const deleteClip = mutation({
 
     await requireProjectAccess(ctx, clip.projectId);
 
-    // Delete the stored audio file
-    await ctx.storage.delete(clip.fileId);
+    // Note: We don't delete the audio file here because other clips may reference it.
+    // Audio file cleanup should be handled separately (e.g., when project is deleted
+    // or via a cleanup job that finds orphaned audio files).
 
     // Delete the clip record
     await ctx.db.delete(args.id);
@@ -267,7 +279,7 @@ export const deleteClip = mutation({
 });
 
 /**
- * Paste clips from clipboard - batch create clips reusing existing fileIds (FR-28)
+ * Paste clips from clipboard - batch create clips reusing existing audioFileIds (FR-28)
  *
  * Creates new clip records that reference the same audio files as the source clips.
  * No storage duplication occurs - clips are just references to existing audio.
@@ -278,12 +290,11 @@ export const pasteClips = mutation({
     trackId: v.id("tracks"),
     clips: v.array(
       v.object({
-        fileId: v.id("_storage"),
+        audioFileId: v.id("audioFiles"),
         name: v.string(),
         startTime: v.number(),
         duration: v.number(),
         audioStartTime: v.number(),
-        audioDuration: v.number(),
         gain: v.number(),
       }),
     ),
@@ -295,6 +306,15 @@ export const pasteClips = mutation({
     const track = await ctx.db.get(args.trackId);
     if (!track || track.projectId !== args.projectId) {
       throw new Error("Track not found in this project");
+    }
+
+    // Verify all audio files belong to project
+    const audioFileIds = [...new Set(args.clips.map((c) => c.audioFileId))];
+    for (const audioFileId of audioFileIds) {
+      const audioFile = await ctx.db.get(audioFileId);
+      if (!audioFile || audioFile.projectId !== args.projectId) {
+        throw new Error("Audio file not found in this project");
+      }
     }
 
     const createdClipIds: string[] = [];
@@ -323,12 +343,11 @@ export const pasteClips = mutation({
       const clipId = await ctx.db.insert("clips", {
         projectId: args.projectId,
         trackId: args.trackId,
-        fileId: clip.fileId,
+        audioFileId: clip.audioFileId,
         name: clip.name,
         startTime: clip.startTime,
         duration: clip.duration,
         audioStartTime: clip.audioStartTime,
-        audioDuration: clip.audioDuration,
         gain: clip.gain,
         createdAt: now,
         updatedAt: now,
@@ -391,16 +410,15 @@ export const splitClip = mutation({
       updatedAt: now,
     });
 
-    // Create the right clip (FR-41: same fileId, FR-42: same gain)
+    // Create the right clip (FR-41: same audioFileId, FR-42: same gain)
     const rightClipId = await ctx.db.insert("clips", {
       projectId: clip.projectId,
       trackId: clip.trackId,
-      fileId: clip.fileId,
+      audioFileId: clip.audioFileId,
       name: clip.name,
       startTime: rightStartTime,
       duration: rightDuration,
       audioStartTime: rightAudioStartTime,
-      audioDuration: clip.audioDuration,
       gain: clip.gain,
       createdAt: now,
       updatedAt: now,
@@ -436,7 +454,8 @@ export const getProjectClips = query({
 });
 
 /**
- * Get file URLs for all clips in a project (for VFS loading)
+ * Get file URLs for all audio files in a project (for VFS loading)
+ * Returns a map of audioFileId -> URL for efficient lookup
  */
 export const getProjectClipUrls = query({
   args: {
@@ -445,7 +464,7 @@ export const getProjectClipUrls = query({
   handler: async (ctx, args) => {
     const user = await checkQueryAccess(ctx, args.projectId);
     if (!user) {
-      return [];
+      return {};
     }
 
     const clips = await ctx.db
@@ -453,14 +472,24 @@ export const getProjectClipUrls = query({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    const clipUrls = await Promise.all(
-      clips.map(async (clip) => ({
-        clipId: clip._id,
-        fileId: clip.fileId,
-        url: await ctx.storage.getUrl(clip.fileId),
-      })),
-    );
+    // Get unique audioFileIds
+    const audioFileIds = [...new Set(clips.map((clip) => clip.audioFileId))];
 
-    return clipUrls;
+    // Fetch audio files and their URLs
+    const audioFileUrls = new Map<string, string | null>();
+    for (const audioFileId of audioFileIds) {
+      const audioFile = await ctx.db.get(audioFileId);
+      if (audioFile) {
+        audioFileUrls.set(audioFileId, await ctx.storage.getUrl(audioFile.storageId));
+      }
+    }
+
+    // Build result keyed by audioFileId (not clipId) to avoid duplication
+    const result: Record<string, string | null> = {};
+    for (const [audioFileId, url] of audioFileUrls) {
+      result[audioFileId] = url;
+    }
+
+    return result;
   },
 });
