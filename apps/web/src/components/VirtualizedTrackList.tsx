@@ -6,7 +6,7 @@ import { useOptimisticControl } from "@/hooks/useOptimisticControl";
 import { useTrackNameEdit } from "@/hooks/useTrackNameEdit";
 import { useTrackReorder } from "@/hooks/useTrackReorder";
 import { getTrackColor } from "@/lib/canvasRenderer";
-import { formatGain } from "@/lib/formatters";
+import { formatGain, formatPan } from "@/lib/formatters";
 import { TRACK_HEADER_HEIGHT } from "@/lib/timelineConstants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,16 +101,6 @@ function TrackHeader({
 
   // Only enable dragging when grip handle is being used
   const [isDragHandleActive, setIsDragHandleActive] = useState(false);
-
-  // Format pan value for display
-  const formatPan = (pan: number) => {
-    if (!Number.isFinite(pan)) return "C";
-    if (Math.abs(pan) < 0.01) return "C";
-    if (pan <= -0.99) return "L";
-    if (pan >= 0.99) return "R";
-    const pct = Math.round(Math.abs(pan) * 50);
-    return pan < 0 ? `${pct}L` : `${pct}R`;
-  };
 
   return (
     <div
