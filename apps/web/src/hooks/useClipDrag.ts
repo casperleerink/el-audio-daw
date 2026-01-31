@@ -61,24 +61,6 @@ export interface ClipDragState {
   currentTrackId: string; // target track (updated during drag)
 }
 
-/**
- * State tracking during a trim drag operation (FR-16, FR-17)
- */
-interface TrimDragState {
-  clipId: string;
-  edge: "left" | "right";
-  dragStartX: number;
-  // Original values at drag start
-  originalStartTime: number;
-  originalAudioStartTime: number;
-  originalDuration: number;
-  audioDuration: number; // For constraint validation
-  // Current values during drag
-  currentStartTime: number;
-  currentAudioStartTime: number;
-  currentDuration: number;
-}
-
 interface UseClipDragParams {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   tracks: TrackData[];
@@ -95,13 +77,6 @@ interface UseClipDragParams {
     trackId?: Id<"tracks">;
     projectId?: Id<"projects">;
   }) => Promise<unknown>;
-  trimClip: (args: {
-    id: Id<"clips">;
-    startTime: number;
-    audioStartTime: number;
-    duration: number;
-    projectId?: Id<"projects">;
-  }) => Promise<unknown>;
 }
 
 /**
@@ -115,24 +90,22 @@ export interface ClipAtPosition {
 interface UseClipDragReturn {
   /** Current drag state, or null if not dragging */
   clipDragState: ClipDragState | null;
-  /** Current trim drag state, or null if not trimming */
-  trimDragState: TrimDragState | null;
   /** Whether a drag just finished (used to prevent click-through to seek) */
   justFinishedDrag: boolean;
   /** Find a clip at the given client coordinates - returns clip and hover zone */
   findClipAtPosition: (clientX: number, clientY: number) => ClipAtPosition | null;
-  /** Start dragging a clip (call on mousedown) */
-  handleMouseDown: (e: React.MouseEvent<HTMLCanvasElement>) => void;
+  /** Start dragging a clip (call on mousedown) - returns true if drag started */
+  handleMouseDown: (e: React.MouseEvent<HTMLCanvasElement>) => boolean;
   /** Update clip position during drag (call on mousemove) */
   handleMouseMove: (e: React.MouseEvent<HTMLCanvasElement>) => void;
   /** End drag and commit changes (call on mouseup) */
-  handleMouseUp: () => void;
+  handleMouseUp: () => Promise<void>;
   /** Cancel drag without committing (call on mouseleave) */
   handleMouseLeave: () => void;
 }
 
 /**
- * Hook for handling clip drag-to-move and trim functionality on the timeline.
+ * Hook for handling clip drag-to-move functionality on the timeline.
  *
  * Implements clip movement (FR-34 through FR-38):
  * - FR-34: Click and drag clips to move them
@@ -141,13 +114,7 @@ interface UseClipDragReturn {
  * - FR-37: Cancel on mouse leave
  * - FR-38: Clamp to timeline start (time >= 0)
  *
- * Implements trimming (FR-16 through FR-22):
- * - FR-16: Left handle adjusts startTime and audioStartTime together
- * - FR-17: Right handle adjusts duration only
- * - FR-18: Left trim constrained: audioStartTime >= 0
- * - FR-19: Right trim constrained: audioStartTime + duration <= audioDuration
- * - FR-20: No minimum duration (clips can be trimmed to any length > 0)
- * - FR-21: Trim operations use optimistic updates
+ * Note: Trim functionality has been extracted to useClipTrim hook.
  */
 export function useClipDrag({
   canvasRef,
@@ -160,10 +127,8 @@ export function useClipDrag({
   layoutParams,
   projectId,
   updateClipPosition,
-  trimClip,
 }: UseClipDragParams): UseClipDragReturn {
   const [clipDragState, setClipDragState] = useState<ClipDragState | null>(null);
-  const [trimDragState, setTrimDragState] = useState<TrimDragState | null>(null);
   const justFinishedDragRef = useRef(false);
 
   const { rulerHeight, trackHeight, clipPadding } = layoutParams;
@@ -252,179 +217,87 @@ export function useClipDrag({
     ],
   );
 
-  // Handle mousedown for clip dragging (FR-34) or trim dragging (FR-16, FR-17)
+  // Handle mousedown for clip dragging (FR-34)
+  // Returns true if a drag was started, false otherwise
   const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      // Check if clicking on a clip
+    (e: React.MouseEvent<HTMLCanvasElement>): boolean => {
       const result = findClipAtPosition(e.clientX, e.clientY);
-      if (result) {
-        const { clip, zone } = result;
-        // Pending clips are not draggable/trimmable until server confirms
-        if (clip.pending) {
-          return;
-        }
+      if (!result) return false;
 
-        e.preventDefault();
+      const { clip, zone } = result;
 
-        if (zone === "body") {
-          // Start clip move drag (horizontal and vertical)
-          setClipDragState({
-            clipId: clip._id,
-            originalStartTime: clip.startTime,
-            currentStartTime: clip.startTime,
-            dragStartX: e.clientX,
-            dragStartY: e.clientY,
-            originalTrackId: clip.trackId,
-            currentTrackId: clip.trackId,
-          });
-        } else {
-          // Start trim drag (left or right handle)
-          setTrimDragState({
-            clipId: clip._id,
-            edge: zone,
-            dragStartX: e.clientX,
-            originalStartTime: clip.startTime,
-            originalAudioStartTime: clip.audioStartTime,
-            originalDuration: clip.duration,
-            audioDuration: clip.audioDuration,
-            currentStartTime: clip.startTime,
-            currentAudioStartTime: clip.audioStartTime,
-            currentDuration: clip.duration,
-          });
-        }
-      }
+      // Only handle body zone for movement, trim zones are handled by useClipTrim
+      if (zone !== "body") return false;
+
+      // Pending clips are not draggable until server confirms
+      if (clip.pending) return false;
+
+      e.preventDefault();
+
+      // Start clip move drag (horizontal and vertical)
+      setClipDragState({
+        clipId: clip._id,
+        originalStartTime: clip.startTime,
+        currentStartTime: clip.startTime,
+        dragStartX: e.clientX,
+        dragStartY: e.clientY,
+        originalTrackId: clip.trackId,
+        currentTrackId: clip.trackId,
+      });
+
+      return true;
     },
     [findClipAtPosition],
   );
 
-  // Handle mousemove for clip dragging (FR-35, FR-31) or trim dragging (FR-16, FR-17)
+  // Handle mousemove for clip dragging (FR-35, FR-31)
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      // Handle clip move drag (horizontal and vertical)
-      if (clipDragState) {
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (!rect) return;
+      if (!clipDragState) return;
 
-        // Calculate horizontal movement (FR-36)
-        const deltaX = e.clientX - clipDragState.dragStartX;
-        const deltaTimeInSeconds = deltaX / pixelsPerSecond;
-        const deltaTimeInSamples = deltaTimeInSeconds * sampleRate;
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
 
-        // Calculate new start time (clamp to 0 per FR-38)
-        const newStartTime = Math.max(0, clipDragState.originalStartTime + deltaTimeInSamples);
+      // Calculate horizontal movement (FR-36)
+      const deltaX = e.clientX - clipDragState.dragStartX;
+      const deltaTimeInSeconds = deltaX / pixelsPerSecond;
+      const deltaTimeInSamples = deltaTimeInSeconds * sampleRate;
 
-        // Calculate vertical movement for cross-track drag (FR-31, FR-32)
-        const { canvasY } = clientToCanvasPosition(e.clientX, e.clientY, rect);
-        const layoutCalcParams = {
-          rulerHeight,
-          trackHeight,
-          scrollTop,
-          scrollLeft,
-          pixelsPerSecond,
-        };
-        const targetTrackIndex = calculateTrackIndexFromY(canvasY, layoutCalcParams);
+      // Calculate new start time (clamp to 0 per FR-38)
+      const newStartTime = Math.max(0, clipDragState.originalStartTime + deltaTimeInSamples);
 
-        // Snap to valid track (FR-32)
-        let targetTrackId = clipDragState.originalTrackId;
-        if (targetTrackIndex >= 0 && targetTrackIndex < tracks.length) {
-          const targetTrack = tracks[targetTrackIndex];
-          if (targetTrack) {
-            targetTrackId = targetTrack._id;
-          }
-        }
+      // Calculate vertical movement for cross-track drag (FR-31, FR-32)
+      const { canvasY } = clientToCanvasPosition(e.clientX, e.clientY, rect);
+      const layoutCalcParams = {
+        rulerHeight,
+        trackHeight,
+        scrollTop,
+        scrollLeft,
+        pixelsPerSecond,
+      };
+      const targetTrackIndex = calculateTrackIndexFromY(canvasY, layoutCalcParams);
 
-        setClipDragState((prev) =>
-          prev
-            ? {
-                ...prev,
-                currentStartTime: Math.round(newStartTime),
-                currentTrackId: targetTrackId,
-              }
-            : null,
-        );
-        return;
-      }
-
-      // Handle trim drag
-      if (trimDragState) {
-        const deltaX = e.clientX - trimDragState.dragStartX;
-        const deltaTimeInSeconds = deltaX / pixelsPerSecond;
-        const deltaTimeInSamples = Math.round(deltaTimeInSeconds * sampleRate);
-
-        if (trimDragState.edge === "left") {
-          // Left trim: adjust startTime and audioStartTime together (FR-16)
-          // Moving left handle right = increasing audioStartTime, decreasing duration
-          // Moving left handle left = decreasing audioStartTime, increasing duration
-          let newAudioStartTime = trimDragState.originalAudioStartTime + deltaTimeInSamples;
-          let newStartTime = trimDragState.originalStartTime + deltaTimeInSamples;
-          let newDuration = trimDragState.originalDuration - deltaTimeInSamples;
-
-          // Constraint FR-18: audioStartTime >= 0
-          if (newAudioStartTime < 0) {
-            const adjustment = -newAudioStartTime;
-            newAudioStartTime = 0;
-            newStartTime = trimDragState.originalStartTime + deltaTimeInSamples + adjustment;
-            newDuration = trimDragState.originalDuration - deltaTimeInSamples - adjustment;
-          }
-
-          // Constraint: startTime >= 0
-          if (newStartTime < 0) {
-            const adjustment = -newStartTime;
-            newStartTime = 0;
-            newAudioStartTime =
-              trimDragState.originalAudioStartTime + deltaTimeInSamples + adjustment;
-            newDuration = trimDragState.originalDuration - deltaTimeInSamples - adjustment;
-          }
-
-          // Constraint FR-20: duration > 0 (minimum 1 sample)
-          if (newDuration < 1) {
-            newDuration = 1;
-            const actualDelta = trimDragState.originalDuration - 1;
-            newAudioStartTime = trimDragState.originalAudioStartTime + actualDelta;
-            newStartTime = trimDragState.originalStartTime + actualDelta;
-          }
-
-          setTrimDragState((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  currentStartTime: newStartTime,
-                  currentAudioStartTime: newAudioStartTime,
-                  currentDuration: newDuration,
-                }
-              : null,
-          );
-        } else {
-          // Right trim: adjust duration only (FR-17)
-          // Moving right handle right = increasing duration
-          // Moving right handle left = decreasing duration
-          let newDuration = trimDragState.originalDuration + deltaTimeInSamples;
-
-          // Constraint FR-19: audioStartTime + duration <= audioDuration
-          const maxDuration = trimDragState.audioDuration - trimDragState.originalAudioStartTime;
-          if (newDuration > maxDuration) {
-            newDuration = maxDuration;
-          }
-
-          // Constraint FR-20: duration > 0 (minimum 1 sample)
-          if (newDuration < 1) {
-            newDuration = 1;
-          }
-
-          setTrimDragState((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  currentDuration: newDuration,
-                }
-              : null,
-          );
+      // Snap to valid track (FR-32)
+      let targetTrackId = clipDragState.originalTrackId;
+      if (targetTrackIndex >= 0 && targetTrackIndex < tracks.length) {
+        const targetTrack = tracks[targetTrackIndex];
+        if (targetTrack) {
+          targetTrackId = targetTrack._id;
         }
       }
+
+      setClipDragState((prev) =>
+        prev
+          ? {
+              ...prev,
+              currentStartTime: Math.round(newStartTime),
+              currentTrackId: targetTrackId,
+            }
+          : null,
+      );
     },
     [
       clipDragState,
-      trimDragState,
       pixelsPerSecond,
       sampleRate,
       canvasRef,
@@ -436,104 +309,53 @@ export function useClipDrag({
     ],
   );
 
-  // Handle mouseup for clip dragging (FR-36) or trim commit (FR-21)
+  // Handle mouseup for clip dragging (FR-36)
   const handleMouseUp = useCallback(async () => {
-    // Handle clip move drag commit (horizontal and cross-track)
-    if (clipDragState) {
-      const { clipId, originalStartTime, currentStartTime, originalTrackId, currentTrackId } =
-        clipDragState;
+    if (!clipDragState) return;
 
-      // Only update if position or track changed
-      const positionChanged = currentStartTime !== originalStartTime;
-      const trackChanged = currentTrackId !== originalTrackId;
+    const { clipId, originalStartTime, currentStartTime, originalTrackId, currentTrackId } =
+      clipDragState;
 
-      // Clear drag state immediately to prevent further mouse moves from updating it
-      setClipDragState(null);
+    // Only update if position or track changed
+    const positionChanged = currentStartTime !== originalStartTime;
+    const trackChanged = currentTrackId !== originalTrackId;
 
-      if (positionChanged || trackChanged) {
-        // Mark that we just finished a drag to prevent click from seeking
-        // Only set this when actual movement occurred (not just a click)
-        justFinishedDragRef.current = true;
-        // Reset the flag on next tick
-        requestAnimationFrame(() => {
-          justFinishedDragRef.current = false;
+    // Clear drag state immediately to prevent further mouse moves from updating it
+    setClipDragState(null);
+
+    if (positionChanged || trackChanged) {
+      // Mark that we just finished a drag to prevent click from seeking
+      // Only set this when actual movement occurred (not just a click)
+      justFinishedDragRef.current = true;
+      // Reset the flag on next tick
+      requestAnimationFrame(() => {
+        justFinishedDragRef.current = false;
+      });
+
+      try {
+        await updateClipPosition({
+          id: clipId as Id<"clips">,
+          startTime: currentStartTime,
+          // Only include trackId if it changed (FR-35)
+          ...(trackChanged && { trackId: currentTrackId as Id<"tracks"> }),
+          projectId,
         });
-
-        try {
-          await updateClipPosition({
-            id: clipId as Id<"clips">,
-            startTime: currentStartTime,
-            // Only include trackId if it changed (FR-35)
-            ...(trackChanged && { trackId: currentTrackId as Id<"tracks"> }),
-            projectId,
-          });
-        } catch (error) {
-          console.error("Failed to update clip position:", error);
-          toast.error("Failed to move clip. Changes reverted.");
-        }
-      }
-
-      return;
-    }
-
-    // Handle trim drag commit (FR-21)
-    if (trimDragState) {
-      const {
-        clipId,
-        originalStartTime,
-        originalAudioStartTime,
-        originalDuration,
-        currentStartTime,
-        currentAudioStartTime,
-        currentDuration,
-      } = trimDragState;
-
-      // Only update if something changed
-      const hasChanged =
-        currentStartTime !== originalStartTime ||
-        currentAudioStartTime !== originalAudioStartTime ||
-        currentDuration !== originalDuration;
-
-      // Clear trim state immediately to prevent further mouse moves from updating it
-      setTrimDragState(null);
-
-      if (hasChanged) {
-        // Mark that we just finished a trim drag to prevent click from seeking
-        justFinishedDragRef.current = true;
-        requestAnimationFrame(() => {
-          justFinishedDragRef.current = false;
-        });
-
-        try {
-          await trimClip({
-            id: clipId as Id<"clips">,
-            startTime: currentStartTime,
-            audioStartTime: currentAudioStartTime,
-            duration: currentDuration,
-            projectId,
-          });
-        } catch (error) {
-          console.error("Failed to trim clip:", error);
-          toast.error("Failed to trim clip. Changes reverted.");
-        }
+      } catch (error) {
+        console.error("Failed to update clip position:", error);
+        toast.error("Failed to move clip. Changes reverted.");
       }
     }
-  }, [clipDragState, trimDragState, projectId, updateClipPosition, trimClip]);
+  }, [clipDragState, projectId, updateClipPosition]);
 
-  // Handle mouse leave to cancel clip drag or trim drag (FR-37)
+  // Handle mouse leave to cancel clip drag (FR-37)
   const handleMouseLeave = useCallback(() => {
-    // Cancel any drag on mouse leave (don't commit changes)
     if (clipDragState) {
       setClipDragState(null);
     }
-    if (trimDragState) {
-      setTrimDragState(null);
-    }
-  }, [clipDragState, trimDragState]);
+  }, [clipDragState]);
 
   return {
     clipDragState,
-    trimDragState,
     justFinishedDrag: justFinishedDragRef.current,
     findClipAtPosition,
     handleMouseDown,

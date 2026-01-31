@@ -24,6 +24,7 @@ import { MeterProvider } from "@/contexts/MeterContext";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
 import { useClipClipboard } from "@/hooks/useClipClipboard";
 import { useClipDrag, type ClipData } from "@/hooks/useClipDrag";
+import { useClipTrim } from "@/hooks/useClipTrim";
 import { useClipSelection } from "@/hooks/useClipSelection";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
 import { useProjectKeyboardShortcuts } from "@/hooks/useProjectKeyboardShortcuts";
@@ -730,16 +731,15 @@ function TimelineCanvas({
   // Mutation for clip trim with optimistic updates (FR-21)
   const trimClip = useMutation(api.clips.trimClip).withOptimisticUpdate(trimClipOptimisticUpdate);
 
-  // Clip drag and trim state and handlers (FR-34-38, FR-16-22)
+  // Clip drag state and handlers (FR-34-38)
   const {
     clipDragState,
-    trimDragState,
-    justFinishedDrag,
+    justFinishedDrag: justFinishedMoveDrag,
     findClipAtPosition,
-    handleMouseDown: handleClipMouseDown,
-    handleMouseMove: handleClipMouseMove,
-    handleMouseUp: handleClipMouseUp,
-    handleMouseLeave: handleClipMouseLeave,
+    handleMouseDown: handleDragMouseDown,
+    handleMouseMove: handleDragMouseMove,
+    handleMouseUp: handleDragMouseUp,
+    handleMouseLeave: handleDragMouseLeave,
   } = useClipDrag({
     canvasRef,
     tracks,
@@ -755,8 +755,55 @@ function TimelineCanvas({
     },
     projectId,
     updateClipPosition,
+  });
+
+  // Clip trim state and handlers (FR-16-22)
+  const {
+    trimDragState,
+    justFinishedTrimDrag,
+    handleTrimMouseDown,
+    handleTrimMouseMove,
+    handleTrimMouseUp,
+    handleTrimMouseLeave,
+  } = useClipTrim({
+    pixelsPerSecond,
+    sampleRate,
+    projectId,
+    findClipAtPosition,
     trimClip,
   });
+
+  // Combine justFinishedDrag from both hooks
+  const justFinishedDrag = justFinishedMoveDrag || justFinishedTrimDrag;
+
+  // Combined mouse handlers: try trim first, then drag
+  const handleClipMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      // Try trim first (handles left/right zones)
+      if (handleTrimMouseDown(e)) return;
+      // Otherwise try drag (handles body zone)
+      handleDragMouseDown(e);
+    },
+    [handleTrimMouseDown, handleDragMouseDown],
+  );
+
+  const handleClipMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      handleTrimMouseMove(e);
+      handleDragMouseMove(e);
+    },
+    [handleTrimMouseMove, handleDragMouseMove],
+  );
+
+  const handleClipMouseUp = useCallback(async () => {
+    await handleTrimMouseUp();
+    await handleDragMouseUp();
+  }, [handleTrimMouseUp, handleDragMouseUp]);
+
+  const handleClipMouseLeave = useCallback(() => {
+    handleTrimMouseLeave();
+    handleDragMouseLeave();
+  }, [handleTrimMouseLeave, handleDragMouseLeave]);
 
   // Canvas event handlers (wheel, click, hover, trim handle detection)
   const {
