@@ -34,6 +34,8 @@ interface UseClipTrimParams {
     duration: number;
     projectId?: Id<"projects">;
   }) => Promise<unknown>;
+  /** Optional lookup for audio file duration. Falls back to clip.duration if not provided. */
+  getAudioFileDuration?: (audioFileId: string) => number | undefined;
 }
 
 interface UseClipTrimReturn {
@@ -68,6 +70,7 @@ export function useClipTrim({
   projectId,
   findClipAtPosition,
   trimClip,
+  getAudioFileDuration,
 }: UseClipTrimParams): UseClipTrimReturn {
   const [trimDragState, setTrimDragState] = useState<TrimDragState | null>(null);
   const justFinishedTrimDragRef = useRef(false);
@@ -89,6 +92,10 @@ export function useClipTrim({
 
       e.preventDefault();
 
+      // Get audioDuration from audioFiles lookup, fall back to clip.duration if not available
+      // Note: audioDuration is stored in the audioFiles table, not on clips
+      const audioDuration = getAudioFileDuration?.(clip.audioFileId) ?? clip.duration;
+
       // Start trim drag (left or right handle)
       setTrimDragState({
         clipId: clip._id,
@@ -97,7 +104,7 @@ export function useClipTrim({
         originalStartTime: clip.startTime,
         originalAudioStartTime: clip.audioStartTime,
         originalDuration: clip.duration,
-        audioDuration: clip.audioDuration,
+        audioDuration,
         currentStartTime: clip.startTime,
         currentAudioStartTime: clip.audioStartTime,
         currentDuration: clip.duration,
@@ -105,7 +112,7 @@ export function useClipTrim({
 
       return true;
     },
-    [findClipAtPosition],
+    [findClipAtPosition, getAudioFileDuration],
   );
 
   // Handle mousemove for trim dragging
