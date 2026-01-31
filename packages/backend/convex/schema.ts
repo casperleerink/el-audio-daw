@@ -35,15 +35,27 @@ export default defineSchema({
     .index("by_project", ["projectId"])
     .index("by_project_and_order", ["projectId", "order"]),
 
+  audioFiles: defineTable({
+    projectId: v.id("projects"),
+    storageId: v.id("_storage"), // Original audio file
+    waveformStorageId: v.optional(v.id("_storage")), // Waveform data (null while processing)
+    name: v.string(), // Original filename
+    duration: v.number(), // Duration in samples
+    sampleRate: v.number(),
+    channels: v.number(), // 1 = mono, 2 = stereo
+    createdAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_storage", ["storageId"]),
+
   clips: defineTable({
     projectId: v.id("projects"),
     trackId: v.id("tracks"),
-    fileId: v.id("_storage"), // Convex storage ID, also used as VFS key
+    audioFileId: v.id("audioFiles"), // Reference to audioFiles table
     name: v.string(), // Original filename
     startTime: v.number(), // Position on timeline in samples
     duration: v.number(), // Clip length in samples (visible/playable portion)
     audioStartTime: v.number(), // Offset into source audio in samples (for trimming)
-    audioDuration: v.number(), // Original audio file duration in samples (immutable after creation)
     gain: v.number(), // Clip gain in dB
     createdAt: v.number(),
     updatedAt: v.number(),
