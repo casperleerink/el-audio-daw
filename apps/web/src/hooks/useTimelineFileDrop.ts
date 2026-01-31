@@ -1,7 +1,7 @@
 import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
 import { api } from "@el-audio-daw/backend/convex/_generated/api";
 import { isSupportedAudioType, MAX_FILE_SIZE } from "@el-audio-daw/backend/convex/constants";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -92,7 +92,9 @@ export function useTimelineFileDrop({
   // Mutations for file upload
   const generateUploadUrl = useMutation(api.clips.generateUploadUrl);
   const validateUploadedFile = useMutation(api.clips.validateUploadedFile);
+  const createAudioFile = useMutation(api.audioFiles.createAudioFile);
   const createClip = useMutation(api.clips.createClip);
+  const generateWaveform = useAction(api.waveform.generateWaveform);
 
   // Store current values in refs for stable callbacks
   const scrollLeftRef = useSyncRef(scrollLeft);
@@ -142,9 +144,11 @@ export function useTimelineFileDrop({
     return isSupportedAudioType(file.type);
   }, []);
 
-  // Decode audio file to get duration
+  // Decode audio file to get duration and channel count
   const decodeAudioFile = useCallback(
-    async (file: File): Promise<{ durationInSamples: number; fileSampleRate: number }> => {
+    async (
+      file: File,
+    ): Promise<{ durationInSamples: number; fileSampleRate: number; channels: number }> => {
       const arrayBuffer = await file.arrayBuffer();
       const audioContext = new AudioContext({ sampleRate });
       try {
@@ -152,6 +156,7 @@ export function useTimelineFileDrop({
         return {
           durationInSamples: audioBuffer.length,
           fileSampleRate: audioBuffer.sampleRate,
+          channels: audioBuffer.numberOfChannels,
         };
       } finally {
         await audioContext.close();
@@ -184,8 +189,8 @@ export function useTimelineFileDrop({
       setIsUploading(true);
 
       try {
-        // Decode audio to get duration
-        const { durationInSamples, fileSampleRate } = await decodeAudioFile(file);
+        // Decode audio to get duration and channel count
+        const { durationInSamples, fileSampleRate, channels } = await decodeAudioFile(file);
 
         // Show warning if sample rates differ
         if (fileSampleRate !== sampleRate) {
@@ -229,23 +234,44 @@ export function useTimelineFileDrop({
           size: file.size,
         });
 
-        // Check if aborted after validation but before clip creation
+        // Check if aborted after validation but before audioFile creation
         if (abortController.signal.aborted) {
           return;
         }
 
-        // Create clip record
+        // Create audio file record
         const clipName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+        const audioFileId = await createAudioFile({
+          projectId,
+          storageId,
+          name: clipName,
+          duration: durationInSamples,
+          sampleRate: fileSampleRate,
+          channels,
+        });
+
+        // Check if aborted after audioFile creation but before clip creation
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        // Create clip record referencing the audio file
         await createClip({
           projectId,
           trackId,
-          fileId: storageId,
+          audioFileId,
           name: clipName,
           startTime: dropPosition.dropTimeInSamples,
           duration: durationInSamples,
         });
 
         toast.success(`Added "${clipName}" to timeline`);
+
+        // Schedule waveform generation in background (don't await)
+        generateWaveform({ audioFileId, storageId }).catch((error) => {
+          console.warn("Waveform generation failed:", error);
+          // Don't show error to user - waveform is optional
+        });
       } catch (error) {
         // Don't show error toast for intentional cancellation (AbortError)
         if (error instanceof Error && error.name === "AbortError") {
@@ -265,7 +291,9 @@ export function useTimelineFileDrop({
       decodeAudioFile,
       generateUploadUrl,
       validateUploadedFile,
+      createAudioFile,
       createClip,
+      generateWaveform,
       projectId,
       sampleRate,
     ],
