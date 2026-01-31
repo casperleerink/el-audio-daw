@@ -4,6 +4,8 @@
  */
 
 import { CLIP_BORDER_RADIUS, CLIP_PADDING, TRIM_HANDLE_WIDTH } from "./timelineConstants";
+import { drawWaveform, shouldDrawWaveform } from "./waveformRenderer";
+import type { WaveformData } from "./waveformCache";
 
 export interface CanvasColors {
   background: string;
@@ -29,9 +31,11 @@ export type ClipHoverZone = "left" | "right" | "body";
 export interface ClipRenderData {
   _id: string;
   trackId: string;
+  audioFileId: string;
   name: string;
   startTime: number; // in samples
   duration: number; // in samples
+  audioStartTime: number; // offset into source audio in samples
   pending?: boolean; // true if clip is awaiting server confirmation
   selected?: boolean; // true if clip is selected (FR-7)
   hoverZone?: ClipHoverZone | null; // which part of clip is hovered (FR-14)
@@ -201,6 +205,7 @@ interface DrawClipsOptions {
   sampleRate: number;
   clipDragState: ClipDragState | null;
   trimDragState: TrimDragState | null;
+  waveformCache: Map<string, WaveformData>;
 }
 
 /**
@@ -232,7 +237,8 @@ function createPendingPattern(ctx: CanvasRenderingContext2D, color: string): Can
  * Draw all clips on the timeline
  */
 export function drawClips(options: DrawClipsOptions): void {
-  const { renderCtx, clips, trackIndexMap, sampleRate, clipDragState, trimDragState } = options;
+  const { renderCtx, clips, trackIndexMap, sampleRate, clipDragState, trimDragState, waveformCache } =
+    options;
   const { ctx, width, height, scrollLeft, scrollTop, pixelsPerSecond, rulerHeight, trackHeight } =
     renderCtx;
 
@@ -308,6 +314,26 @@ export function drawClips(options: DrawClipsOptions): void {
         ctx.fillStyle = pattern;
         ctx.fillRect(clipX, clipY, clipWidth, clipHeight);
         ctx.restore();
+      }
+    }
+
+    // Draw waveform if available and clip is wide enough
+    if (!isPending && shouldDrawWaveform(clipWidth)) {
+      const waveform = waveformCache.get(clip.audioFileId);
+      if (waveform) {
+        drawWaveform({
+          ctx,
+          waveform,
+          clipX,
+          clipY,
+          clipWidth,
+          clipHeight,
+          audioStartTime: clip.audioStartTime,
+          clipDuration: effectiveDuration,
+          sampleRate,
+          pixelsPerSecond,
+          color: trackColor,
+        });
       }
     }
 
@@ -452,6 +478,8 @@ interface RenderTimelineOptions {
   trackHeight: number;
   /** Original track ID of dragging clip (for target track highlight) */
   dragOriginalTrackId?: string | null;
+  /** Waveform data cache keyed by audioFileId */
+  waveformCache: Map<string, WaveformData>;
 }
 
 /**
@@ -474,6 +502,7 @@ export function renderTimeline(options: RenderTimelineOptions): void {
     rulerHeight,
     trackHeight,
     dragOriginalTrackId,
+    waveformCache,
   } = options;
 
   const ctx = canvas.getContext("2d");
@@ -518,6 +547,7 @@ export function renderTimeline(options: RenderTimelineOptions): void {
     sampleRate,
     clipDragState,
     trimDragState,
+    waveformCache,
   });
   drawPlayhead(renderCtx, playheadTime);
   drawHoverIndicator(renderCtx, hoverX);
