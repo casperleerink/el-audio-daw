@@ -179,3 +179,43 @@ export const deleteAudioFile = mutation({
     await ctx.db.delete(args.audioFileId);
   },
 });
+
+/**
+ * Internal mutation to clean up an orphaned audio file.
+ * Called after a clip is deleted to check if the audio file is still referenced.
+ * If no clips reference the audio file, it deletes the file and its storage.
+ */
+export const cleanupOrphanedAudioFile = internalMutation({
+  args: {
+    audioFileId: v.id("audioFiles"),
+  },
+  handler: async (ctx, args) => {
+    // Check if the audio file still exists
+    const audioFile = await ctx.db.get(args.audioFileId);
+    if (!audioFile) {
+      // Already deleted, nothing to do
+      return;
+    }
+
+    // Check if any clips still reference this audio file
+    const referencingClip = await ctx.db
+      .query("clips")
+      .filter((q) => q.eq(q.field("audioFileId"), args.audioFileId))
+      .first();
+
+    if (referencingClip) {
+      // Audio file is still in use, don't delete
+      return;
+    }
+
+    // No clips reference this audio file, clean it up
+    // Delete storage files
+    await ctx.storage.delete(audioFile.storageId);
+    if (audioFile.waveformStorageId) {
+      await ctx.storage.delete(audioFile.waveformStorageId);
+    }
+
+    // Delete the record
+    await ctx.db.delete(args.audioFileId);
+  },
+});

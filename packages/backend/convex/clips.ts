@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { isSupportedAudioType, MAX_FILE_SIZE } from "./constants";
 import {
@@ -269,12 +270,16 @@ export const deleteClip = mutation({
 
     await requireProjectAccess(ctx, clip.projectId);
 
-    // Note: We don't delete the audio file here because other clips may reference it.
-    // Audio file cleanup should be handled separately (e.g., when project is deleted
-    // or via a cleanup job that finds orphaned audio files).
+    // Store audioFileId before deleting the clip
+    const audioFileId = clip.audioFileId;
 
     // Delete the clip record
     await ctx.db.delete(args.id);
+
+    // Schedule cleanup to check if the audio file is now orphaned
+    await ctx.scheduler.runAfter(0, internal.audioFiles.cleanupOrphanedAudioFile, {
+      audioFileId,
+    });
   },
 });
 
