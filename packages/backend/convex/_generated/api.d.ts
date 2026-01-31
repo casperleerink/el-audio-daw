@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as audioFiles from "../audioFiles.js";
 import type * as auth from "../auth.js";
 import type * as clips from "../clips.js";
 import type * as constants from "../constants.js";
@@ -25,6 +26,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  audioFiles: typeof audioFiles;
   auth: typeof auth;
   clips: typeof clips;
   constants: typeof constants;
