@@ -1,7 +1,7 @@
 import type { Doc, Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
 import type { OptimisticLocalStore } from "convex/browser";
 import { api } from "@el-audio-daw/backend/convex/_generated/api";
-import { tempId } from "./optimistic";
+import { tempId, updateOptimisticQuery, withProjectIdGuard } from "./optimistic";
 
 type Track = Doc<"tracks">;
 
@@ -39,34 +39,32 @@ export function createTrackOptimisticUpdate(
   localStore: OptimisticLocalStore,
   args: CreateTrackArgs,
 ): void {
-  const current = localStore.getQuery(api.tracks.getProjectTracks, {
-    projectId: args.projectId,
-  });
+  updateOptimisticQuery(
+    localStore,
+    api.tracks.getProjectTracks,
+    { projectId: args.projectId },
+    (current) => {
+      const newOrder = current.length;
+      const trackName = args.name ?? `Track ${newOrder + 1}`;
+      const now = Date.now();
 
-  if (current !== undefined) {
-    const newOrder = current.length;
-    const trackName = args.name ?? `Track ${newOrder + 1}`;
-    const now = Date.now();
+      const newTrack: Track = {
+        _id: tempId<"tracks">(),
+        _creationTime: now,
+        projectId: args.projectId,
+        name: trackName,
+        order: newOrder,
+        muted: false,
+        solo: false,
+        gain: 0,
+        pan: 0,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-    const newTrack: Track = {
-      _id: tempId<"tracks">(),
-      _creationTime: now,
-      projectId: args.projectId,
-      name: trackName,
-      order: newOrder,
-      muted: false,
-      solo: false,
-      gain: 0,
-      pan: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    localStore.setQuery(api.tracks.getProjectTracks, { projectId: args.projectId }, [
-      ...current,
-      newTrack,
-    ]);
-  }
+      return [...current, newTrack];
+    },
+  );
 }
 
 /**
@@ -80,33 +78,24 @@ export function updateTrackOptimisticUpdate(
   localStore: OptimisticLocalStore,
   args: UpdateTrackArgs,
 ): void {
-  if (!args.projectId) {
-    // Without projectId, we can't update the query cache.
-    // The mutation will still work, just not optimistically.
-    return;
-  }
-
-  const current = localStore.getQuery(api.tracks.getProjectTracks, {
-    projectId: args.projectId,
-  });
-
-  if (current !== undefined) {
-    const now = Date.now();
-    const updated = current.map((track) => {
-      if (track._id !== args.id) return track;
-      return {
-        ...track,
-        name: args.name ?? track.name,
-        muted: args.muted ?? track.muted,
-        solo: args.solo ?? track.solo,
-        gain: args.gain ?? track.gain,
-        pan: args.pan ?? track.pan,
-        updatedAt: now,
-      };
+  withProjectIdGuard(args.projectId, (projectId) => {
+    updateOptimisticQuery(localStore, api.tracks.getProjectTracks, { projectId }, (current) => {
+      const now = Date.now();
+      return current.map((track) =>
+        track._id !== args.id
+          ? track
+          : {
+              ...track,
+              name: args.name ?? track.name,
+              muted: args.muted ?? track.muted,
+              solo: args.solo ?? track.solo,
+              gain: args.gain ?? track.gain,
+              pan: args.pan ?? track.pan,
+              updatedAt: now,
+            },
+      );
     });
-
-    localStore.setQuery(api.tracks.getProjectTracks, { projectId: args.projectId }, updated);
-  }
+  });
 }
 
 /**
@@ -120,20 +109,11 @@ export function deleteTrackOptimisticUpdate(
   localStore: OptimisticLocalStore,
   args: DeleteTrackArgs,
 ): void {
-  if (!args.projectId) {
-    // Without projectId, we can't update the query cache.
-    // The mutation will still work, just not optimistically.
-    return;
-  }
-
-  const current = localStore.getQuery(api.tracks.getProjectTracks, {
-    projectId: args.projectId,
+  withProjectIdGuard(args.projectId, (projectId) => {
+    updateOptimisticQuery(localStore, api.tracks.getProjectTracks, { projectId }, (current) =>
+      current.filter((track) => track._id !== args.id),
+    );
   });
-
-  if (current !== undefined) {
-    const filtered = current.filter((track) => track._id !== args.id);
-    localStore.setQuery(api.tracks.getProjectTracks, { projectId: args.projectId }, filtered);
-  }
 }
 
 /**
@@ -144,28 +124,21 @@ export function reorderTracksOptimisticUpdate(
   localStore: OptimisticLocalStore,
   args: ReorderTracksArgs,
 ): void {
-  const current = localStore.getQuery(api.tracks.getProjectTracks, {
-    projectId: args.projectId,
-  });
+  updateOptimisticQuery(
+    localStore,
+    api.tracks.getProjectTracks,
+    { projectId: args.projectId },
+    (current) => {
+      const trackMap = new Map(current.map((track) => [track._id, track]));
+      const now = Date.now();
 
-  if (current !== undefined) {
-    // Create a map for quick lookup
-    const trackMap = new Map(current.map((track) => [track._id, track]));
-    const now = Date.now();
-
-    // Build reordered array based on trackIds order
-    const reordered: Track[] = args.trackIds
-      .map((id, index) => {
-        const track = trackMap.get(id);
-        if (!track) return null;
-        return {
-          ...track,
-          order: index,
-          updatedAt: now,
-        };
-      })
-      .filter((track): track is Track => track !== null);
-
-    localStore.setQuery(api.tracks.getProjectTracks, { projectId: args.projectId }, reordered);
-  }
+      return args.trackIds
+        .map((id, index) => {
+          const track = trackMap.get(id);
+          if (!track) return null;
+          return { ...track, order: index, updatedAt: now };
+        })
+        .filter((track): track is Track => track !== null);
+    },
+  );
 }

@@ -1,7 +1,7 @@
 import type { Doc, Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
 import type { OptimisticLocalStore } from "convex/browser";
 import { api } from "@el-audio-daw/backend/convex/_generated/api";
-import { tempId } from "./optimistic";
+import { tempId, updateOptimisticQuery, withProjectIdGuard } from "./optimistic";
 
 type Clip = Doc<"clips">;
 
@@ -65,34 +65,30 @@ export function createClipOptimisticUpdate(
   localStore: OptimisticLocalStore,
   args: CreateClipArgs,
 ): void {
-  const current = localStore.getQuery(api.clips.getProjectClips, {
-    projectId: args.projectId,
-  });
-
-  if (current !== undefined) {
-    const now = Date.now();
-
-    const newClip: Clip = {
-      _id: tempId<"clips">(),
-      _creationTime: now,
-      projectId: args.projectId,
-      trackId: args.trackId,
-      fileId: args.fileId,
-      name: args.name,
-      startTime: args.startTime,
-      duration: args.duration,
-      audioStartTime: 0,
-      audioDuration: args.duration, // Store original audio duration
-      gain: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    localStore.setQuery(api.clips.getProjectClips, { projectId: args.projectId }, [
-      ...current,
-      newClip,
-    ]);
-  }
+  updateOptimisticQuery(
+    localStore,
+    api.clips.getProjectClips,
+    { projectId: args.projectId },
+    (current) => {
+      const now = Date.now();
+      const newClip: Clip = {
+        _id: tempId<"clips">(),
+        _creationTime: now,
+        projectId: args.projectId,
+        trackId: args.trackId,
+        fileId: args.fileId,
+        name: args.name,
+        startTime: args.startTime,
+        duration: args.duration,
+        audioStartTime: 0,
+        audioDuration: args.duration,
+        gain: 0,
+        createdAt: now,
+        updatedAt: now,
+      };
+      return [...current, newClip];
+    },
+  );
 }
 
 /**
@@ -107,34 +103,22 @@ export function updateClipPositionOptimisticUpdate(
   localStore: OptimisticLocalStore,
   args: UpdateClipPositionArgs,
 ): void {
-  if (!args.projectId) {
-    // Without projectId, we can't update the query cache.
-    // The mutation will still work, just not optimistically.
-    return;
-  }
-
-  const current = localStore.getQuery(api.clips.getProjectClips, {
-    projectId: args.projectId,
-  });
-
-  if (current !== undefined) {
-    const now = Date.now();
-    // Clamp start time to 0 (matching server behavior FR-38)
-    const newStartTime = Math.max(0, args.startTime);
-
-    const updated = current.map((clip) => {
-      if (clip._id !== args.id) return clip;
-      return {
-        ...clip,
-        startTime: newStartTime,
-        // Update trackId if provided (cross-track movement)
-        trackId: args.trackId ?? clip.trackId,
-        updatedAt: now,
-      };
+  withProjectIdGuard(args.projectId, (projectId) => {
+    updateOptimisticQuery(localStore, api.clips.getProjectClips, { projectId }, (current) => {
+      const now = Date.now();
+      const newStartTime = Math.max(0, args.startTime);
+      return current.map((clip) =>
+        clip._id !== args.id
+          ? clip
+          : {
+              ...clip,
+              startTime: newStartTime,
+              trackId: args.trackId ?? clip.trackId,
+              updatedAt: now,
+            },
+      );
     });
-
-    localStore.setQuery(api.clips.getProjectClips, { projectId: args.projectId }, updated);
-  }
+  });
 }
 
 /**
@@ -148,20 +132,11 @@ export function deleteClipOptimisticUpdate(
   localStore: OptimisticLocalStore,
   args: DeleteClipArgs,
 ): void {
-  if (!args.projectId) {
-    // Without projectId, we can't update the query cache.
-    // The mutation will still work, just not optimistically.
-    return;
-  }
-
-  const current = localStore.getQuery(api.clips.getProjectClips, {
-    projectId: args.projectId,
+  withProjectIdGuard(args.projectId, (projectId) => {
+    updateOptimisticQuery(localStore, api.clips.getProjectClips, { projectId }, (current) =>
+      current.filter((clip) => clip._id !== args.id),
+    );
   });
-
-  if (current !== undefined) {
-    const filtered = current.filter((clip) => clip._id !== args.id);
-    localStore.setQuery(api.clips.getProjectClips, { projectId: args.projectId }, filtered);
-  }
 }
 
 /**
@@ -174,30 +149,22 @@ export function trimClipOptimisticUpdate(
   localStore: OptimisticLocalStore,
   args: TrimClipArgs,
 ): void {
-  if (!args.projectId) {
-    return;
-  }
-
-  const current = localStore.getQuery(api.clips.getProjectClips, {
-    projectId: args.projectId,
-  });
-
-  if (current !== undefined) {
-    const now = Date.now();
-
-    const updated = current.map((clip) => {
-      if (clip._id !== args.id) return clip;
-      return {
-        ...clip,
-        startTime: args.startTime,
-        audioStartTime: args.audioStartTime,
-        duration: args.duration,
-        updatedAt: now,
-      };
+  withProjectIdGuard(args.projectId, (projectId) => {
+    updateOptimisticQuery(localStore, api.clips.getProjectClips, { projectId }, (current) => {
+      const now = Date.now();
+      return current.map((clip) =>
+        clip._id !== args.id
+          ? clip
+          : {
+              ...clip,
+              startTime: args.startTime,
+              audioStartTime: args.audioStartTime,
+              duration: args.duration,
+              updatedAt: now,
+            },
+      );
     });
-
-    localStore.setQuery(api.clips.getProjectClips, { projectId: args.projectId }, updated);
-  }
+  });
 }
 
 /**
@@ -211,35 +178,30 @@ export function pasteClipsOptimisticUpdate(
   localStore: OptimisticLocalStore,
   args: PasteClipsArgs,
 ): void {
-  const current = localStore.getQuery(api.clips.getProjectClips, {
-    projectId: args.projectId,
-  });
-
-  if (current !== undefined) {
-    const now = Date.now();
-
-    // Create temp clips for each pasted clip
-    const newClips: Clip[] = args.clips.map((clip) => ({
-      _id: tempId<"clips">(),
-      _creationTime: now,
-      projectId: args.projectId,
-      trackId: args.trackId,
-      fileId: clip.fileId,
-      name: clip.name,
-      startTime: clip.startTime,
-      duration: clip.duration,
-      audioStartTime: clip.audioStartTime,
-      audioDuration: clip.audioDuration,
-      gain: clip.gain,
-      createdAt: now,
-      updatedAt: now,
-    }));
-
-    localStore.setQuery(api.clips.getProjectClips, { projectId: args.projectId }, [
-      ...current,
-      ...newClips,
-    ]);
-  }
+  updateOptimisticQuery(
+    localStore,
+    api.clips.getProjectClips,
+    { projectId: args.projectId },
+    (current) => {
+      const now = Date.now();
+      const newClips: Clip[] = args.clips.map((clip) => ({
+        _id: tempId<"clips">(),
+        _creationTime: now,
+        projectId: args.projectId,
+        trackId: args.trackId,
+        fileId: clip.fileId,
+        name: clip.name,
+        startTime: clip.startTime,
+        duration: clip.duration,
+        audioStartTime: clip.audioStartTime,
+        audioDuration: clip.audioDuration,
+        gain: clip.gain,
+        createdAt: now,
+        updatedAt: now,
+      }));
+      return [...current, ...newClips];
+    },
+  );
 }
 
 /**
@@ -252,63 +214,45 @@ export function splitClipOptimisticUpdate(
   localStore: OptimisticLocalStore,
   args: SplitClipArgs,
 ): void {
-  if (!args.projectId) {
-    return;
-  }
+  withProjectIdGuard(args.projectId, (projectId) => {
+    updateOptimisticQuery(localStore, api.clips.getProjectClips, { projectId }, (current) => {
+      const clip = current.find((c) => c._id === args.id);
+      if (!clip) return current;
 
-  const current = localStore.getQuery(api.clips.getProjectClips, {
-    projectId: args.projectId,
-  });
+      const clipEnd = clip.startTime + clip.duration;
 
-  if (current !== undefined) {
-    const clip = current.find((c) => c._id === args.id);
-    if (!clip) return;
+      // FR-39: Split only if splitTime is within clip bounds
+      if (args.splitTime <= clip.startTime || args.splitTime >= clipEnd) {
+        return current;
+      }
 
-    const clipEnd = clip.startTime + clip.duration;
+      const now = Date.now();
+      const leftDuration = args.splitTime - clip.startTime;
+      const rightStartTime = args.splitTime;
+      const rightDuration = clipEnd - args.splitTime;
+      const rightAudioStartTime = clip.audioStartTime + leftDuration;
 
-    // FR-39: Split only if splitTime is within clip bounds
-    if (args.splitTime <= clip.startTime || args.splitTime >= clipEnd) {
-      return;
-    }
-
-    const now = Date.now();
-
-    // FR-40: Calculate new properties
-    const leftDuration = args.splitTime - clip.startTime;
-    const rightStartTime = args.splitTime;
-    const rightDuration = clipEnd - args.splitTime;
-    const rightAudioStartTime = clip.audioStartTime + leftDuration;
-
-    // Create the right clip with temp ID
-    const rightClip: Clip = {
-      _id: tempId<"clips">(),
-      _creationTime: now,
-      projectId: clip.projectId,
-      trackId: clip.trackId,
-      fileId: clip.fileId,
-      name: clip.name,
-      startTime: rightStartTime,
-      duration: rightDuration,
-      audioStartTime: rightAudioStartTime,
-      audioDuration: clip.audioDuration,
-      gain: clip.gain,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    // Update the original clip to become the left clip
-    const updated = current.map((c) => {
-      if (c._id !== args.id) return c;
-      return {
-        ...c,
-        duration: leftDuration,
+      const rightClip: Clip = {
+        _id: tempId<"clips">(),
+        _creationTime: now,
+        projectId: clip.projectId,
+        trackId: clip.trackId,
+        fileId: clip.fileId,
+        name: clip.name,
+        startTime: rightStartTime,
+        duration: rightDuration,
+        audioStartTime: rightAudioStartTime,
+        audioDuration: clip.audioDuration,
+        gain: clip.gain,
+        createdAt: now,
         updatedAt: now,
       };
-    });
 
-    localStore.setQuery(api.clips.getProjectClips, { projectId: args.projectId }, [
-      ...updated,
-      rightClip,
-    ]);
-  }
+      const updated = current.map((c) =>
+        c._id !== args.id ? c : { ...c, duration: leftDuration, updatedAt: now },
+      );
+
+      return [...updated, rightClip];
+    });
+  });
 }

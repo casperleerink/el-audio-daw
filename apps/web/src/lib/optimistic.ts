@@ -1,4 +1,6 @@
 import type { Id, TableNames } from "@el-audio-daw/backend/convex/_generated/dataModel";
+import type { OptimisticLocalStore } from "convex/browser";
+import type { FunctionReference, FunctionReturnType } from "convex/server";
 import { toast } from "sonner";
 
 /**
@@ -46,4 +48,59 @@ export function isPending(entity: { _id: string }): boolean {
  */
 export function showRollbackToast(action: string): void {
   toast.error(`Failed to ${action}. Changes reverted.`);
+}
+
+/**
+ * Helper to get, transform, and set a query in one operation.
+ * Handles the common pattern of getting current data, transforming it, and setting it back.
+ *
+ * @param localStore - The optimistic local store
+ * @param query - The query function reference
+ * @param queryArgs - Arguments for the query
+ * @param transform - Function to transform the current data
+ *
+ * @example
+ * updateOptimisticQuery(
+ *   localStore,
+ *   api.clips.getProjectClips,
+ *   { projectId },
+ *   (clips) => clips.filter(c => c._id !== clipId)
+ * );
+ */
+export function updateOptimisticQuery<
+  Query extends FunctionReference<"query">,
+  Args extends Query["_args"],
+>(
+  localStore: OptimisticLocalStore,
+  query: Query,
+  queryArgs: Args,
+  transform: (
+    current: NonNullable<FunctionReturnType<Query>>,
+  ) => NonNullable<FunctionReturnType<Query>>,
+): void {
+  const current = localStore.getQuery(query, queryArgs);
+  if (current !== undefined) {
+    localStore.setQuery(query, queryArgs, transform(current));
+  }
+}
+
+/**
+ * Helper for optimistic updates that require a projectId guard.
+ * Returns early if projectId is not provided, otherwise executes the update.
+ *
+ * @param projectId - The project ID (may be undefined)
+ * @param update - Function to execute if projectId is defined
+ *
+ * @example
+ * withProjectIdGuard(args.projectId, (projectId) => {
+ *   updateOptimisticQuery(localStore, api.clips.getProjectClips, { projectId }, transform);
+ * });
+ */
+export function withProjectIdGuard<T extends Id<"projects">>(
+  projectId: T | undefined,
+  update: (projectId: T) => void,
+): void {
+  if (projectId) {
+    update(projectId);
+  }
 }
