@@ -737,6 +737,9 @@ function TimelineCanvas({
   // Waveform cache state (triggers re-render when waveforms load)
   const [loadedWaveforms, setLoadedWaveforms] = useState<Map<string, WaveformData>>(new Map());
 
+  // Animation time for shimmer effect (only updates when clips are loading)
+  const [animationTime, setAnimationTime] = useState(0);
+
   // Calculate max vertical scroll (needed by hooks)
   const totalTrackHeight = tracks.length * TRACK_HEIGHT;
   const viewportHeight = dimensions.height - RULER_HEIGHT;
@@ -931,6 +934,25 @@ function TimelineCanvas({
     return () => clearWaveformCache();
   }, []);
 
+  // Animation loop for waveform loading shimmer
+  useEffect(() => {
+    // Check if any clips are missing waveforms
+    const hasMissingWaveforms = clips.some(
+      (clip) => !loadedWaveforms.has(clip.audioFileId) && waveformUrls[clip.audioFileId] !== undefined
+    );
+
+    if (!hasMissingWaveforms) return;
+
+    let animationId: number;
+    const animate = () => {
+      setAnimationTime(Date.now());
+      animationId = requestAnimationFrame(animate);
+    };
+
+    animationId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationId);
+  }, [clips, loadedWaveforms, waveformUrls]);
+
   // Transform clips to include selection and hover state for rendering
   const clipsWithState = clips.map((clip) => ({
     ...clip,
@@ -973,6 +995,7 @@ function TimelineCanvas({
       trackHeight: TRACK_HEIGHT,
       dragOriginalTrackId: clipDragState?.originalTrackId,
       waveformCache: loadedWaveforms,
+      animationTime,
     });
   }, [
     dimensions,
@@ -989,6 +1012,7 @@ function TimelineCanvas({
     hoveredClipId,
     hoveredClipZone,
     loadedWaveforms,
+    animationTime,
   ]);
 
   // Calculate drop indicator position (FR-30)
