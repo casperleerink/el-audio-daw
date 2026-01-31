@@ -22,12 +22,11 @@ export type ClipHoverZone = "left" | "right" | "body";
 export interface ClipData {
   _id: string;
   trackId: string;
-  fileId: string;
+  audioFileId: string; // Changed from fileId
   name: string;
   startTime: number; // in samples
   duration: number; // in samples
   audioStartTime: number; // offset into source audio in samples
-  audioDuration: number; // original audio file duration in samples
   pending?: boolean; // true if clip is awaiting server confirmation
 }
 
