@@ -24,6 +24,7 @@ import { MeterProvider } from "@/contexts/MeterContext";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
 import { useClipClipboard } from "@/hooks/useClipClipboard";
 import { useClipDrag, type ClipData } from "@/hooks/useClipDrag";
+import { useClipMouseHandlers } from "@/hooks/useClipMouseHandlers";
 import { useClipTrim } from "@/hooks/useClipTrim";
 import { useClipSelection } from "@/hooks/useClipSelection";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
@@ -773,37 +774,25 @@ function TimelineCanvas({
     trimClip,
   });
 
-  // Combine justFinishedDrag from both hooks
-  const justFinishedDrag = justFinishedMoveDrag || justFinishedTrimDrag;
-
-  // Combined mouse handlers: try trim first, then drag
-  const handleClipMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      // Try trim first (handles left/right zones)
-      if (handleTrimMouseDown(e)) return;
-      // Otherwise try drag (handles body zone)
-      handleDragMouseDown(e);
-    },
-    [handleTrimMouseDown, handleDragMouseDown],
-  );
-
-  const handleClipMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      handleTrimMouseMove(e);
-      handleDragMouseMove(e);
-    },
-    [handleTrimMouseMove, handleDragMouseMove],
-  );
-
-  const handleClipMouseUp = useCallback(async () => {
-    await handleTrimMouseUp();
-    await handleDragMouseUp();
-  }, [handleTrimMouseUp, handleDragMouseUp]);
-
-  const handleClipMouseLeave = useCallback(() => {
-    handleTrimMouseLeave();
-    handleDragMouseLeave();
-  }, [handleTrimMouseLeave, handleDragMouseLeave]);
+  // Coordinate clip mouse handlers (trim and drag)
+  const {
+    handleClipMouseDown,
+    handleClipMouseMove,
+    handleClipMouseUp,
+    handleClipMouseLeave,
+    justFinishedDrag,
+  } = useClipMouseHandlers({
+    handleTrimMouseDown,
+    handleTrimMouseMove,
+    handleTrimMouseUp,
+    handleTrimMouseLeave,
+    handleDragMouseDown,
+    handleDragMouseMove,
+    handleDragMouseUp,
+    handleDragMouseLeave,
+    justFinishedTrimDrag,
+    justFinishedMoveDrag,
+  });
 
   // Canvas event handlers (wheel, click, hover, trim handle detection)
   const {
