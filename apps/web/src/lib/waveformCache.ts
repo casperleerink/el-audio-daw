@@ -137,10 +137,7 @@ export function clearWaveformCache(): void {
 /**
  * Select appropriate mipmap level for current zoom.
  */
-export function selectMipmapLevel(
-  waveform: WaveformData,
-  samplesPerPixel: number,
-): WaveformLevel {
+export function selectMipmapLevel(waveform: WaveformData, samplesPerPixel: number): WaveformLevel {
   // Find the level with samplesPerBucket <= samplesPerPixel
   // This ensures we have enough detail without wasting data
   for (const level of waveform.levels) {

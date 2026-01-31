@@ -938,7 +938,8 @@ function TimelineCanvas({
   useEffect(() => {
     // Check if any clips are missing waveforms
     const hasMissingWaveforms = clips.some(
-      (clip) => !loadedWaveforms.has(clip.audioFileId) && waveformUrls[clip.audioFileId] !== undefined
+      (clip) =>
+        !loadedWaveforms.has(clip.audioFileId) && waveformUrls[clip.audioFileId] !== undefined,
     );
 
     if (!hasMissingWaveforms) return;

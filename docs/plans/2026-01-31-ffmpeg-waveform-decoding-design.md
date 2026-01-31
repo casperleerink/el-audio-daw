@@ -30,11 +30,11 @@ Move waveform generation to the client (browser) where `AudioContext.decodeAudio
 
 ## File Changes
 
-| File | Change |
-|------|--------|
-| `apps/web/src/lib/waveformGenerator.ts` | New: client-side waveform generation |
+| File                                        | Change                                           |
+| ------------------------------------------- | ------------------------------------------------ |
+| `apps/web/src/lib/waveformGenerator.ts`     | New: client-side waveform generation             |
 | `apps/web/src/hooks/useTimelineFileDrop.ts` | Generate and upload waveform after clip creation |
-| `packages/backend/convex/waveform.ts` | Deleted: no longer needed |
+| `packages/backend/convex/waveform.ts`       | Deleted: no longer needed                        |
 
 ### Code Addition
 

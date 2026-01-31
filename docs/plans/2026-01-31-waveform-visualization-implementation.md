@@ -13,6 +13,7 @@
 ## Task 1: Add audioFiles Table to Schema
 
 **Files:**
+
 - Modify: `packages/backend/convex/schema.ts`
 
 **Step 1: Add the audioFiles table definition**
@@ -81,6 +82,7 @@ EOF
 ## Task 2: Create audioFiles Backend Module
 
 **Files:**
+
 - Create: `packages/backend/convex/audioFiles.ts`
 
 **Step 1: Create the audioFiles module with basic CRUD**
@@ -277,6 +279,7 @@ EOF
 ## Task 3: Update clips.ts to Use audioFileId
 
 **Files:**
+
 - Modify: `packages/backend/convex/clips.ts`
 
 **Step 1: Update createClip mutation**
@@ -639,6 +642,7 @@ EOF
 ## Task 4: Add Waveform Generation Action
 
 **Files:**
+
 - Create: `packages/backend/convex/waveform.ts`
 
 **Step 1: Create waveform types and constants**
@@ -987,6 +991,7 @@ EOF
 ## Task 5: Update Frontend Clip Types and Optimistic Updates
 
 **Files:**
+
 - Modify: `apps/web/src/lib/clipOptimisticUpdates.ts`
 
 **Step 1: Update type definitions**
@@ -1195,6 +1200,7 @@ EOF
 ## Task 6: Update useTimelineFileDrop Hook
 
 **Files:**
+
 - Modify: `apps/web/src/hooks/useTimelineFileDrop.ts`
 
 **Step 1: Add audioFiles mutation imports**
@@ -1412,6 +1418,7 @@ EOF
 ## Task 7: Update useClipClipboard Hook
 
 **Files:**
+
 - Modify: `apps/web/src/hooks/useClipClipboard.ts`
 
 **Step 1: Update clipboard data types**
@@ -1492,6 +1499,7 @@ EOF
 ## Task 8: Update useClipDrag Hook
 
 **Files:**
+
 - Modify: `apps/web/src/hooks/useClipDrag.ts`
 
 **Step 1: Update ClipData interface**
@@ -1535,6 +1543,7 @@ EOF
 ## Task 9: Update useClipTrim Hook
 
 **Files:**
+
 - Modify: `apps/web/src/hooks/useClipTrim.ts`
 
 **Step 1: Update TrimDragState to not require audioDuration from clip**
@@ -1597,6 +1606,7 @@ EOF
 ## Task 10: Update Project Route Component
 
 **Files:**
+
 - Modify: `apps/web/src/routes/project.$id.tsx`
 
 **Step 1: Add audioFiles query**
@@ -1732,6 +1742,7 @@ EOF
 ## Task 11: Create Waveform Cache Module
 
 **Files:**
+
 - Create: `apps/web/src/lib/waveformCache.ts`
 
 **Step 1: Create types and cache structure**
@@ -1926,6 +1937,7 @@ EOF
 ## Task 12: Create Waveform Renderer
 
 **Files:**
+
 - Create: `apps/web/src/lib/waveformRenderer.ts`
 
 **Step 1: Create waveform drawing function**
@@ -2073,6 +2085,7 @@ EOF
 ## Task 13: Integrate Waveform Rendering into Canvas
 
 **Files:**
+
 - Modify: `apps/web/src/lib/canvasRenderer.ts`
 
 **Step 1: Add imports**
@@ -2204,6 +2217,7 @@ EOF
 ## Task 14: Wire Up Waveform Fetching in TimelineCanvas
 
 **Files:**
+
 - Modify: `apps/web/src/routes/project.$id.tsx`
 
 **Step 1: Add waveform cache imports and state**
@@ -2323,6 +2337,7 @@ EOF
 ## Task 15: Add Loading State Shimmer for Waveforms
 
 **Files:**
+
 - Modify: `apps/web/src/lib/canvasRenderer.ts`
 
 **Step 1: Add shimmer animation function**
@@ -2456,6 +2471,7 @@ EOF
 ## Task 16: Add Animation Loop for Shimmer
 
 **Files:**
+
 - Modify: `apps/web/src/routes/project.$id.tsx`
 
 **Step 1: Add animation time state**
@@ -2600,12 +2616,12 @@ This plan implements waveform visualization in 17 incremental tasks:
 2. Backend audioFiles module
 3. Update clips.ts mutations
 4. Waveform generation action
-5-9. Frontend type updates (optimistic updates, hooks)
-10. Project route component updates
-11-12. Waveform cache and renderer modules
-13-14. Canvas integration
-15-16. Loading shimmer animation
-17. Final verification
-18. Manual testing
+   5-9. Frontend type updates (optimistic updates, hooks)
+5. Project route component updates
+   11-12. Waveform cache and renderer modules
+   13-14. Canvas integration
+   15-16. Loading shimmer animation
+6. Final verification
+7. Manual testing
 
 Each task is atomic and can be committed independently. The system will work with partial implementation (clips display without waveforms) until all tasks are complete.

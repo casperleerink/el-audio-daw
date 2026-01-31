@@ -226,12 +226,7 @@ function drawWaveformLoadingShimmer(
   const shimmerWidth = clipWidth * 0.3;
   const offset = ((time / 1000) % 2) * (clipWidth + shimmerWidth) - shimmerWidth;
 
-  const gradient = ctx.createLinearGradient(
-    clipX + offset,
-    0,
-    clipX + offset + shimmerWidth,
-    0,
-  );
+  const gradient = ctx.createLinearGradient(clipX + offset, 0, clipX + offset + shimmerWidth, 0);
   gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
   gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.1)");
   gradient.addColorStop(1, "rgba(255, 255, 255, 0)");

@@ -69,12 +69,12 @@ interface WaveformLevel {
 
 ### Mipmap Levels
 
-| Level | Samples/Bucket | ~Size per minute | Use case |
-|-------|----------------|------------------|----------|
-| 0 | 256 | 31KB | Zoomed in (detail) |
-| 1 | 1024 | 8KB | Medium zoom |
-| 2 | 4096 | 2KB | Zoomed out |
-| 3 | 16384 | 0.5KB | Full project view |
+| Level | Samples/Bucket | ~Size per minute | Use case           |
+| ----- | -------------- | ---------------- | ------------------ |
+| 0     | 256            | 31KB             | Zoomed in (detail) |
+| 1     | 1024           | 8KB              | Medium zoom        |
+| 2     | 4096           | 2KB              | Zoomed out         |
+| 3     | 16384          | 0.5KB            | Full project view  |
 
 Total: ~40KB per minute of audio.
 
@@ -152,12 +152,12 @@ Extend `drawClips()` in `canvasRenderer.ts`:
 
 ## Loading States
 
-| State | Visual |
-|-------|--------|
-| Waveform generating | Colored rectangle with subtle shimmer/pulse |
-| Waveform loading (fetching) | Colored rectangle with subtle shimmer |
-| Waveform loaded | Full waveform display |
-| Waveform failed | Colored rectangle (silent fallback) |
+| State                       | Visual                                      |
+| --------------------------- | ------------------------------------------- |
+| Waveform generating         | Colored rectangle with subtle shimmer/pulse |
+| Waveform loading (fetching) | Colored rectangle with subtle shimmer       |
+| Waveform loaded             | Full waveform display                       |
+| Waveform failed             | Colored rectangle (silent fallback)         |
 
 ## Edge Cases
 
