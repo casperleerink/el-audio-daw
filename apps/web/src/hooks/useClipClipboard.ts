@@ -5,19 +5,17 @@ import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
  * Clipboard data for a single clip (FR-24)
  */
 export interface ClipboardClipData {
-  /** Storage file ID - reused across paste operations (no duplication) */
-  fileId: Id<"_storage">;
-  /** Original clip name */
+  /** Audio file reference for storage */
+  audioFileId: Id<"audioFiles">;
+  /** Clip name */
   name: string;
-  /** Visible portion duration in samples */
+  /** Clip duration in samples */
   duration: number;
-  /** Offset into source audio (for trimmed clips) */
+  /** Offset into source audio in samples */
   audioStartTime: number;
-  /** Original audio file duration in samples */
-  audioDuration: number;
   /** Clip gain in dB */
   gain: number;
-  /** Offset from the first clip's start time in samples (for relative positioning) */
+  /** Offset from first clip's start time (for maintaining relative positions) */
   offsetFromFirst: number;
 }
 
@@ -38,12 +36,11 @@ interface UseClipClipboardReturn {
     clips: Array<{
       _id: string;
       trackId: string;
-      fileId: Id<"_storage">;
+      audioFileId: Id<"audioFiles">;
       name: string;
       startTime: number;
       duration: number;
       audioStartTime: number;
-      audioDuration: number;
       gain: number;
     }>,
   ) => void;
@@ -58,11 +55,11 @@ interface UseClipClipboardReturn {
  *
  * Implements FR-23 through FR-30:
  * - FR-23: Cmd+C copies selected clips to internal clipboard (not system clipboard)
- * - FR-24: Clipboard stores clip data: fileId, duration, audioStartTime, gain, relative positions
+ * - FR-24: Clipboard stores clip data: audioFileId, duration, audioStartTime, gain, relative positions
  * - FR-25: Cmd+V pastes clipboard contents at current playhead position
  * - FR-26: First clip aligns to playhead; other clips maintain relative offsets
  * - FR-27: Pasted clips go to same track as source clips
- * - FR-28: Paste creates new clip records (new IDs, reuses same fileId)
+ * - FR-28: Paste creates new clip records (new IDs, reuses same audioFileId)
  * - FR-29: Paste uses optimistic updates with pending state
  * - FR-30: If no clips in clipboard, Cmd+V does nothing
  *
@@ -78,12 +75,11 @@ export function useClipClipboard(): UseClipClipboardReturn {
       clips: Array<{
         _id: string;
         trackId: string;
-        fileId: Id<"_storage">;
+        audioFileId: Id<"audioFiles">;
         name: string;
         startTime: number;
         duration: number;
         audioStartTime: number;
-        audioDuration: number;
         gain: number;
       }>,
     ) => {
@@ -107,11 +103,10 @@ export function useClipClipboard(): UseClipClipboardReturn {
 
       // Build clipboard data with relative offsets
       const clipboardClips: ClipboardClipData[] = selectedClips.map((clip) => ({
-        fileId: clip.fileId,
+        audioFileId: clip.audioFileId,
         name: clip.name,
         duration: clip.duration,
         audioStartTime: clip.audioStartTime,
-        audioDuration: clip.audioDuration,
         gain: clip.gain,
         offsetFromFirst: clip.startTime - firstClipStartTime,
       }));
