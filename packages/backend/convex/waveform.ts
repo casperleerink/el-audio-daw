@@ -3,6 +3,8 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { toBlobURL } from "@ffmpeg/util";
 
 // Mipmap levels: samples per bucket
 const MIPMAP_LEVELS = [256, 1024, 4096, 16384];
@@ -132,131 +134,149 @@ function encodeWaveformBinary(data: WaveformData): ArrayBuffer {
 }
 
 /**
- * Decode WAV file to channel data.
+ * Decode audio file using FFmpeg WASM.
+ * Supports WAV, MP3, AIFF, FLAC, OGG, and other formats.
  */
-function decodeWav(arrayBuffer: ArrayBuffer): {
-  channelData: Float32Array[];
-  sampleRate: number;
-  length: number;
-} {
-  const view = new DataView(arrayBuffer);
-
-  // Validate WAVE format at bytes 8-11
-  const format = String.fromCharCode(
-    view.getUint8(8),
-    view.getUint8(9),
-    view.getUint8(10),
-    view.getUint8(11),
-  );
-  if (format !== "WAVE") {
-    throw new Error("Invalid WAV file: expected WAVE format identifier");
-  }
-
-  let offset = 12; // Skip RIFF header
-
-  let sampleRate = 44100;
-  let channels = 2;
-  let bitsPerSample = 16;
-  let audioFormat = 1; // 1 = PCM integer, 3 = IEEE float
-  let dataStart = 0;
-  let dataLength = 0;
-
-  // Parse chunks
-  while (offset < arrayBuffer.byteLength) {
-    const chunkId = String.fromCharCode(
-      view.getUint8(offset),
-      view.getUint8(offset + 1),
-      view.getUint8(offset + 2),
-      view.getUint8(offset + 3),
-    );
-    const chunkSize = view.getUint32(offset + 4, true);
-
-    if (chunkId === "fmt ") {
-      audioFormat = view.getUint16(offset + 8, true);
-      channels = view.getUint16(offset + 10, true);
-      sampleRate = view.getUint32(offset + 12, true);
-      bitsPerSample = view.getUint16(offset + 22, true);
-    } else if (chunkId === "data") {
-      dataStart = offset + 8;
-      dataLength = chunkSize;
-      break;
-    }
-
-    offset += 8 + chunkSize;
-    if (chunkSize % 2 !== 0) offset++; // Padding
-  }
-
-  if (dataStart === 0) {
-    throw new Error("No data chunk found in WAV file");
-  }
-
-  const bytesPerSample = bitsPerSample / 8;
-  const samplesPerChannel = Math.floor(dataLength / (bytesPerSample * channels));
-
-  const channelData: Float32Array[] = [];
-  for (let c = 0; c < channels; c++) {
-    channelData.push(new Float32Array(samplesPerChannel));
-  }
-
-  // Read samples
-  let sampleOffset = dataStart;
-  for (let i = 0; i < samplesPerChannel; i++) {
-    for (let c = 0; c < channels; c++) {
-      let value: number;
-      if (bitsPerSample === 16) {
-        value = view.getInt16(sampleOffset, true) / 32768;
-      } else if (bitsPerSample === 24) {
-        const b0 = view.getUint8(sampleOffset);
-        const b1 = view.getUint8(sampleOffset + 1);
-        const b2 = view.getInt8(sampleOffset + 2);
-        value = ((b2 << 16) | (b1 << 8) | b0) / 8388608;
-      } else if (bitsPerSample === 32) {
-        if (audioFormat === 3) {
-          // Float format
-          value = view.getFloat32(sampleOffset, true);
-        } else {
-          // 32-bit integer PCM
-          value = view.getInt32(sampleOffset, true) / 2147483648;
-        }
-      } else {
-        value = (view.getUint8(sampleOffset) - 128) / 128;
-      }
-      channelData[c][i] = value;
-      sampleOffset += bytesPerSample;
-    }
-  }
-
-  return { channelData, sampleRate, length: samplesPerChannel };
-}
-
-/**
- * Simple audio decoder for common formats.
- * Returns channel data as Float32Arrays.
- */
-async function decodeAudioBuffer(arrayBuffer: ArrayBuffer): Promise<{
+async function decodeWithFFmpeg(
+  arrayBuffer: ArrayBuffer,
+  inputFileName: string,
+): Promise<{
   channelData: Float32Array[];
   sampleRate: number;
   length: number;
 }> {
-  const view = new DataView(arrayBuffer);
+  const ffmpeg = new FFmpeg();
 
-  // Check for WAV format (RIFF header)
-  const riff = String.fromCharCode(
-    view.getUint8(0),
-    view.getUint8(1),
-    view.getUint8(2),
-    view.getUint8(3),
-  );
+  // Load FFmpeg WASM from CDN
+  const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+  await ffmpeg.load({
+    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+  });
 
-  if (riff === "RIFF") {
-    return decodeWav(arrayBuffer);
+  try {
+    // Write input file to FFmpeg virtual filesystem
+    await ffmpeg.writeFile(inputFileName, new Uint8Array(arrayBuffer));
+
+    // First, probe to get audio info (sample rate, channels)
+    // We use FFmpeg to output info to stderr, but easier to just decode and check
+    // Decode to raw PCM: signed 16-bit little-endian, preserve channels and sample rate
+    const outputFileName = "output.wav";
+
+    await ffmpeg.exec([
+      "-i",
+      inputFileName,
+      "-f",
+      "wav", // Output as WAV so we can easily parse header for metadata
+      "-acodec",
+      "pcm_s16le",
+      "-y",
+      outputFileName,
+    ]);
+
+    // Read output file
+    const outputData = await ffmpeg.readFile(outputFileName);
+    if (!(outputData instanceof Uint8Array)) {
+      throw new Error("Failed to read decoded audio data");
+    }
+
+    // Parse the WAV output to get channel data
+    const wavBuffer = outputData.buffer;
+    const view = new DataView(wavBuffer);
+
+    // Parse WAV header to get format info
+    let offset = 12; // Skip RIFF header
+    let sampleRate = 44100;
+    let channels = 2;
+    let dataStart = 0;
+    let dataLength = 0;
+
+    while (offset < wavBuffer.byteLength) {
+      const chunkId = String.fromCharCode(
+        view.getUint8(offset),
+        view.getUint8(offset + 1),
+        view.getUint8(offset + 2),
+        view.getUint8(offset + 3),
+      );
+      const chunkSize = view.getUint32(offset + 4, true);
+
+      if (chunkId === "fmt ") {
+        channels = view.getUint16(offset + 10, true);
+        sampleRate = view.getUint32(offset + 12, true);
+      } else if (chunkId === "data") {
+        dataStart = offset + 8;
+        dataLength = chunkSize;
+        break;
+      }
+
+      offset += 8 + chunkSize;
+      if (chunkSize % 2 !== 0) offset++; // Padding
+    }
+
+    if (dataStart === 0 || dataLength === 0) {
+      throw new Error("No audio data found in decoded output");
+    }
+
+    // Read 16-bit samples and convert to Float32
+    const bytesPerSample = 2; // 16-bit
+    const samplesPerChannel = Math.floor(dataLength / (bytesPerSample * channels));
+
+    const channelData: Float32Array[] = [];
+    for (let c = 0; c < channels; c++) {
+      channelData.push(new Float32Array(samplesPerChannel));
+    }
+
+    let sampleOffset = dataStart;
+    for (let i = 0; i < samplesPerChannel; i++) {
+      for (let c = 0; c < channels; c++) {
+        const value = view.getInt16(sampleOffset, true) / 32768;
+        channelData[c][i] = value;
+        sampleOffset += bytesPerSample;
+      }
+    }
+
+    return { channelData, sampleRate, length: samplesPerChannel };
+  } finally {
+    ffmpeg.terminate();
   }
+}
 
-  // For other formats, we'd need additional libraries
-  // For now, throw an error - can be extended later
-  throw new Error(
-    "Unsupported audio format. Currently only WAV is supported for waveform generation.",
-  );
+/**
+ * Decode audio buffer using FFmpeg.
+ * Returns channel data as Float32Arrays.
+ */
+async function decodeAudioBuffer(
+  arrayBuffer: ArrayBuffer,
+  fileName: string,
+): Promise<{
+  channelData: Float32Array[];
+  sampleRate: number;
+  length: number;
+}> {
+  return decodeWithFFmpeg(arrayBuffer, fileName);
+}
+
+/**
+ * Map content-type to file extension for FFmpeg input.
+ */
+function getExtensionFromContentType(contentType: string): string {
+  const typeMap: Record<string, string> = {
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/wave": "wav",
+    "audio/mp3": "mp3",
+    "audio/mpeg": "mp3",
+    "audio/aiff": "aiff",
+    "audio/x-aiff": "aiff",
+    "audio/flac": "flac",
+    "audio/x-flac": "flac",
+    "audio/ogg": "ogg",
+    "audio/vorbis": "ogg",
+  };
+
+  // Extract base type (remove parameters like charset)
+  const baseType = contentType.split(";")[0].trim().toLowerCase();
+  return typeMap[baseType] || "bin";
 }
 
 /**
@@ -280,14 +300,15 @@ export const generateWaveform = action({
       throw new Error("Failed to fetch audio file");
     }
 
+    // Get content-type to determine file format
+    const contentType = response.headers.get("content-type") || "audio/wav";
+    const extension = getExtensionFromContentType(contentType);
+    const inputFileName = `input.${extension}`;
+
     const arrayBuffer = await response.arrayBuffer();
 
-    // Decode audio using Web Audio API (available in Node.js via polyfill or native)
-    // Note: In Convex actions, we need to use a library that works in Node.js
-    // For now, we'll use a simple WAV parser for initial implementation
-    // TODO: Add support for more formats via ffmpeg or similar
-
-    const audioData = await decodeAudioBuffer(arrayBuffer);
+    // Decode audio using FFmpeg WASM
+    const audioData = await decodeAudioBuffer(arrayBuffer, inputFileName);
 
     // Generate waveform data
     const waveformData = generateWaveformData(

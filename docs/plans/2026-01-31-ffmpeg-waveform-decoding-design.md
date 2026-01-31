@@ -1,7 +1,7 @@
 # FFmpeg Waveform Decoding Design
 
 **Date:** 2026-01-31
-**Status:** Approved
+**Status:** Implemented
 
 ## Problem
 
@@ -25,6 +25,7 @@ Use `@ffmpeg/ffmpeg` and `@ffmpeg/util` packages which provide FFmpeg compiled t
 4. Read output and convert Int16 samples to Float32Array [-1, 1]
 
 **FFmpeg command:**
+
 ```
 ffmpeg -i input.<ext> -f s16le -ac 1 output.pcm
 ```
@@ -38,9 +39,9 @@ Run FFmpeg probe first to detect the input file's sample rate before decoding, s
 
 ## File Changes
 
-| File | Change |
-|------|--------|
-| `packages/backend/package.json` | Add `@ffmpeg/ffmpeg` and `@ffmpeg/util` (latest versions) |
+| File                                  | Change                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------- |
+| `packages/backend/package.json`       | Add `@ffmpeg/ffmpeg` and `@ffmpeg/util` (latest versions)                 |
 | `packages/backend/convex/waveform.ts` | Replace `decodeWav()` and `decodeAudioBuffer()` with FFmpeg-based decoder |
 
 ### Code Removal
@@ -62,10 +63,12 @@ Run FFmpeg probe first to detect the input file's sample rate before decoding, s
 ## Trade-offs
 
 **Pros:**
+
 - Supports all audio formats (WAV, MP3, AIFF, FLAC, OGG)
 - Single code path for all formats
 - Removes ~95 lines of custom WAV parsing
 
 **Cons:**
+
 - FFmpeg WASM is ~30MB (but cached by Convex runtime)
 - Slightly slower than native WAV decoder for WAV files
