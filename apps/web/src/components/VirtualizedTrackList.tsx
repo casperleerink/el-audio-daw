@@ -2,6 +2,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { GripVertical, Pencil, Plus, Trash2, VolumeX } from "lucide-react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
+import { useOptimisticControl } from "@/hooks/useOptimisticControl";
 import { useTrackNameEdit } from "@/hooks/useTrackNameEdit";
 import { useTrackReorder } from "@/hooks/useTrackReorder";
 import { getTrackColor } from "@/lib/canvasRenderer";
@@ -67,81 +68,39 @@ function TrackHeader({
       onNameChange,
     });
 
-  // Local gain state for real-time slider feedback
-  // Sync from server when not actively dragging
-  const [localGain, setLocalGain] = useState(track.gain);
-  const isDraggingGainRef = useRef(false);
-  // Track the last committed server value (before optimistic updates)
-  const serverGainRef = useRef(track.gain);
+  // Gain control with optimistic updates
+  const {
+    localValue: localGain,
+    handleChange: handleGainChange,
+    handleCommit: handleGainCommitRaw,
+  } = useOptimisticControl({
+    serverValue: track.gain,
+    onChange: onGainChange,
+    onCommit: onGainCommit,
+  });
 
-  // Local pan state for real-time knob feedback
-  const [localPan, setLocalPan] = useState(track.pan ?? 0);
-  const isDraggingPanRef = useRef(false);
-  const serverPanRef = useRef(track.pan ?? 0);
+  // Pan control with optimistic updates
+  const {
+    localValue: localPan,
+    handleChange: handlePanChange,
+    handleCommit: handlePanCommit,
+  } = useOptimisticControl({
+    serverValue: track.pan ?? 0,
+    onChange: onPanChange,
+    onCommit: onPanCommit,
+  });
+
+  // Wrapper to handle slider's array value format
+  const handleGainCommit = useCallback(
+    (value: number | readonly number[]) => {
+      const gainValue = Array.isArray(value) ? (value[0] ?? 0) : value;
+      handleGainCommitRaw(gainValue);
+    },
+    [handleGainCommitRaw],
+  );
 
   // Only enable dragging when grip handle is being used
   const [isDragHandleActive, setIsDragHandleActive] = useState(false);
-
-  // Sync local gain from server state when not dragging
-  useEffect(() => {
-    if (!isDraggingGainRef.current) {
-      setLocalGain(track.gain);
-      serverGainRef.current = track.gain;
-    }
-  }, [track.gain]);
-
-  // Sync local pan from server state when not dragging
-  useEffect(() => {
-    if (!isDraggingPanRef.current) {
-      const pan = track.pan ?? 0;
-      setLocalPan(pan);
-      serverPanRef.current = pan;
-    }
-  }, [track.pan]);
-
-  const handleGainChange = useCallback(
-    (value: number) => {
-      isDraggingGainRef.current = true;
-      setLocalGain(value);
-      // Update audio engine immediately for real-time feedback
-      onGainChange(value);
-    },
-    [onGainChange],
-  );
-
-  const handleGainCommit = useCallback(
-    (value: number | readonly number[]) => {
-      isDraggingGainRef.current = false;
-      const gainValue = Array.isArray(value) ? (value[0] ?? 0) : value;
-      // Only commit to server if value changed from original server value
-      // (compare against serverGainRef, not track.gain which has optimistic updates)
-      if (gainValue !== serverGainRef.current) {
-        onGainCommit(gainValue);
-      }
-    },
-    [onGainCommit],
-  );
-
-  const handlePanChange = useCallback(
-    (value: number) => {
-      isDraggingPanRef.current = true;
-      setLocalPan(value);
-      // Update audio engine immediately for real-time feedback
-      onPanChange(value);
-    },
-    [onPanChange],
-  );
-
-  const handlePanCommit = useCallback(
-    (value: number) => {
-      isDraggingPanRef.current = false;
-      // Only commit to server if value changed from original server value
-      if (value !== serverPanRef.current) {
-        onPanCommit(value);
-      }
-    },
-    [onPanCommit],
-  );
 
   // Format pan value for display
   const formatPan = (pan: number) => {
