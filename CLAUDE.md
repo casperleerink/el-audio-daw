@@ -25,6 +25,7 @@ This is a monorepo (Bun workspaces + Turbo) for an audio DAW web application.
 
 **Audio Engine** (`packages/audio/src/engine.ts`):
 
+- Use `elementary-audio` skill when working in the audio engine
 - `AudioEngine` class wraps Elementary Audio's `WebRenderer`
 - Functional, declarative DSP graph: tracks summed through `el.add()`, gains applied with `el.mul()` and smoothing via `el.sm()`
 - Must initialize after user gesture (browser autoplay policy)
@@ -40,3 +41,5 @@ This is a monorepo (Bun workspaces + Turbo) for an audio DAW web application.
 
 - Schema defines `projects`, `projectUsers`, `tracks` tables
 - Tracks ordered by `order` field, reordering updates all affected track orders
+- Convex documentation of LLM's: https://docs.convex.dev/llms.txt
+- Convex rules, read if doing convex related tasks: `convex_rules.mdc`
