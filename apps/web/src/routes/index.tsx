@@ -16,6 +16,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/formatters";
 
 export const Route = createFileRoute("/")({
@@ -38,9 +39,7 @@ function DashboardComponent() {
         )}
       </Unauthenticated>
       <AuthLoading>
-        <div className="flex h-full items-center justify-center">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-        </div>
+        <ProjectDashboardSkeleton />
       </AuthLoading>
     </>
   );
@@ -79,9 +78,7 @@ function ProjectDashboard() {
       </header>
 
       {projects === undefined ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-        </div>
+        <ProjectDashboardSkeletonContent />
       ) : projects.length === 0 ? (
         <Empty className="border">
           <EmptyMedia variant="icon">
@@ -150,5 +147,45 @@ function ProjectCard({
         </div>
       </CardHeader>
     </Card>
+  );
+}
+
+function ProjectCardSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <Skeleton className="size-8" />
+        </div>
+      </CardHeader>
+    </Card>
+  );
+}
+
+function ProjectDashboardSkeletonContent() {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ProjectCardSkeleton />
+      <ProjectCardSkeleton />
+    </div>
+  );
+}
+
+function ProjectDashboardSkeleton() {
+  return (
+    <div className="container mx-auto max-w-4xl px-4 py-8">
+      <header className="mb-8 flex items-center justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-24" />
+          <Skeleton className="h-5 w-36" />
+        </div>
+        <Skeleton className="h-9 w-28" />
+      </header>
+      <ProjectDashboardSkeletonContent />
+    </div>
   );
 }
