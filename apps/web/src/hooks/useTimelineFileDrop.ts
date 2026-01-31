@@ -1,7 +1,7 @@
 import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
 import { api } from "@el-audio-daw/backend/convex/_generated/api";
 import { isSupportedAudioType, MAX_FILE_SIZE } from "@el-audio-daw/backend/convex/constants";
-import { useAction, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -12,6 +12,7 @@ import {
   secondsToSamples,
 } from "@/lib/timelineCalculations";
 import { registerUpload, unregisterUpload } from "@/lib/uploadRegistry";
+import { generateWaveformBinary } from "@/lib/waveformGenerator";
 import { useSyncRef } from "./useSyncRef";
 
 interface Track {
@@ -94,7 +95,7 @@ export function useTimelineFileDrop({
   const validateUploadedFile = useMutation(api.clips.validateUploadedFile);
   const createAudioFile = useMutation(api.audioFiles.createAudioFile);
   const createClip = useMutation(api.clips.createClip);
-  const generateWaveform = useAction(api.waveform.generateWaveform);
+  const updateWaveformStorageId = useMutation(api.audioFiles.updateWaveformStorageId);
 
   // Store current values in refs for stable callbacks
   const scrollLeftRef = useSyncRef(scrollLeft);
@@ -144,11 +145,16 @@ export function useTimelineFileDrop({
     return isSupportedAudioType(file.type);
   }, []);
 
-  // Decode audio file to get duration and channel count
+  // Decode audio file to get duration, channel count, and AudioBuffer for waveform generation
   const decodeAudioFile = useCallback(
     async (
       file: File,
-    ): Promise<{ durationInSamples: number; fileSampleRate: number; channels: number }> => {
+    ): Promise<{
+      durationInSamples: number;
+      fileSampleRate: number;
+      channels: number;
+      audioBuffer: AudioBuffer;
+    }> => {
       const arrayBuffer = await file.arrayBuffer();
       const audioContext = new AudioContext({ sampleRate });
       try {
@@ -157,6 +163,7 @@ export function useTimelineFileDrop({
           durationInSamples: audioBuffer.length,
           fileSampleRate: audioBuffer.sampleRate,
           channels: audioBuffer.numberOfChannels,
+          audioBuffer,
         };
       } finally {
         await audioContext.close();
@@ -189,8 +196,9 @@ export function useTimelineFileDrop({
       setIsUploading(true);
 
       try {
-        // Decode audio to get duration and channel count
-        const { durationInSamples, fileSampleRate, channels } = await decodeAudioFile(file);
+        // Decode audio to get duration, channel count, and AudioBuffer for waveform
+        const { durationInSamples, fileSampleRate, channels, audioBuffer } =
+          await decodeAudioFile(file);
 
         // Show warning if sample rates differ
         if (fileSampleRate !== sampleRate) {
@@ -267,11 +275,37 @@ export function useTimelineFileDrop({
 
         toast.success(`Added "${clipName}" to timeline`);
 
-        // Schedule waveform generation in background (don't await)
-        generateWaveform({ audioFileId, storageId }).catch((error) => {
-          console.warn("Waveform generation failed:", error);
-          // Don't show error to user - waveform is optional
-        });
+        // Generate and upload waveform in background (don't await)
+        (async () => {
+          try {
+            // Generate waveform binary from AudioBuffer
+            const waveformBinary = generateWaveformBinary(audioBuffer);
+
+            // Get upload URL for waveform
+            const waveformUploadUrl = await generateUploadUrl({ projectId });
+
+            // Upload waveform to storage
+            const waveformResponse = await fetch(waveformUploadUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/octet-stream" },
+              body: waveformBinary,
+            });
+
+            if (!waveformResponse.ok) {
+              throw new Error("Waveform upload failed");
+            }
+
+            const { storageId: waveformStorageId } = (await waveformResponse.json()) as {
+              storageId: Id<"_storage">;
+            };
+
+            // Update audio file with waveform storage ID
+            await updateWaveformStorageId({ audioFileId, waveformStorageId });
+          } catch (error) {
+            console.warn("Waveform generation failed:", error);
+            // Don't show error to user - waveform is optional
+          }
+        })();
       } catch (error) {
         // Don't show error toast for intentional cancellation (AbortError)
         if (error instanceof Error && error.name === "AbortError") {
@@ -293,7 +327,7 @@ export function useTimelineFileDrop({
       validateUploadedFile,
       createAudioFile,
       createClip,
-      generateWaveform,
+      updateWaveformStorageId,
       projectId,
       sampleRate,
     ],

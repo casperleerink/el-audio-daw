@@ -1,4 +1,4 @@
-# FFmpeg Waveform Decoding Design
+# Multi-Format Waveform Generation Design
 
 **Date:** 2026-01-31
 **Status:** Implemented
@@ -9,66 +9,53 @@ Waveform generation fails for non-WAV files (MP3, AIFF, FLAC, OGG) because the b
 
 ## Solution
 
-Replace the WAV-only decoder in `waveform.ts` with FFmpeg WASM to decode all supported audio formats to raw PCM data for waveform generation.
+Move waveform generation to the client (browser) where `AudioContext.decodeAudioData()` natively supports all audio formats. The browser already decodes audio successfully for playback, so we leverage this for waveform generation.
 
 ## Approach
 
-### FFmpeg WASM
+### Client-Side Generation
 
-Use `@ffmpeg/ffmpeg` and `@ffmpeg/util` packages which provide FFmpeg compiled to WebAssembly. This works in Convex's Node.js action environment without requiring system binaries.
+1. After decoding audio with `decodeAudioData()` (already done for duration/channels), keep the `AudioBuffer`
+2. Generate waveform mipmap data from the `AudioBuffer`
+3. Encode to binary format
+4. Upload to Convex storage
+5. Update the audioFile record with the waveform storage ID
 
-### Decoding Process
+### Why Client-Side?
 
-1. Load FFmpeg WASM
-2. Write input audio file to FFmpeg's virtual filesystem
-3. Run FFmpeg to convert to raw PCM (signed 16-bit little-endian, mono)
-4. Read output and convert Int16 samples to Float32Array [-1, 1]
-
-**FFmpeg command:**
-
-```
-ffmpeg -i input.<ext> -f s16le -ac 1 output.pcm
-```
-
-- `-f s16le`: Output format is signed 16-bit little-endian PCM
-- `-ac 1`: Mix down to mono (waveforms already merge channels)
-
-### Sample Rate Detection
-
-Run FFmpeg probe first to detect the input file's sample rate before decoding, so we preserve it in the waveform metadata.
+- Browser's Web Audio API natively decodes MP3, AIFF, FLAC, OGG, WAV
+- FFmpeg WASM doesn't work in Node.js (Convex actions)
+- No additional dependencies needed
+- Reuses existing audio decoding step
 
 ## File Changes
 
-| File                                  | Change                                                                    |
-| ------------------------------------- | ------------------------------------------------------------------------- |
-| `packages/backend/package.json`       | Add `@ffmpeg/ffmpeg` and `@ffmpeg/util` (latest versions)                 |
-| `packages/backend/convex/waveform.ts` | Replace `decodeWav()` and `decodeAudioBuffer()` with FFmpeg-based decoder |
-
-### Code Removal
-
-- `decodeWav()` function (~95 lines)
-- WAV-specific format detection in `decodeAudioBuffer()`
+| File | Change |
+|------|--------|
+| `apps/web/src/lib/waveformGenerator.ts` | New: client-side waveform generation |
+| `apps/web/src/hooks/useTimelineFileDrop.ts` | Generate and upload waveform after clip creation |
+| `packages/backend/convex/waveform.ts` | Deleted: no longer needed |
 
 ### Code Addition
 
-- `decodeWithFFmpeg()` function (~50 lines)
-- FFmpeg initialization, file I/O, and cleanup
+- `generateWaveformBinary()` function in new `waveformGenerator.ts`
+- Client-side waveform upload logic in `useTimelineFileDrop.ts`
 
-## Error Handling
+### Code Removal
 
-- FFmpeg load failure → throw with clear message about WASM loading
-- Decode failure → throw with format-specific error
-- Empty output → throw "No audio data decoded"
+- Entire `packages/backend/convex/waveform.ts` file
+- `@ffmpeg/ffmpeg` and `@ffmpeg/util` dependencies
 
 ## Trade-offs
 
 **Pros:**
 
-- Supports all audio formats (WAV, MP3, AIFF, FLAC, OGG)
-- Single code path for all formats
-- Removes ~95 lines of custom WAV parsing
+- Supports all browser-supported audio formats automatically
+- No server-side dependencies
+- Faster: no network round-trip for decoding
+- Simpler: uses existing browser APIs
 
 **Cons:**
 
-- FFmpeg WASM is ~30MB (but cached by Convex runtime)
-- Slightly slower than native WAV decoder for WAV files
+- Slightly more client CPU usage during upload
+- Waveform generation happens on user's device
