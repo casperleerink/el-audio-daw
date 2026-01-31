@@ -14,7 +14,7 @@ type TrackData = {
 type ClipData = {
   _id: string;
   trackId: string;
-  fileId: string;
+  audioFileId: string;
   name: string;
   startTime: number;
   duration: number;
@@ -22,16 +22,12 @@ type ClipData = {
   gain: number;
 };
 
-type ClipUrlData = {
-  fileId: string;
-  url: string | null;
-};
-
 type UseAudioEngineOptions = {
   sampleRate: number;
   tracks: TrackData[] | undefined;
   clips: ClipData[] | undefined;
-  clipUrls: ClipUrlData[] | undefined;
+  /** Map of audioFileId -> URL (or null if not available) */
+  clipUrls: Record<string, string | null> | undefined;
 };
 
 /**
@@ -103,22 +99,14 @@ export function useAudioEngine({ sampleRate, tracks, clips, clipUrls }: UseAudio
     const engine = engineRef.current;
     if (!isEngineReady || !engine?.isInitialized() || !clips || !clipUrls) return;
 
-    // Build a map of fileId -> URL for quick lookup
-    const urlMap = new Map<string, string>();
-    for (const clipUrl of clipUrls) {
-      if (clipUrl.url) {
-        urlMap.set(clipUrl.fileId, clipUrl.url);
-      }
-    }
-
     // Load all audio into VFS (only loads if not already loaded)
     const loadPromises = clips.map(async (clip) => {
-      const url = urlMap.get(clip.fileId);
+      const url = clipUrls[clip.audioFileId];
       if (!url) return;
 
       try {
         // This is idempotent - it won't reload if already in VFS
-        await engine.loadAudioIntoVFS(clip.fileId, url);
+        await engine.loadAudioIntoVFS(clip.audioFileId, url);
       } catch (err) {
         console.error(`Failed to load audio for clip ${clip.name}:`, err);
       }
@@ -129,7 +117,7 @@ export function useAudioEngine({ sampleRate, tracks, clips, clipUrls }: UseAudio
       const clipStates: ClipState[] = clips.map((clip) => ({
         id: clip._id,
         trackId: clip.trackId,
-        fileId: clip.fileId,
+        fileId: clip.audioFileId,
         startTime: clip.startTime,
         duration: clip.duration,
         audioStartTime: clip.audioStartTime,

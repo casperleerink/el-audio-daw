@@ -184,6 +184,9 @@ function ProjectEditor() {
   const tracks = useQuery(api.tracks.getProjectTracks, { projectId: id as any });
   const clips = useQuery(api.clips.getProjectClips, { projectId: id as any });
   const clipUrls = useQuery(api.clips.getProjectClipUrls, { projectId: id as any });
+  const audioFiles = useQuery(api.audioFiles.getProjectAudioFiles, { projectId: id as any });
+  // waveformUrls will be used in later tasks for waveform rendering
+  const _waveformUrls = useQuery(api.audioFiles.getProjectWaveformUrls, { projectId: id as any });
 
   const createTrack = useMutation(api.tracks.createTrack).withOptimisticUpdate(
     createTrackOptimisticUpdate,
@@ -226,6 +229,31 @@ function ProjectEditor() {
     handleCommitTrackPan,
   } = useOptimisticTrackUpdates(tracks, updateTrack, id);
 
+  // Create audioFile lookup map for duration and metadata access
+  // Keys are strings (Id<"audioFiles"> serializes to string)
+  const audioFilesMap = new Map<
+    string,
+    typeof audioFiles extends (infer T)[] | undefined ? T : never
+  >((audioFiles ?? []).map((af) => [af._id as string, af]));
+
+  // Lookup function for audio file duration (used by clip trim constraints)
+  const getAudioFileDuration = useCallback(
+    (audioFileId: string) => audioFilesMap.get(audioFileId)?.duration,
+    [audioFilesMap],
+  );
+
+  // Transform clips for audio engine (map backend format to engine format)
+  const clipsForEngine = (clips ?? []).map((clip) => ({
+    _id: clip._id,
+    trackId: clip.trackId,
+    audioFileId: clip.audioFileId,
+    name: clip.name,
+    startTime: clip.startTime,
+    duration: clip.duration,
+    audioStartTime: clip.audioStartTime,
+    gain: clip.gain,
+  }));
+
   const {
     isEngineInitializing,
     isPlaying,
@@ -239,7 +267,7 @@ function ProjectEditor() {
   } = useAudioEngine({
     sampleRate: project?.sampleRate ?? 44100,
     tracks: tracksWithOptimisticUpdates,
-    clips,
+    clips: clipsForEngine,
     clipUrls,
   });
 
@@ -272,12 +300,11 @@ function ProjectEditor() {
     const clipsWithData = clips.map((clip) => ({
       _id: clip._id,
       trackId: clip.trackId,
-      fileId: clip.fileId,
+      audioFileId: clip.audioFileId,
       name: clip.name,
       startTime: clip.startTime,
       duration: clip.duration,
       audioStartTime: clip.audioStartTime,
-      audioDuration: clip.audioDuration ?? clip.audioStartTime + clip.duration,
       gain: clip.gain,
     }));
 
@@ -300,12 +327,11 @@ function ProjectEditor() {
 
     // Build clips array with calculated start times (FR-26)
     const clipsToCreate = clipboardData.clips.map((clip) => ({
-      fileId: clip.fileId,
+      audioFileId: clip.audioFileId,
       name: clip.name,
       startTime: playheadTimeInSamples + clip.offsetFromFirst,
       duration: clip.duration,
       audioStartTime: clip.audioStartTime,
-      audioDuration: clip.audioDuration,
       gain: clip.gain,
     }));
 
@@ -643,13 +669,11 @@ function ProjectEditor() {
             clips={(clips ?? []).map((clip) => ({
               _id: clip._id,
               trackId: clip.trackId,
-              fileId: clip.fileId,
+              audioFileId: clip.audioFileId,
               name: clip.name,
               startTime: clip.startTime,
               duration: clip.duration,
               audioStartTime: clip.audioStartTime,
-              // audioDuration may not exist on older clips, fallback to audioStartTime + duration
-              audioDuration: clip.audioDuration ?? clip.audioStartTime + clip.duration,
               pending: isPending(clip),
             }))}
             sampleRate={project?.sampleRate ?? 44100}
@@ -662,6 +686,7 @@ function ProjectEditor() {
             onSelectClip={selectClip}
             onToggleClipSelection={toggleClipSelection}
             onClearSelection={clearSelection}
+            getAudioFileDuration={getAudioFileDuration}
           />
         </div>
       </div>
@@ -682,6 +707,8 @@ interface TimelineCanvasProps {
   onSelectClip: (clipId: string, trackId: string) => void;
   onToggleClipSelection: (clipId: string, trackId: string) => void;
   onClearSelection: () => void;
+  /** Lookup function for audio file duration (for trim constraints) */
+  getAudioFileDuration: (audioFileId: string) => number | undefined;
 }
 
 function TimelineCanvas({
@@ -697,6 +724,7 @@ function TimelineCanvas({
   onSelectClip,
   onToggleClipSelection,
   onClearSelection,
+  getAudioFileDuration,
 }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -772,6 +800,7 @@ function TimelineCanvas({
     projectId,
     findClipAtPosition,
     trimClip,
+    getAudioFileDuration,
   });
 
   // Coordinate clip mouse handlers (trim and drag)
