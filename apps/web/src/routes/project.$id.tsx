@@ -26,6 +26,7 @@ import { useClipClipboard } from "@/hooks/useClipClipboard";
 import { useClipDrag, type ClipData } from "@/hooks/useClipDrag";
 import { useClipSelection } from "@/hooks/useClipSelection";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
+import { useProjectKeyboardShortcuts } from "@/hooks/useProjectKeyboardShortcuts";
 import { useTimelineCanvasEvents } from "@/hooks/useTimelineCanvasEvents";
 import { useTimelineFileDrop } from "@/hooks/useTimelineFileDrop";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
@@ -447,73 +448,16 @@ function ProjectEditor() {
   }, [updateProject, id, projectName, project]);
 
   // Handle keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if focus is in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      // Spacebar: toggle play/stop
-      if (e.code === "Space") {
-        e.preventDefault();
-        handleTogglePlayStop();
-      }
-
-      // Cmd+T / Ctrl+T: add track
-      if ((e.metaKey || e.ctrlKey) && e.code === "KeyT") {
-        e.preventDefault();
-        handleAddTrack();
-      }
-
-      // FR-6: Escape deselects all clips
-      if (e.code === "Escape") {
-        clearSelection();
-      }
-
-      // FR-4: Cmd+A / Ctrl+A selects all clips on focused track
-      if ((e.metaKey || e.ctrlKey) && e.code === "KeyA") {
-        e.preventDefault();
-        selectAllOnFocusedTrack();
-      }
-
-      // FR-10: Delete or Backspace deletes all selected clips
-      if (e.code === "Delete" || e.code === "Backspace") {
-        e.preventDefault();
-        handleDeleteSelectedClips();
-      }
-
-      // FR-23: Cmd+C / Ctrl+C copies selected clips to clipboard
-      if ((e.metaKey || e.ctrlKey) && e.code === "KeyC") {
-        e.preventDefault();
-        handleCopyClips();
-      }
-
-      // FR-25: Cmd+V / Ctrl+V pastes clips at playhead position
-      if ((e.metaKey || e.ctrlKey) && e.code === "KeyV") {
-        e.preventDefault();
-        handlePasteClips();
-      }
-
-      // FR-38: Cmd+E / Ctrl+E splits selected clips at playhead
-      if ((e.metaKey || e.ctrlKey) && e.code === "KeyE") {
-        e.preventDefault();
-        handleSplitClips();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    handleTogglePlayStop,
-    handleAddTrack,
-    clearSelection,
-    selectAllOnFocusedTrack,
-    handleDeleteSelectedClips,
-    handleCopyClips,
-    handlePasteClips,
-    handleSplitClips,
-  ]);
+  useProjectKeyboardShortcuts({
+    onTogglePlayStop: handleTogglePlayStop,
+    onAddTrack: handleAddTrack,
+    onClearSelection: clearSelection,
+    onSelectAllOnFocusedTrack: selectAllOnFocusedTrack,
+    onDeleteSelectedClips: handleDeleteSelectedClips,
+    onCopyClips: handleCopyClips,
+    onPasteClips: handlePasteClips,
+    onSplitClips: handleSplitClips,
+  });
 
   // Loading state
   if (project === undefined || tracks === undefined) {
