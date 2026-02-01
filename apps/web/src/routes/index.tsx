@@ -20,7 +20,6 @@ import { useSuspenseQuery, useZero } from "@rocicorp/zero/react";
 import { queries } from "@el-audio-daw/zero/queries";
 import { Authenticated, AuthLoading, Unauthenticated } from "@/components/util/auth";
 import { mutators } from "@el-audio-daw/zero/mutators";
-import { randomUUID } from "crypto";
 
 export const Route = createFileRoute("/")({
   component: DashboardComponent,
@@ -66,8 +65,8 @@ function ProjectDashboard() {
 
   const handleCreateProject = async () => {
     try {
-      const projectId = randomUUID();
-      const projectUserId = randomUUID();
+      const projectId = crypto.randomUUID();
+      const projectUserId = crypto.randomUUID();
       await z.mutate(
         mutators.projects.create({
           id: projectId,

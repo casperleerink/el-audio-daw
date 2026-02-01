@@ -1,6 +1,4 @@
 import { Hono, type Context } from "hono";
-import { getCookie } from "hono/cookie";
-import { auth } from "@el-audio-daw/auth";
 import { getPresignedUploadUrl, getPresignedDownloadUrl } from "./r2.js";
 import { db } from "@el-audio-daw/db";
 import { projectUsers } from "@el-audio-daw/db/schema";
@@ -9,24 +7,27 @@ import { eq, and } from "drizzle-orm";
 export const uploadRoutes = new Hono();
 
 async function getUserId(c: Context): Promise<string | null> {
-  const sessionToken = getCookie(c, "better-auth.session_token");
-
-  if (!sessionToken) {
+  const user = c.get("user");
+  if (!user) {
     return null;
   }
 
-  const session = await auth.api.getSession({
-    headers: c.req.raw.headers,
-  });
-
-  return session?.user?.id ?? null;
+  return user.id;
 }
 
-async function userHasProjectAccess(userId: string, projectId: string): Promise<boolean> {
+async function userHasProjectAccess(
+  userId: string,
+  projectId: string
+): Promise<boolean> {
   const result = await db
     .select()
     .from(projectUsers)
-    .where(and(eq(projectUsers.userId, userId), eq(projectUsers.projectId, projectId)))
+    .where(
+      and(
+        eq(projectUsers.userId, userId),
+        eq(projectUsers.projectId, projectId)
+      )
+    )
     .limit(1);
 
   return result.length > 0;
@@ -49,7 +50,10 @@ uploadRoutes.post("/upload", async (c) => {
   const { projectId, filename, contentType } = body;
 
   if (!projectId || !filename || !contentType) {
-    return c.json({ error: "Missing required fields: projectId, filename, contentType" }, 400);
+    return c.json(
+      { error: "Missing required fields: projectId, filename, contentType" },
+      400
+    );
   }
 
   // Validate user has access to project

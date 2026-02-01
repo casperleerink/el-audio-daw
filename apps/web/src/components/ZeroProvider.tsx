@@ -10,7 +10,7 @@ import type { Zero } from "@rocicorp/zero";
 export function ZeroProvider({ children }: PropsWithChildren) {
   const router = useRouter();
   const { data: session } = authClient.useSession();
-  const userID = session?.user?.id ?? "";
+  const userID = session?.user?.id ?? "anon";
 
   const init = useCallback(
     (zero: Zero) => {
@@ -22,7 +22,7 @@ export function ZeroProvider({ children }: PropsWithChildren) {
       });
       router.invalidate();
     },
-    [router],
+    [router]
   );
 
   return (

@@ -2,13 +2,18 @@ import { authClient } from "@/lib/auth-client";
 
 export const Authenticated = ({ children }: { children: React.ReactNode }) => {
   const { data: session } = authClient.useSession();
+  console.log("session", session);
   if (!session) {
     return null;
   }
   return children;
 };
 
-export const Unauthenticated = ({ children }: { children: React.ReactNode }) => {
+export const Unauthenticated = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
   const { data: session } = authClient.useSession();
   if (session) {
     return null;
