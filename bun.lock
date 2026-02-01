@@ -154,11 +154,23 @@
         "typescript": "catalog:",
       },
     },
+    "packages/schemas": {
+      "name": "@el-audio-daw/schemas",
+      "version": "0.0.0",
+      "dependencies": {
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@el-audio-daw/config": "workspace:*",
+        "typescript": "catalog:",
+      },
+    },
     "packages/zero": {
       "name": "@el-audio-daw/zero",
       "version": "0.0.0",
       "dependencies": {
         "@el-audio-daw/db": "workspace:*",
+        "@el-audio-daw/schemas": "workspace:*",
         "@rocicorp/zero": "catalog:",
         "zod": "catalog:",
       },
@@ -313,6 +325,8 @@
     "@el-audio-daw/db": ["@el-audio-daw/db@workspace:packages/db"],
 
     "@el-audio-daw/env": ["@el-audio-daw/env@workspace:packages/env"],
+
+    "@el-audio-daw/schemas": ["@el-audio-daw/schemas@workspace:packages/schemas"],
 
     "@el-audio-daw/zero": ["@el-audio-daw/zero@workspace:packages/zero"],
 

@@ -1,5 +1,6 @@
 import { defineMutator, defineMutators } from "@rocicorp/zero";
 import { z } from "zod";
+import { effectDataSchema } from "@el-audio-daw/schemas/effects";
 import { zql } from "./schema.gen";
 
 export const mutators = defineMutators({
@@ -328,6 +329,108 @@ export const mutators = defineMutators({
         if (!access) throw new Error("Not authorized");
 
         await tx.mutate.clips.delete({ id });
+      },
+    ),
+  },
+
+  trackEffects: {
+    create: defineMutator(
+      z.object({
+        id: z.uuid(),
+        trackId: z.string().uuid(),
+        order: z.number().int().min(0),
+        enabled: z.boolean().default(true),
+        effectData: effectDataSchema,
+      }),
+      async ({ tx, ctx: { userID }, args: { id, trackId, order, enabled, effectData } }) => {
+        const track = await tx.run(zql.tracks.where("id", trackId).one());
+        if (!track) throw new Error("Track not found");
+
+        const access = await tx.run(
+          zql.projectUsers.where("projectId", track.projectId).where("userId", userID).one(),
+        );
+        if (!access) throw new Error("Not authorized");
+
+        const now = Date.now();
+        await tx.mutate.trackEffects.insert({
+          id,
+          trackId,
+          order,
+          enabled,
+          effectData,
+          createdAt: now,
+          updatedAt: now,
+        });
+      },
+    ),
+
+    update: defineMutator(
+      z.object({
+        id: z.string().uuid(),
+        enabled: z.boolean().optional(),
+        effectData: effectDataSchema.optional(),
+      }),
+      async ({ tx, ctx: { userID }, args: { id, enabled, effectData } }) => {
+        const effect = await tx.run(zql.trackEffects.where("id", id).one());
+        if (!effect) throw new Error("Effect not found");
+
+        const track = await tx.run(zql.tracks.where("id", effect.trackId).one());
+        if (!track) throw new Error("Track not found");
+
+        const access = await tx.run(
+          zql.projectUsers.where("projectId", track.projectId).where("userId", userID).one(),
+        );
+        if (!access) throw new Error("Not authorized");
+
+        await tx.mutate.trackEffects.update({
+          id,
+          ...(enabled !== undefined && { enabled }),
+          ...(effectData !== undefined && { effectData }),
+          updatedAt: Date.now(),
+        });
+      },
+    ),
+
+    reorder: defineMutator(
+      z.object({
+        trackId: z.string().uuid(),
+        effectIds: z.array(z.string().uuid()),
+      }),
+      async ({ tx, ctx: { userID }, args: { trackId, effectIds } }) => {
+        const track = await tx.run(zql.tracks.where("id", trackId).one());
+        if (!track) throw new Error("Track not found");
+
+        const access = await tx.run(
+          zql.projectUsers.where("projectId", track.projectId).where("userId", userID).one(),
+        );
+        if (!access) throw new Error("Not authorized");
+
+        const now = Date.now();
+        for (const [index, effectId] of effectIds.entries()) {
+          await tx.mutate.trackEffects.update({
+            id: effectId,
+            order: index,
+            updatedAt: now,
+          });
+        }
+      },
+    ),
+
+    delete: defineMutator(
+      z.object({ id: z.string().uuid() }),
+      async ({ tx, ctx: { userID }, args: { id } }) => {
+        const effect = await tx.run(zql.trackEffects.where("id", id).one());
+        if (!effect) throw new Error("Effect not found");
+
+        const track = await tx.run(zql.tracks.where("id", effect.trackId).one());
+        if (!track) throw new Error("Track not found");
+
+        const access = await tx.run(
+          zql.projectUsers.where("projectId", track.projectId).where("userId", userID).one(),
+        );
+        if (!access) throw new Error("Not authorized");
+
+        await tx.mutate.trackEffects.delete({ id });
       },
     ),
   },

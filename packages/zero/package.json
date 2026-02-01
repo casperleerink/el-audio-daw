@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@el-audio-daw/db": "workspace:*",
+    "@el-audio-daw/schemas": "workspace:*",
     "@rocicorp/zero": "catalog:",
     "zod": "catalog:"
   },
