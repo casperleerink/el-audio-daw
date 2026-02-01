@@ -12,6 +12,7 @@ import { generateWaveformBinary } from "@/lib/waveformGenerator";
 import { useSyncRef } from "./useSyncRef";
 import { useZeroAudioFiles } from "./useZeroAudioFiles";
 import { useZeroClips } from "./useZeroClips";
+import { env } from "@el-audio-daw/env/web";
 
 // Audio file constants
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
@@ -102,7 +103,7 @@ async function requestUploadUrl(
   filename: string,
   contentType: string,
 ): Promise<UploadResponse> {
-  const response = await fetch("/api/storage/upload", {
+  const response = await fetch(`${env.VITE_BETTER_AUTH_URL}/api/storage/upload`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",

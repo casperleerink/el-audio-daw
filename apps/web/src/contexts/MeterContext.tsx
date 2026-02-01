@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
-import type { MeterValue } from "@/hooks/useMeterValues";
+import type { MeterValue } from "@el-audio-daw/audio";
 
 export type { MeterValue };
 

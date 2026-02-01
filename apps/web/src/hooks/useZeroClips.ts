@@ -72,7 +72,7 @@ export function useZeroClips(projectId: string | undefined) {
           audioStartTime: args.audioStartTime ?? 0,
           gain: args.gain ?? 0,
         }),
-      );
+      ).client;
       return id;
     },
     [zero],
@@ -80,21 +80,21 @@ export function useZeroClips(projectId: string | undefined) {
 
   const updateClip = useCallback(
     async (args: UpdateClipArgs) => {
-      await zero.mutate(mutators.clips.update(args));
+      await zero.mutate(mutators.clips.update(args)).client;
     },
     [zero],
   );
 
   const moveClip = useCallback(
     async (args: MoveClipArgs) => {
-      await zero.mutate(mutators.clips.move(args));
+      await zero.mutate(mutators.clips.move(args)).client;
     },
     [zero],
   );
 
   const deleteClip = useCallback(
     async (id: string) => {
-      await zero.mutate(mutators.clips.delete({ id }));
+      await zero.mutate(mutators.clips.delete({ id })).client;
     },
     [zero],
   );
@@ -121,7 +121,7 @@ export function useZeroClips(projectId: string | undefined) {
             audioStartTime: clip.audioStartTime,
             gain: clip.gain ?? 0,
           }),
-        );
+        ).client;
       }
       return ids;
     },
@@ -153,7 +153,7 @@ export function useZeroClips(projectId: string | undefined) {
           id: clip.id,
           duration: leftDuration,
         }),
-      );
+      ).client;
 
       // Create the right clip
       const rightId = crypto.randomUUID();
@@ -169,7 +169,7 @@ export function useZeroClips(projectId: string | undefined) {
           audioStartTime: rightAudioStartTime,
           gain: clip.gain ?? 0,
         }),
-      );
+      ).client;
 
       return rightId;
     },

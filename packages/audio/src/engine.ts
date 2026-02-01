@@ -79,6 +79,9 @@ export interface MeterValue {
 
 type MeterCallback = (meters: Map<string, MeterValue>) => void;
 
+/** Setter function returned by createRef for updating node properties */
+type RefSetter = (props: { value: number }) => Promise<unknown>;
+
 export class AudioEngine {
   private core: WebRenderer;
   private ctx: AudioContext | null = null;
@@ -102,6 +105,11 @@ export class AudioEngine {
   private meterValues: Map<string, MeterValue> = new Map();
   /** Callbacks for meter updates */
   private meterCallbacks: Set<MeterCallback> = new Set();
+  /** Refs for track gain updates (enables direct parameter updates without graph rebuild) */
+  private trackGainRefs: Map<string, RefSetter> = new Map();
+  /** Refs for track pan updates */
+  private trackPanLeftRefs: Map<string, RefSetter> = new Map();
+  private trackPanRightRefs: Map<string, RefSetter> = new Map();
 
   constructor() {
     this.core = new WebRenderer();
@@ -254,6 +262,52 @@ export class AudioEngine {
   }
 
   /**
+   * Update a single track's gain without full graph re-render.
+   * Uses refs for efficient parameter updates during continuous changes (e.g., slider drag).
+   * Only updates refs when playing - when stopped, silence is rendered and refs aren't mounted.
+   */
+  setTrackGain(trackId: string, gainDb: number): void {
+    // Update state (for consistency if renderGraph is called later)
+    const track = this.state.tracks.find((t) => t.id === trackId);
+    if (track) {
+      track.gain = gainDb;
+    }
+
+    // Use ref for direct update if available and playing (no graph rebuild)
+    // When not playing, silence is rendered and refs are not mounted
+    const setter = this.trackGainRefs.get(trackId);
+    if (setter && this.playing) {
+      // Determine if track should be audible
+      const anySoloed = this.state.tracks.some((t) => t.solo);
+      const shouldPlay = anySoloed ? track?.solo : !track?.muted;
+      const gainValue = shouldPlay ? dbToGain(gainDb) : 0;
+      setter({ value: gainValue });
+    }
+  }
+
+  /**
+   * Update a single track's pan without full graph re-render.
+   * Only updates refs when playing - when stopped, silence is rendered and refs aren't mounted.
+   */
+  setTrackPan(trackId: string, pan: number): void {
+    // Update state
+    const track = this.state.tracks.find((t) => t.id === trackId);
+    if (track) {
+      track.pan = pan;
+    }
+
+    // Use refs for direct update if available and playing
+    // When not playing, silence is rendered and refs are not mounted
+    const leftSetter = this.trackPanLeftRefs.get(trackId);
+    const rightSetter = this.trackPanRightRefs.get(trackId);
+    if (leftSetter && rightSetter && this.playing) {
+      const panAngle = ((pan + 1) * Math.PI) / 4;
+      leftSetter({ value: Math.cos(panAngle) });
+      rightSetter({ value: Math.sin(panAngle) });
+    }
+  }
+
+  /**
    * Update clip states (FR-19)
    * Clips are rendered at their timeline positions using el.sampleseq
    */
@@ -291,6 +345,9 @@ export class AudioEngine {
     this.playing = false;
     this.playheadCallbacks.clear();
     this.vfsEntries.clear();
+    this.trackGainRefs.clear();
+    this.trackPanLeftRefs.clear();
+    this.trackPanRightRefs.clear();
   }
 
   // ==================== VFS Methods ====================
@@ -694,9 +751,12 @@ export class AudioEngine {
       );
 
       // Apply track gain with smoothing (FR-20)
-      const smoothedGain = el.sm(
-        el.const({ key: `track-${track.id}-gain`, value: trackGainValue }),
-      );
+      // Use createRef for efficient parameter updates during slider drag
+      const gainRef = this.core.createRef("const", { value: trackGainValue }, []);
+      const gainNode = gainRef[0] as NodeRepr_t;
+      const gainSetter = gainRef[1] as RefSetter;
+      this.trackGainRefs.set(track.id, gainSetter);
+      const smoothedGain = el.sm(gainNode);
 
       const gainedLeft = el.mul(smoothedGain, trackLeft);
       const gainedRight = el.mul(smoothedGain, trackRight);
@@ -705,12 +765,19 @@ export class AudioEngine {
       // pan: -1 (left) to +1 (right), convert to angle: 0 to π/2
       const panValue = track.pan ?? 0;
       const panAngle = ((panValue + 1) * Math.PI) / 4;
-      const smoothedPanLeft = el.sm(
-        el.const({ key: `track-${track.id}-pan-l`, value: Math.cos(panAngle) }),
-      );
-      const smoothedPanRight = el.sm(
-        el.const({ key: `track-${track.id}-pan-r`, value: Math.sin(panAngle) }),
-      );
+      // Use createRef for pan values too
+      const panLeftRef = this.core.createRef("const", { value: Math.cos(panAngle) }, []);
+      const panLeftNode = panLeftRef[0] as NodeRepr_t;
+      const panLeftSetter = panLeftRef[1] as RefSetter;
+
+      const panRightRef = this.core.createRef("const", { value: Math.sin(panAngle) }, []);
+      const panRightNode = panRightRef[0] as NodeRepr_t;
+      const panRightSetter = panRightRef[1] as RefSetter;
+
+      this.trackPanLeftRefs.set(track.id, panLeftSetter);
+      this.trackPanRightRefs.set(track.id, panRightSetter);
+      const smoothedPanLeft = el.sm(panLeftNode);
+      const smoothedPanRight = el.sm(panRightNode);
 
       const pannedLeft = el.mul(smoothedPanLeft, gainedLeft);
       const pannedRight = el.mul(smoothedPanRight, gainedRight);
