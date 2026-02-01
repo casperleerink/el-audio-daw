@@ -1,28 +1,20 @@
-import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
-import { env } from "@el-audio-daw/env/web";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
-import { ConvexReactClient } from "convex/react";
 import ReactDOM from "react-dom/client";
-
-import { authClient } from "@/lib/auth-client";
-
 import Loader from "./components/loader";
-import { ZeroProvider } from "./components/ZeroProvider";
 import { routeTree } from "./routeTree.gen";
-const convex = new ConvexReactClient(env.VITE_CONVEX_URL);
+import { Zero } from "@rocicorp/zero";
+
+export interface RouterContext {
+  zero: Zero;
+}
 
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",
   defaultPendingComponent: () => <Loader />,
-  context: {},
-  Wrap: function WrapComponent({ children }: { children: React.ReactNode }) {
-    return (
-      <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-        <ZeroProvider>{children}</ZeroProvider>
-      </ConvexBetterAuthProvider>
-    );
-  },
+  context: {
+    zero: undefined as unknown as Zero,
+  } satisfies RouterContext,
 });
 
 declare module "@tanstack/react-router" {

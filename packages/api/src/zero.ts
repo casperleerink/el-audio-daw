@@ -1,6 +1,4 @@
 import { Hono, type Context } from "hono";
-import { getCookie } from "hono/cookie";
-import { auth } from "@el-audio-daw/auth";
 import { queries } from "@el-audio-daw/zero/queries";
 import { mutators } from "@el-audio-daw/zero/mutators";
 import { schema } from "@el-audio-daw/zero/schema";
@@ -12,21 +10,14 @@ import { dbProvider } from "./database-adapter";
 export const zeroRoutes = new Hono();
 
 async function getContext(c: Context): Promise<ZeroContext> {
-  const sessionToken = getCookie(c, "better-auth.session_token");
+  const session = c.get("session");
+  const user = c.get("user");
 
-  if (!sessionToken) {
-    return { userID: "" };
+  if (!session || !user) {
+    return { userID: "anon" };
   }
 
-  const session = await auth.api.getSession({
-    headers: c.req.raw.headers,
-  });
-
-  if (!session?.user) {
-    return { userID: "" };
-  }
-
-  return { userID: session.user.id };
+  return { userID: user.id };
 }
 
 zeroRoutes.post("/query", async (c) => {
@@ -38,7 +29,7 @@ zeroRoutes.post("/query", async (c) => {
       return query.fn({ args, ctx });
     },
     schema,
-    c.req.raw,
+    c.req.raw
   );
 
   return c.json(result);
@@ -58,7 +49,7 @@ zeroRoutes.post("/mutate", async (c) => {
           ctx,
         });
       }),
-    c.req.raw,
+    c.req.raw
   );
 
   return c.json(result);

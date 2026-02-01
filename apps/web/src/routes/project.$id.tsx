@@ -1,7 +1,4 @@
-import { api } from "@el-audio-daw/backend/convex/_generated/api";
-import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
 
 import {
   ArrowLeft,
@@ -40,23 +37,8 @@ import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { renderTimeline } from "@/lib/canvasRenderer";
 import { fetchWaveform, clearWaveformCache, type WaveformData } from "@/lib/waveformCache";
 import { formatGain, formatTime } from "@/lib/formatters";
-import { isPending, showRollbackToast } from "@/lib/optimistic";
 import { cancelUploadsForTrack } from "@/lib/uploadRegistry";
 import { CLIP_PADDING, RULER_HEIGHT, TRACK_HEIGHT } from "@/lib/timelineConstants";
-import {
-  createTrackOptimisticUpdate,
-  deleteTrackOptimisticUpdate,
-  reorderTracksOptimisticUpdate,
-  updateTrackOptimisticUpdate,
-} from "@/lib/trackOptimisticUpdates";
-import {
-  deleteClipOptimisticUpdate,
-  pasteClipsOptimisticUpdate,
-  splitClipOptimisticUpdate,
-  trimClipOptimisticUpdate,
-  updateClipPositionOptimisticUpdate,
-} from "@/lib/clipOptimisticUpdates";
-import { updateProjectOptimisticUpdate } from "@/lib/projectOptimisticUpdates";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -73,9 +55,19 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
+import { queries } from "@el-audio-daw/zero/queries";
+import { mutators } from "@el-audio-daw/zero/mutators";
+import { Authenticated, AuthLoading, Unauthenticated } from "@/components/util/auth";
+import { useQuery, useZero } from "@rocicorp/zero/react";
 
 export const Route = createFileRoute("/project/$id")({
   component: ProjectEditorPage,
+  loader: async ({ context, params }) => {
+    const { zero } = context;
+
+    // Preload project with all tracks, clips, effects and audio files for the project
+    await zero.preload(queries.projects.byId({ id: params.id })).complete;
+  },
 });
 
 function ProjectEditorPage() {
@@ -183,68 +175,86 @@ function ProjectEditorSkeleton() {
 }
 
 function ProjectEditor() {
+  const z = useZero();
   const { id } = Route.useParams();
   const navigate = useNavigate();
 
-  const project = useQuery(api.projects.getProject, { id: id as any });
-  const tracks = useQuery(api.tracks.getProjectTracks, { projectId: id as any });
-  const clips = useQuery(api.clips.getProjectClips, { projectId: id as any });
-  const clipUrls = useQuery(api.clips.getProjectClipUrls, { projectId: id as any });
-  const audioFiles = useQuery(api.audioFiles.getProjectAudioFiles, { projectId: id as any });
-  const waveformUrls = useQuery(api.audioFiles.getProjectWaveformUrls, { projectId: id as any });
+  // Single query loads project with all related data (tracks, clips, audioFiles, effects)
+  const [project] = useQuery(queries.projects.byId({ id: id }));
 
-  const createTrack = useMutation(api.tracks.createTrack).withOptimisticUpdate(
-    createTrackOptimisticUpdate,
-  );
-  const updateTrack = useMutation(api.tracks.updateTrack).withOptimisticUpdate(
-    updateTrackOptimisticUpdate,
-  );
-  const deleteTrack = useMutation(api.tracks.deleteTrack).withOptimisticUpdate(
-    deleteTrackOptimisticUpdate,
-  );
-  const reorderTracks = useMutation(api.tracks.reorderTracks).withOptimisticUpdate(
-    reorderTracksOptimisticUpdate,
-  );
-  const updateProject = useMutation(api.projects.updateProject).withOptimisticUpdate(
-    updateProjectOptimisticUpdate,
-  );
-  const deleteClip = useMutation(api.clips.deleteClip).withOptimisticUpdate(
-    deleteClipOptimisticUpdate,
-  );
-  const pasteClips = useMutation(api.clips.pasteClips).withOptimisticUpdate(
-    pasteClipsOptimisticUpdate,
-  );
-  const splitClip = useMutation(api.clips.splitClip).withOptimisticUpdate(
-    splitClipOptimisticUpdate,
-  );
+  // Extract related data from project (already synced via .related() in the query)
+  const tracks = project?.tracks ?? [];
+  const clips = project?.clips ?? [];
+  const audioFiles = project?.audioFiles ?? [];
+
+  // Build clipUrls and waveformUrls from audioFiles (they have storageUrl and waveformUrl)
+  const clipUrls = useMemo(() => {
+    const urls: Record<string, string> = {};
+    for (const clip of clips) {
+      const audioFile = clip.audioFile;
+      if (audioFile?.storageUrl) {
+        urls[clip.id] = audioFile.storageUrl;
+      }
+    }
+    return urls;
+  }, [clips]);
+
+  const waveformUrls = useMemo(() => {
+    const urls: Record<string, string | null> = {};
+    for (const audioFile of audioFiles) {
+      urls[audioFile.id] = audioFile.waveformUrl ?? null;
+    }
+    return urls;
+  }, [audioFiles]);
 
   // Track selection for effects panel
   const [selectedTrackIdForEffects, setSelectedTrackIdForEffects] = useState<string | null>(null);
   const [selectedEffectId, setSelectedEffectId] = useState<string | null>(null);
   const [addEffectDialogOpen, setAddEffectDialogOpen] = useState(false);
 
-  // Effects query for selected track (UI display)
-  const effects = useQuery(
-    api.trackEffects.getTrackEffects,
-    selectedTrackIdForEffects ? { trackId: selectedTrackIdForEffects as Id<"tracks"> } : "skip",
-  );
+  // Effects for selected track (from the already-loaded tracks data)
+  const effects = useMemo(() => {
+    if (!selectedTrackIdForEffects) return [];
+    const track = tracks.find((t) => t.id === selectedTrackIdForEffects);
+    return track?.effects ?? [];
+  }, [tracks, selectedTrackIdForEffects]);
 
-  // Effects query for all project tracks (audio engine)
-  const allProjectEffects = useQuery(api.trackEffects.getProjectEffects, {
-    projectId: id as Id<"projects">,
-  });
-
-  // Effect mutations
-  const createEffect = useMutation(api.trackEffects.createEffect);
-  const updateEffect = useMutation(api.trackEffects.updateEffect);
-  const deleteEffect = useMutation(api.trackEffects.deleteEffect);
-  const reorderEffect = useMutation(api.trackEffects.reorderEffect);
+  // All effects for audio engine (flattened from all tracks)
+  const allProjectEffects = useMemo(() => {
+    return tracks.flatMap((t) => t.effects ?? []);
+  }, [tracks]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [scrollTop, setScrollTop] = useState(0);
 
   const trackListRef = useRef<HTMLDivElement>(null);
+
+  // Zero mutation wrapper for track updates (used by useOptimisticTrackUpdates)
+  const updateTrack = useCallback(
+    async (args: { id: string; muted?: boolean; solo?: boolean; gain?: number; pan?: number }) => {
+      const { id: trackId, ...updates } = args;
+      await z.mutate(mutators.tracks.update({ id: trackId, ...updates })).client;
+    },
+    [z],
+  );
+
+  // Transform tracks to match expected format for useOptimisticTrackUpdates
+  const tracksForOptimistic = useMemo(
+    () =>
+      tracks.map((t) => ({
+        _id: t.id,
+        muted: t.muted ?? false,
+        solo: t.solo ?? false,
+        gain: t.gain ?? 0,
+        pan: t.pan ?? 0,
+        name: t.name,
+        order: t.order,
+        color: t.color,
+        projectId: t.projectId,
+      })),
+    [tracks],
+  );
 
   const {
     tracksWithOptimisticUpdates,
@@ -254,14 +264,10 @@ function ProjectEditor() {
     handleCommitTrackGain,
     handleUpdateTrackPan,
     handleCommitTrackPan,
-  } = useOptimisticTrackUpdates(tracks, updateTrack, id);
+  } = useOptimisticTrackUpdates(tracksForOptimistic, updateTrack, id);
 
   // Create audioFile lookup map for duration and metadata access
-  // Keys are strings (Id<"audioFiles"> serializes to string)
-  const audioFilesMap = new Map<
-    string,
-    typeof audioFiles extends (infer T)[] | undefined ? T : never
-  >((audioFiles ?? []).map((af) => [af._id as string, af]));
+  const audioFilesMap = useMemo(() => new Map(audioFiles.map((af) => [af.id, af])), [audioFiles]);
 
   // Lookup function for audio file duration (used by clip trim constraints)
   const getAudioFileDuration = useCallback(
@@ -270,25 +276,29 @@ function ProjectEditor() {
   );
 
   // Transform clips for audio engine (map backend format to engine format)
-  const clipsForEngine = (clips ?? []).map((clip) => ({
-    _id: clip._id,
-    trackId: clip.trackId,
-    audioFileId: clip.audioFileId,
-    name: clip.name,
-    startTime: clip.startTime,
-    duration: clip.duration,
-    audioStartTime: clip.audioStartTime,
-    gain: clip.gain,
-  }));
+  const clipsForEngine = useMemo(
+    () =>
+      clips.map((clip) => ({
+        _id: clip.id,
+        trackId: clip.trackId,
+        audioFileId: clip.audioFileId,
+        name: clip.name,
+        startTime: clip.startTime,
+        duration: clip.duration,
+        audioStartTime: clip.audioStartTime,
+        gain: clip.gain ?? 0,
+      })),
+    [clips],
+  );
 
   // Transform effects for audio engine
   const effectsForEngine = useMemo(
     () =>
-      (allProjectEffects ?? []).map((e) => ({
-        id: e._id,
+      allProjectEffects.map((e) => ({
+        id: e.id,
         trackId: e.trackId,
         order: e.order,
-        enabled: e.enabled,
+        enabled: e.enabled ?? true,
         effectData: e.effectData as {
           type: "filter";
           cutoff: number;
@@ -318,11 +328,15 @@ function ProjectEditor() {
   });
 
   // Clip selection state (FR-1 through FR-9)
-  const clipsForSelection = (clips ?? []).map((clip) => ({
-    _id: clip._id,
-    trackId: clip.trackId,
-    pending: isPending(clip),
-  }));
+  const clipsForSelection = useMemo(
+    () =>
+      clips.map((clip) => ({
+        _id: clip.id,
+        trackId: clip.trackId,
+        pending: false, // Zero mutations are instant, no pending state
+      })),
+    [clips],
+  );
   const {
     selectedClipIds,
     focusedTrackId,
@@ -340,18 +354,18 @@ function ProjectEditor() {
 
   // Copy selected clips handler (FR-23, FR-24)
   const handleCopyClips = useCallback(() => {
-    if (selectedClipIds.size === 0 || !clips) return;
+    if (selectedClipIds.size === 0 || clips.length === 0) return;
 
     // Get full clip data for selected clips
     const clipsWithData = clips.map((clip) => ({
-      _id: clip._id,
+      _id: clip.id,
       trackId: clip.trackId,
       audioFileId: clip.audioFileId,
       name: clip.name,
       startTime: clip.startTime,
       duration: clip.duration,
       audioStartTime: clip.audioStartTime,
-      gain: clip.gain,
+      gain: clip.gain ?? 0,
     }));
 
     copyClips(selectedClipIds, clipsWithData);
@@ -371,27 +385,23 @@ function ProjectEditor() {
     // Convert playhead time (seconds) to samples
     const playheadTimeInSamples = Math.round(playheadTime * sampleRate);
 
-    // Build clips array with calculated start times (FR-26)
-    const clipsToCreate = clipboardData.clips.map((clip) => ({
-      audioFileId: clip.audioFileId,
-      name: clip.name,
-      startTime: playheadTimeInSamples + clip.offsetFromFirst,
-      duration: clip.duration,
-      audioStartTime: clip.audioStartTime,
-      gain: clip.gain,
-    }));
-
-    // FR-29: Use optimistic updates
-    try {
-      await pasteClips({
-        projectId: id as any,
-        trackId: targetTrackId as any,
-        clips: clipsToCreate,
-      });
-    } catch {
-      showRollbackToast("paste clips");
+    // Create all clips using Zero mutator
+    for (const clip of clipboardData.clips) {
+      await z.mutate(
+        mutators.clips.create({
+          id: crypto.randomUUID(),
+          projectId: id,
+          trackId: targetTrackId,
+          audioFileId: clip.audioFileId,
+          name: clip.name,
+          startTime: playheadTimeInSamples + clip.offsetFromFirst,
+          duration: clip.duration,
+          audioStartTime: clip.audioStartTime,
+          gain: clip.gain,
+        }),
+      );
     }
-  }, [hasClips, getClipboardData, playheadTime, sampleRate, pasteClips, id]);
+  }, [hasClips, getClipboardData, playheadTime, sampleRate, z, id]);
 
   // Delete selected clips handler (FR-10 through FR-13)
   const handleDeleteSelectedClips = useCallback(async () => {
@@ -403,28 +413,23 @@ function ProjectEditor() {
     // Clear selection first (optimistic behavior - clips will be gone)
     clearSelection();
 
-    // Delete all selected clips in parallel (FR-11: optimistic updates)
-    const deletePromises = clipIdsToDelete.map((clipId) =>
-      deleteClip({ id: clipId as any, projectId: id as any }).catch(() => {
-        // FR-12: On failure, show rollback toast (clip will reappear via Convex rollback)
-        showRollbackToast("delete clip");
-      }),
-    );
-
-    await Promise.all(deletePromises);
-  }, [selectedClipIds, clearSelection, deleteClip, id]);
+    // Delete all selected clips using Zero mutator
+    for (const clipId of clipIdsToDelete) {
+      await z.mutate(mutators.clips.delete({ id: clipId }));
+    }
+  }, [selectedClipIds, clearSelection, z]);
 
   // Split selected clips at playhead handler (FR-38 through FR-45)
   const handleSplitClips = useCallback(async () => {
     // FR-38: Split all selected clips at playhead position
-    if (selectedClipIds.size === 0 || !clips) return;
+    if (selectedClipIds.size === 0 || clips.length === 0) return;
 
     // Convert playhead time (seconds) to samples
     const playheadTimeInSamples = Math.round(playheadTime * sampleRate);
 
     // FR-39: Find selected clips that span the playhead
     const clipsToSplit = clips.filter((clip) => {
-      if (!selectedClipIds.has(clip._id)) return false;
+      if (!selectedClipIds.has(clip.id)) return false;
       // Check if playhead is within clip bounds (exclusive of edges)
       const clipEnd = clip.startTime + clip.duration;
       return playheadTimeInSamples > clip.startTime && playheadTimeInSamples < clipEnd;
@@ -436,19 +441,37 @@ function ProjectEditor() {
     // FR-43: Clear selection (neither resulting clip will be selected)
     clearSelection();
 
-    // FR-45: Split all qualifying clips in parallel with optimistic updates
-    const splitPromises = clipsToSplit.map((clip) =>
-      splitClip({
-        id: clip._id as any,
-        splitTime: playheadTimeInSamples,
-        projectId: id as any,
-      }).catch(() => {
-        showRollbackToast("split clip");
-      }),
-    );
+    // FR-45: Split all qualifying clips - update original and create new clip
+    for (const clip of clipsToSplit) {
+      const splitPoint = playheadTimeInSamples - clip.startTime;
+      const newDuration = splitPoint;
+      const secondClipDuration = clip.duration - splitPoint;
+      const secondClipAudioStartTime = clip.audioStartTime + splitPoint;
 
-    await Promise.all(splitPromises);
-  }, [selectedClipIds, clips, playheadTime, sampleRate, clearSelection, splitClip, id]);
+      // Update original clip to be shorter
+      await z.mutate(
+        mutators.clips.update({
+          id: clip.id,
+          duration: newDuration,
+        }),
+      );
+
+      // Create new clip for the second half
+      await z.mutate(
+        mutators.clips.create({
+          id: crypto.randomUUID(),
+          projectId: id,
+          trackId: clip.trackId,
+          audioFileId: clip.audioFileId,
+          name: clip.name,
+          startTime: playheadTimeInSamples,
+          duration: secondClipDuration,
+          audioStartTime: secondClipAudioStartTime,
+          gain: clip.gain ?? 0,
+        }),
+      );
+    }
+  }, [selectedClipIds, clips, playheadTime, sampleRate, clearSelection, z, id]);
 
   // Update project name when project loads
   useEffect(() => {
@@ -458,52 +481,39 @@ function ProjectEditor() {
   }, [project]);
 
   const handleAddTrack = useCallback(async () => {
-    // Optimistic update shows track instantly, no loading state needed
-    try {
-      await createTrack({ projectId: id as any });
-    } catch {
-      showRollbackToast("create track");
-    }
-  }, [createTrack, id]);
+    const trackCount = tracks.length;
+    await z.mutate(
+      mutators.tracks.create({
+        id: crypto.randomUUID(),
+        projectId: id,
+        name: `Track ${trackCount + 1}`,
+        order: trackCount,
+      }),
+    );
+  }, [z, id, tracks.length]);
 
   const handleUpdateTrackName = useCallback(
     async (trackId: string, name: string) => {
-      // Pass projectId for optimistic update cache invalidation
-      try {
-        await updateTrack({ id: trackId as any, projectId: id as any, name });
-      } catch {
-        showRollbackToast("update track name");
-      }
+      await z.mutate(mutators.tracks.update({ id: trackId, name }));
     },
-    [updateTrack, id],
+    [z],
   );
 
   const handleDeleteTrack = useCallback(
     async (trackId: string) => {
       // Cancel any pending uploads for this track before deletion (FR-7)
-      cancelUploadsForTrack(trackId as Id<"tracks">);
+      cancelUploadsForTrack(trackId);
 
-      // Optimistic update removes track instantly, no loading state needed
-      // Pass projectId for optimistic update cache invalidation
-      try {
-        await deleteTrack({ id: trackId as any, projectId: id as any });
-      } catch {
-        showRollbackToast("delete track");
-      }
+      await z.mutate(mutators.tracks.delete({ id: trackId }));
     },
-    [deleteTrack, id],
+    [z],
   );
 
   const handleReorderTracks = useCallback(
     async (trackIds: string[]) => {
-      // Optimistic update reorders tracks instantly
-      try {
-        await reorderTracks({ projectId: id as any, trackIds: trackIds as any });
-      } catch {
-        showRollbackToast("reorder tracks");
-      }
+      await z.mutate(mutators.tracks.reorder({ projectId: id, trackIds }));
     },
-    [reorderTracks, id],
+    [z, id],
   );
 
   const handleSaveProjectName = useCallback(async () => {
@@ -512,14 +522,9 @@ function ProjectEditor() {
       return;
     }
 
-    // Optimistic update shows name change instantly, no loading state needed
     setSettingsOpen(false);
-    try {
-      await updateProject({ id: id as any, name: projectName });
-    } catch {
-      showRollbackToast("rename project");
-    }
-  }, [updateProject, id, projectName, project]);
+    await z.mutate(mutators.projects.update({ id, name: projectName }));
+  }, [z, id, projectName, project]);
 
   // Handle keyboard shortcuts
   useProjectKeyboardShortcuts({
@@ -556,12 +561,21 @@ function ProjectEditor() {
 
       if (!defaultEffectData) return;
 
-      await createEffect({
-        trackId: selectedTrackIdForEffects as Id<"tracks">,
-        effectData: defaultEffectData,
-      });
+      // Get current effect count for order
+      const currentEffects = effects ?? [];
+      const order = currentEffects.length;
+
+      await z.mutate(
+        mutators.trackEffects.create({
+          id: crypto.randomUUID(),
+          trackId: selectedTrackIdForEffects,
+          order,
+          enabled: true,
+          effectData: defaultEffectData,
+        }),
+      );
     },
-    [selectedTrackIdForEffects, createEffect],
+    [selectedTrackIdForEffects, effects, z],
   );
 
   // Handle effect parameter commit (to server)
@@ -575,23 +589,17 @@ function ProjectEditor() {
         filterType: "lowpass" | "highpass" | "bandpass" | "notch";
       },
     ) => {
-      await updateEffect({
-        id: effectId as Id<"trackEffects">,
-        effectData,
-      });
+      await z.mutate(mutators.trackEffects.update({ id: effectId, effectData }));
     },
-    [updateEffect],
+    [z],
   );
 
   // Handle effect enabled toggle
   const handleEffectEnabledChange = useCallback(
     async (effectId: string, enabled: boolean) => {
-      await updateEffect({
-        id: effectId as Id<"trackEffects">,
-        enabled,
-      });
+      await z.mutate(mutators.trackEffects.update({ id: effectId, enabled }));
     },
-    [updateEffect],
+    [z],
   );
 
   // Handle effect deletion via keyboard
@@ -607,26 +615,41 @@ function ProjectEditor() {
         if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
 
         e.preventDefault();
-        void deleteEffect({ id: selectedEffectId as Id<"trackEffects"> });
+        void z.mutate(mutators.trackEffects.delete({ id: selectedEffectId }));
         setSelectedEffectId(null);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedEffectId, selectedTrackIdForEffects, deleteEffect]);
+  }, [selectedEffectId, selectedTrackIdForEffects, z]);
 
   // Effect reorder hook
   const { handleDragStart: handleEffectDragStart, handleDragEnd: handleEffectDragEnd } =
     useEffectReorder({
-      effects: effects ?? [],
+      effects: effects.map((e) => ({ ...e, _id: e.id })),
       onReorder: (effectId, newOrder) => {
-        void reorderEffect({ id: effectId as Id<"trackEffects">, newOrder });
+        if (!selectedTrackIdForEffects) return;
+        // Get all effect IDs in the new order
+        const currentEffects = [...effects].sort((a, b) => a.order - b.order);
+        const effectIds = currentEffects.map((e) => e.id);
+        // Move the effect to its new position
+        const oldIndex = effectIds.indexOf(effectId);
+        if (oldIndex !== -1) {
+          effectIds.splice(oldIndex, 1);
+          effectIds.splice(newOrder, 0, effectId);
+        }
+        void z.mutate(
+          mutators.trackEffects.reorder({
+            trackId: selectedTrackIdForEffects,
+            effectIds,
+          }),
+        );
       },
     });
 
   // Loading state
-  if (project === undefined || tracks === undefined) {
+  if (project === undefined) {
     return <ProjectEditorSkeleton />;
   }
 
@@ -678,7 +701,9 @@ function ProjectEditor() {
               />
               {projectName.length >= 40 && (
                 <p
-                  className={`text-xs ${projectName.length >= 50 ? "text-destructive" : "text-muted-foreground"}`}
+                  className={`text-xs ${
+                    projectName.length >= 50 ? "text-destructive" : "text-muted-foreground"
+                  }`}
                 >
                   {projectName.length}/50 characters
                 </p>
@@ -806,29 +831,29 @@ function ProjectEditor() {
           {/* Timeline Area */}
           <div className="flex flex-1 flex-col">
             <TimelineCanvas
-              tracks={tracks}
-              clips={(clips ?? []).map((clip) => ({
-                _id: clip._id,
+              tracks={tracks.map((t) => ({ _id: t.id, name: t.name }))}
+              clips={clips.map((clip) => ({
+                _id: clip.id,
                 trackId: clip.trackId,
                 audioFileId: clip.audioFileId,
                 name: clip.name,
                 startTime: clip.startTime,
                 duration: clip.duration,
                 audioStartTime: clip.audioStartTime,
-                pending: isPending(clip),
+                pending: false,
               }))}
               sampleRate={project?.sampleRate ?? 44100}
               playheadTime={playheadTime}
               scrollTop={scrollTop}
               onScrollChange={setScrollTop}
               onSeek={seek}
-              projectId={id as Id<"projects">}
+              projectId={id}
               selectedClipIds={selectedClipIds}
               onSelectClip={selectClip}
               onToggleClipSelection={toggleClipSelection}
               onClearSelection={clearSelection}
               getAudioFileDuration={getAudioFileDuration}
-              waveformUrls={waveformUrls ?? {}}
+              waveformUrls={waveformUrls}
             />
           </div>
         </div>
@@ -838,40 +863,69 @@ function ProjectEditor() {
           <EffectsPanel
             selectedTrackId={selectedTrackIdForEffects}
             selectedTrackName={
-              tracks?.find((t) => t._id === selectedTrackIdForEffects)?.name ?? "Track"
+              tracks.find((t) => t.id === selectedTrackIdForEffects)?.name ?? "Track"
             }
-            selectedTrackIndex={tracks?.findIndex((t) => t._id === selectedTrackIdForEffects) ?? 0}
+            selectedTrackIndex={tracks.findIndex((t) => t.id === selectedTrackIdForEffects) ?? 0}
             onClose={() => setSelectedTrackIdForEffects(null)}
             onAddEffect={() => setAddEffectDialogOpen(true)}
           >
-            {(effects ?? []).map((effect) => (
+            {effects.map((effect) => (
               <EffectCard
-                key={effect._id}
-                id={effect._id}
-                name={effect.effectData.type === "filter" ? "Filter" : "Effect"}
-                enabled={effect.enabled}
-                selected={selectedEffectId === effect._id}
-                onSelect={() => setSelectedEffectId(effect._id)}
-                onEnabledChange={(enabled) => handleEffectEnabledChange(effect._id, enabled)}
-                onDragStart={(e) => handleEffectDragStart(e, effect._id)}
+                key={effect.id}
+                id={effect.id}
+                name={
+                  (effect.effectData as { type: string }).type === "filter" ? "Filter" : "Effect"
+                }
+                enabled={effect.enabled ?? true}
+                selected={selectedEffectId === effect.id}
+                onSelect={() => setSelectedEffectId(effect.id)}
+                onEnabledChange={(enabled) => handleEffectEnabledChange(effect.id, enabled)}
+                onDragStart={(e) => handleEffectDragStart(e, effect.id)}
                 onDragEnd={handleEffectDragEnd}
               >
-                {effect.effectData.type === "filter" && (
+                {(effect.effectData as { type: string }).type === "filter" && (
                   <FilterEffect
-                    cutoff={effect.effectData.cutoff}
-                    resonance={effect.effectData.resonance}
-                    filterType={effect.effectData.filterType}
+                    cutoff={(effect.effectData as { cutoff: number }).cutoff}
+                    resonance={(effect.effectData as { resonance: number }).resonance}
+                    filterType={
+                      (
+                        effect.effectData as {
+                          filterType: "lowpass" | "highpass" | "bandpass" | "notch";
+                        }
+                      ).filterType
+                    }
                     onCutoffChange={() => {}}
                     onCutoffCommit={(v) =>
-                      handleEffectParamCommit(effect._id, { ...effect.effectData, cutoff: v })
+                      handleEffectParamCommit(effect.id, {
+                        ...(effect.effectData as {
+                          type: "filter";
+                          cutoff: number;
+                          resonance: number;
+                          filterType: "lowpass" | "highpass" | "bandpass" | "notch";
+                        }),
+                        cutoff: v,
+                      })
                     }
                     onResonanceChange={() => {}}
                     onResonanceCommit={(v) =>
-                      handleEffectParamCommit(effect._id, { ...effect.effectData, resonance: v })
+                      handleEffectParamCommit(effect.id, {
+                        ...(effect.effectData as {
+                          type: "filter";
+                          cutoff: number;
+                          resonance: number;
+                          filterType: "lowpass" | "highpass" | "bandpass" | "notch";
+                        }),
+                        resonance: v,
+                      })
                     }
                     onFilterTypeChange={(type) =>
-                      handleEffectParamCommit(effect._id, {
-                        ...effect.effectData,
+                      handleEffectParamCommit(effect.id, {
+                        ...(effect.effectData as {
+                          type: "filter";
+                          cutoff: number;
+                          resonance: number;
+                          filterType: "lowpass" | "highpass" | "bandpass" | "notch";
+                        }),
                         filterType: type,
                       })
                     }
@@ -901,7 +955,7 @@ interface TimelineCanvasProps {
   scrollTop: number;
   onScrollChange: (scrollTop: number) => void;
   onSeek: (time: number) => void | Promise<void>;
-  projectId: Id<"projects">;
+  projectId: string;
   selectedClipIds: Set<string>;
   onSelectClip: (clipId: string, trackId: string) => void;
   onToggleClipSelection: (clipId: string, trackId: string) => void;
@@ -928,6 +982,7 @@ function TimelineCanvas({
   getAudioFileDuration,
   waveformUrls,
 }: TimelineCanvasProps) {
+  const z = useZero();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -960,13 +1015,43 @@ function TimelineCanvas({
     dimensions,
   });
 
-  // Mutation for clip position update with optimistic updates
-  const updateClipPosition = useMutation(api.clips.updateClipPosition).withOptimisticUpdate(
-    updateClipPositionOptimisticUpdate,
+  // Zero mutation wrapper for clip position update
+  const updateClipPosition = useCallback(
+    async (args: { id: string; startTime: number; trackId?: string }) => {
+      if (args.trackId) {
+        await z.mutate(
+          mutators.clips.move({
+            id: args.id,
+            trackId: args.trackId,
+            startTime: args.startTime,
+          }),
+        );
+      } else {
+        await z.mutate(
+          mutators.clips.update({
+            id: args.id,
+            startTime: args.startTime,
+          }),
+        );
+      }
+    },
+    [z],
   );
 
-  // Mutation for clip trim with optimistic updates (FR-21)
-  const trimClip = useMutation(api.clips.trimClip).withOptimisticUpdate(trimClipOptimisticUpdate);
+  // Zero mutation wrapper for clip trim
+  const trimClip = useCallback(
+    async (args: { id: string; startTime: number; audioStartTime: number; duration: number }) => {
+      await z.mutate(
+        mutators.clips.update({
+          id: args.id,
+          startTime: args.startTime,
+          audioStartTime: args.audioStartTime,
+          duration: args.duration,
+        }),
+      );
+    },
+    [z],
+  );
 
   // Clip drag state and handlers (FR-34-38)
   const {
@@ -1074,7 +1159,6 @@ function TimelineCanvas({
     containerRef,
     tracks: tracks.map((t) => ({
       ...t,
-      _id: t._id as Id<"tracks">,
       order: 0,
       muted: false,
       solo: false,

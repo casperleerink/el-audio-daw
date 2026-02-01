@@ -1,7 +1,3 @@
-import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
-import { api } from "@el-audio-daw/backend/convex/_generated/api";
-import { isSupportedAudioType, MAX_FILE_SIZE } from "@el-audio-daw/backend/convex/constants";
-import { useMutation } from "convex/react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -14,9 +10,31 @@ import {
 import { registerUpload, unregisterUpload } from "@/lib/uploadRegistry";
 import { generateWaveformBinary } from "@/lib/waveformGenerator";
 import { useSyncRef } from "./useSyncRef";
+import { useZeroAudioFiles } from "./useZeroAudioFiles";
+import { useZeroClips } from "./useZeroClips";
+
+// Audio file constants
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+const SUPPORTED_AUDIO_TYPES = [
+  "audio/wav",
+  "audio/wave",
+  "audio/x-wav",
+  "audio/mp3",
+  "audio/mpeg",
+  "audio/aiff",
+  "audio/x-aiff",
+  "audio/flac",
+  "audio/x-flac",
+  "audio/ogg",
+  "audio/vorbis",
+];
+
+function isSupportedAudioType(mimeType: string): boolean {
+  return SUPPORTED_AUDIO_TYPES.includes(mimeType.toLowerCase());
+}
 
 interface Track {
-  _id: Id<"tracks">;
+  _id: string;
   name: string;
   order: number;
   muted: boolean;
@@ -46,7 +64,7 @@ interface UseTimelineFileDropOptions {
   /** Project sample rate */
   sampleRate: number;
   /** Project ID for creating clips */
-  projectId: Id<"projects">;
+  projectId: string;
   /** Height of the ruler in pixels */
   rulerHeight: number;
   /** Height of each track in pixels */
@@ -70,9 +88,38 @@ interface UseTimelineFileDropReturn {
   handleDrop: (e: React.DragEvent) => Promise<void>;
 }
 
+interface UploadResponse {
+  uploadUrl: string;
+  storageUrl: string;
+  key: string;
+}
+
+/**
+ * Request a presigned upload URL from the API.
+ */
+async function requestUploadUrl(
+  projectId: string,
+  filename: string,
+  contentType: string,
+): Promise<UploadResponse> {
+  const response = await fetch("/api/storage/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ projectId, filename, contentType }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || "Failed to get upload URL");
+  }
+
+  return response.json();
+}
+
 /**
  * Hook to manage file drag-and-drop for timeline clip creation.
- * Handles file validation, audio decoding, upload, and clip creation.
+ * Handles file validation, audio decoding, upload to R2, and clip creation.
  */
 export function useTimelineFileDrop({
   canvasRef,
@@ -90,12 +137,9 @@ export function useTimelineFileDrop({
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Mutations for file upload
-  const generateUploadUrl = useMutation(api.clips.generateUploadUrl);
-  const validateUploadedFile = useMutation(api.clips.validateUploadedFile);
-  const createAudioFile = useMutation(api.audioFiles.createAudioFile);
-  const createClip = useMutation(api.clips.createClip);
-  const updateWaveformStorageId = useMutation(api.audioFiles.updateWaveformStorageId);
+  // Zero mutations for audio files and clips
+  const { createAudioFile, updateWaveform } = useZeroAudioFiles(projectId);
+  const { createClip } = useZeroClips(projectId);
 
   // Store current values in refs for stable callbacks
   const scrollLeftRef = useSyncRef(scrollLeft);
@@ -188,7 +232,7 @@ export function useTimelineFileDrop({
         return;
       }
 
-      const trackId = dropPosition.trackId as Id<"tracks">;
+      const trackId = dropPosition.trackId;
 
       // Register this upload with the upload registry for cancellation support
       const abortController = registerUpload(trackId, file.name);
@@ -207,51 +251,41 @@ export function useTimelineFileDrop({
           );
         }
 
-        // Generate upload URL
-        const uploadUrl = await generateUploadUrl({ projectId });
-
-        // Check if aborted before starting fetch
+        // Check if aborted before starting upload
         if (abortController.signal.aborted) {
           return;
         }
 
-        // Upload file to Convex storage with AbortController signal
-        const response = await fetch(uploadUrl, {
-          method: "POST",
+        // Request presigned upload URL from API
+        const { uploadUrl, storageUrl } = await requestUploadUrl(projectId, file.name, file.type);
+
+        // Check if aborted before uploading
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        // Upload file directly to R2 using presigned URL
+        const uploadResponse = await fetch(uploadUrl, {
+          method: "PUT",
           headers: { "Content-Type": file.type },
           body: file,
           signal: abortController.signal,
         });
 
-        if (!response.ok) {
+        if (!uploadResponse.ok) {
           throw new Error("Upload failed");
         }
 
-        const { storageId } = (await response.json()) as { storageId: Id<"_storage"> };
-
-        // Check if aborted after upload but before validation
+        // Check if aborted after upload but before audioFile creation
         if (abortController.signal.aborted) {
           return;
         }
 
-        // Validate uploaded file
-        await validateUploadedFile({
-          storageId,
-          projectId,
-          contentType: file.type,
-          size: file.size,
-        });
-
-        // Check if aborted after validation but before audioFile creation
-        if (abortController.signal.aborted) {
-          return;
-        }
-
-        // Create audio file record
+        // Create audio file record via Zero
         const clipName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
         const audioFileId = await createAudioFile({
           projectId,
-          storageId,
+          storageUrl,
           name: clipName,
           duration: durationInSamples,
           sampleRate: fileSampleRate,
@@ -281,12 +315,14 @@ export function useTimelineFileDrop({
             // Generate waveform binary from AudioBuffer
             const waveformBinary = generateWaveformBinary(audioBuffer);
 
-            // Get upload URL for waveform
-            const waveformUploadUrl = await generateUploadUrl({ projectId });
+            // Request presigned URL for waveform upload
+            const waveformFilename = `${clipName}.waveform`;
+            const { uploadUrl: waveformUploadUrl, storageUrl: waveformStorageUrl } =
+              await requestUploadUrl(projectId, waveformFilename, "application/octet-stream");
 
-            // Upload waveform to storage
+            // Upload waveform to R2
             const waveformResponse = await fetch(waveformUploadUrl, {
-              method: "POST",
+              method: "PUT",
               headers: { "Content-Type": "application/octet-stream" },
               body: waveformBinary,
             });
@@ -295,12 +331,8 @@ export function useTimelineFileDrop({
               throw new Error("Waveform upload failed");
             }
 
-            const { storageId: waveformStorageId } = (await waveformResponse.json()) as {
-              storageId: Id<"_storage">;
-            };
-
-            // Update audio file with waveform storage ID
-            await updateWaveformStorageId({ audioFileId, waveformStorageId });
+            // Update audio file with waveform URL via Zero
+            await updateWaveform(audioFileId, waveformStorageUrl);
           } catch (error) {
             console.warn("Waveform generation failed:", error);
             // Don't show error to user - waveform is optional
@@ -323,11 +355,9 @@ export function useTimelineFileDrop({
     [
       isAudioFile,
       decodeAudioFile,
-      generateUploadUrl,
-      validateUploadedFile,
       createAudioFile,
       createClip,
-      updateWaveformStorageId,
+      updateWaveform,
       projectId,
       sampleRate,
     ],
