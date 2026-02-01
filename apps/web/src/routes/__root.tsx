@@ -4,19 +4,19 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 import "../index.css";
+import { ZeroProvider } from "@/components/ZeroProvider";
+import type { RouterContext } from "@/main";
 
-export interface RouterAppContext {}
-
-export const Route = createRootRouteWithContext<RouterAppContext>()({
+export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
   head: () => ({
     meta: [
       {
-        title: "el-audio-daw",
+        title: "Elementary Audio Workstation",
       },
       {
         name: "description",
-        content: "el-audio-daw is a web application",
+        content: "Elementary Audio Workstation is a web application",
       },
     ],
     links: [
@@ -38,7 +38,9 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <Outlet />
+        <ZeroProvider>
+          <Outlet />
+        </ZeroProvider>
         <Toaster richColors />
       </ThemeProvider>
     </>

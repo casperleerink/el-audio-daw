@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { authRoutes } from "./auth.js";
 import { zeroRoutes } from "./zero.js";
+import { uploadRoutes } from "./upload.js";
 
 const app = new Hono();
 
@@ -14,11 +15,12 @@ app.use(
   cors({
     origin: ["http://localhost:3001", "http://localhost:4848"],
     credentials: true,
-  })
+  }),
 );
 
 app.route("/api/auth", authRoutes);
 app.route("/api/zero", zeroRoutes);
+app.route("/api/storage", uploadRoutes);
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 

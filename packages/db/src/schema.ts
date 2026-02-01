@@ -12,7 +12,7 @@ import {
 import { user } from "./auth-schema";
 export * from "./auth-schema";
 export const projects = pgTable("projects", {
-  id: text("id").primaryKey(),
+  id: text("id").notNull().primaryKey(),
   name: text("name").notNull(),
   duration: integer("duration"),
   sampleRate: integer("sample_rate"),

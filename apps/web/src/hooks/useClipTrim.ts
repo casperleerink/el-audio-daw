@@ -1,4 +1,3 @@
-import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -25,14 +24,14 @@ export interface TrimDragState {
 interface UseClipTrimParams {
   pixelsPerSecond: number;
   sampleRate: number;
-  projectId: Id<"projects">;
+  projectId: string;
   findClipAtPosition: (clientX: number, clientY: number) => ClipAtPosition | null;
   trimClip: (args: {
-    id: Id<"clips">;
+    id: string;
     startTime: number;
     audioStartTime: number;
     duration: number;
-    projectId?: Id<"projects">;
+    projectId?: string;
   }) => Promise<unknown>;
   /** Optional lookup for audio file duration. Falls back to clip.duration if not provided. */
   getAudioFileDuration?: (audioFileId: string) => number | undefined;
@@ -229,7 +228,7 @@ export function useClipTrim({
 
       try {
         await trimClip({
-          id: clipId as Id<"clips">,
+          id: clipId,
           startTime: currentStartTime,
           audioStartTime: currentAudioStartTime,
           duration: currentDuration,

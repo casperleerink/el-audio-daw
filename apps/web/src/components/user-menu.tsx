@@ -1,6 +1,4 @@
-import { api } from "@el-audio-daw/backend/convex/_generated/api";
 import { useNavigate } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
 
 import {
   DropdownMenu,
@@ -17,7 +15,8 @@ import { Button } from "./ui/button";
 
 export default function UserMenu() {
   const navigate = useNavigate();
-  const user = useQuery(api.auth.getCurrentUser);
+  const { data: session } = authClient.useSession();
+  const user = session?.user;
 
   return (
     <DropdownMenu>

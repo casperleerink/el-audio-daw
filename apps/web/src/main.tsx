@@ -1,21 +1,25 @@
-import { env } from "@el-audio-daw/env/web";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
+import {
+  Outlet,
+  RouterProvider,
+  createRootRouteWithContext,
+  createRouter,
+} from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
-
-import { authClient } from "@/lib/auth-client";
-
 import Loader from "./components/loader";
-import { ZeroProvider } from "./components/ZeroProvider";
 import { routeTree } from "./routeTree.gen";
+import { Zero } from "@rocicorp/zero";
+
+export interface RouterContext {
+  zero: Zero;
+}
 
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",
   defaultPendingComponent: () => <Loader />,
-  context: {},
-  Wrap: function WrapComponent({ children }: { children: React.ReactNode }) {
-    return <ZeroProvider>{children}</ZeroProvider>;
-  },
+  context: {
+    zero: undefined as unknown as Zero,
+  } satisfies RouterContext,
 });
 
 declare module "@tanstack/react-router" {

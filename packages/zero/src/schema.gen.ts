@@ -4,87 +4,6 @@
 import type { ReadonlyJSONValue, Row } from "@rocicorp/zero";
 import { createBuilder } from "@rocicorp/zero";
 
-const accountTable = {
-  name: "account",
-  columns: {
-    id: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-    },
-    accountId: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "account_id",
-    },
-    providerId: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "provider_id",
-    },
-    userId: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "user_id",
-    },
-    accessToken: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "access_token",
-    },
-    refreshToken: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "refresh_token",
-    },
-    idToken: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "id_token",
-    },
-    accessTokenExpiresAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "access_token_expires_at",
-    },
-    refreshTokenExpiresAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "refresh_token_expires_at",
-    },
-    scope: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-    },
-    password: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-    },
-    createdAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "created_at",
-    },
-    updatedAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "updated_at",
-    },
-  },
-  primaryKey: ["id"],
-} as const;
 const audioFilesTable = {
   name: "audioFiles",
   columns: {
@@ -284,58 +203,6 @@ const projectsTable = {
   },
   primaryKey: ["id"],
 } as const;
-const sessionTable = {
-  name: "session",
-  columns: {
-    id: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-    },
-    expiresAt: {
-      type: "number",
-      optional: false,
-      customType: null as unknown as number,
-      serverName: "expires_at",
-    },
-    token: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-    },
-    createdAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "created_at",
-    },
-    updatedAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "updated_at",
-    },
-    ipAddress: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "ip_address",
-    },
-    userAgent: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "user_agent",
-    },
-    userId: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "user_id",
-    },
-  },
-  primaryKey: ["id"],
-} as const;
 const trackEffectsTable = {
   name: "trackEffects",
   columns: {
@@ -464,73 +331,13 @@ const userTable = {
       optional: false,
       customType: null as unknown as string,
     },
-    emailVerified: {
-      type: "boolean",
-      optional: true,
-      customType: null as unknown as boolean,
-      serverName: "email_verified",
-    },
     image: {
       type: "string",
       optional: true,
       customType: null as unknown as string,
     },
-    createdAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "created_at",
-    },
-    updatedAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "updated_at",
-    },
   },
   primaryKey: ["id"],
-} as const;
-const verificationTable = {
-  name: "verification",
-  columns: {
-    id: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-    },
-    identifier: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-    },
-    value: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-    },
-    expiresAt: {
-      type: "number",
-      optional: false,
-      customType: null as unknown as number,
-      serverName: "expires_at",
-    },
-    createdAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "created_at",
-    },
-    updatedAt: {
-      type: "number",
-      optional: true,
-      customType: null as unknown as number,
-      serverName: "updated_at",
-    },
-  },
-  primaryKey: ["id"],
-} as const;
-const accountRelationships = {
-  user: [{ sourceField: ["userId"], destField: ["id"], destSchema: "user", cardinality: "one" }],
 } as const;
 const audioFilesRelationships = {
   project: [
@@ -586,9 +393,6 @@ const projectUsersRelationships = {
   ],
   user: [{ sourceField: ["userId"], destField: ["id"], destSchema: "user", cardinality: "one" }],
 } as const;
-const sessionRelationships = {
-  user: [{ sourceField: ["userId"], destField: ["id"], destSchema: "user", cardinality: "one" }],
-} as const;
 const trackEffectsRelationships = {
   track: [
     { sourceField: ["trackId"], destField: ["id"], destSchema: "tracks", cardinality: "one" },
@@ -610,41 +414,27 @@ const tracksRelationships = {
     },
   ],
 } as const;
-const userRelationships = {
-  sessions: [
-    { sourceField: ["id"], destField: ["userId"], destSchema: "session", cardinality: "many" },
-  ],
-  accounts: [
-    { sourceField: ["id"], destField: ["userId"], destSchema: "account", cardinality: "many" },
-  ],
-} as const;
 /**
  * The Zero schema object.
  * This type is auto-generated from your Drizzle schema definition.
  */
 export const schema = {
   tables: {
-    account: accountTable,
     audioFiles: audioFilesTable,
     clips: clipsTable,
     projectUsers: projectUsersTable,
     projects: projectsTable,
-    session: sessionTable,
     trackEffects: trackEffectsTable,
     tracks: tracksTable,
     user: userTable,
-    verification: verificationTable,
   },
   relationships: {
-    account: accountRelationships,
     audioFiles: audioFilesRelationships,
     clips: clipsRelationships,
     projects: projectsRelationships,
     projectUsers: projectUsersRelationships,
-    session: sessionRelationships,
     trackEffects: trackEffectsRelationships,
     tracks: tracksRelationships,
-    user: userRelationships,
   },
   enableLegacyQueries: false,
   enableLegacyMutators: false,
@@ -655,11 +445,6 @@ export const schema = {
  * This type is auto-generated from your Drizzle schema definition.
  */
 export type Schema = typeof schema;
-/**
- * Represents a row from the "account" table.
- * This type is auto-generated from your Drizzle schema definition.
- */
-export type Account = Row<(typeof schema)["tables"]["account"]>;
 /**
  * Represents a row from the "audioFiles" table.
  * This type is auto-generated from your Drizzle schema definition.
@@ -681,11 +466,6 @@ export type ProjectUser = Row<(typeof schema)["tables"]["projectUsers"]>;
  */
 export type Project = Row<(typeof schema)["tables"]["projects"]>;
 /**
- * Represents a row from the "session" table.
- * This type is auto-generated from your Drizzle schema definition.
- */
-export type Session = Row<(typeof schema)["tables"]["session"]>;
-/**
  * Represents a row from the "trackEffects" table.
  * This type is auto-generated from your Drizzle schema definition.
  */
@@ -700,11 +480,6 @@ export type Track = Row<(typeof schema)["tables"]["tracks"]>;
  * This type is auto-generated from your Drizzle schema definition.
  */
 export type User = Row<(typeof schema)["tables"]["user"]>;
-/**
- * Represents a row from the "verification" table.
- * This type is auto-generated from your Drizzle schema definition.
- */
-export type Verification = Row<(typeof schema)["tables"]["verification"]>;
 
 /**
  * Represents the ZQL query builder.

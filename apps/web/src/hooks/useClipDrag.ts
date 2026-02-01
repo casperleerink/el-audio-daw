@@ -1,4 +1,3 @@
-import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -69,12 +68,12 @@ interface UseClipDragParams {
   pixelsPerSecond: number;
   sampleRate: number;
   layoutParams: LayoutParams;
-  projectId: Id<"projects">;
+  projectId: string;
   updateClipPosition: (args: {
-    id: Id<"clips">;
+    id: string;
     startTime: number;
-    trackId?: Id<"tracks">;
-    projectId?: Id<"projects">;
+    trackId?: string;
+    projectId?: string;
   }) => Promise<unknown>;
 }
 
@@ -333,10 +332,10 @@ export function useClipDrag({
 
       try {
         await updateClipPosition({
-          id: clipId as Id<"clips">,
+          id: clipId,
           startTime: currentStartTime,
           // Only include trackId if it changed (FR-35)
-          ...(trackChanged && { trackId: currentTrackId as Id<"tracks"> }),
+          ...(trackChanged && { trackId: currentTrackId }),
           projectId,
         });
       } catch (error) {

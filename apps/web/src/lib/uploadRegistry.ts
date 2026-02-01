@@ -1,5 +1,3 @@
-import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
-
 /**
  * Registry to track pending file uploads per track.
  * Enables cancellation of uploads when a track is deleted.
@@ -16,13 +14,13 @@ interface PendingUpload {
 }
 
 // Map of trackId -> array of pending uploads for that track
-const pendingUploads = new Map<Id<"tracks">, PendingUpload[]>();
+const pendingUploads = new Map<string, PendingUpload[]>();
 
 /**
  * Register a new upload for a track. Returns the AbortController's signal
  * to be used with fetch.
  */
-export function registerUpload(trackId: Id<"tracks">, fileName: string): AbortController {
+export function registerUpload(trackId: string, fileName: string): AbortController {
   const abortController = new AbortController();
 
   const uploads = pendingUploads.get(trackId) ?? [];
@@ -36,7 +34,7 @@ export function registerUpload(trackId: Id<"tracks">, fileName: string): AbortCo
  * Unregister an upload after it completes (success or failure).
  * Should be called in a finally block after the upload.
  */
-export function unregisterUpload(trackId: Id<"tracks">, abortController: AbortController): void {
+export function unregisterUpload(trackId: string, abortController: AbortController): void {
   const uploads = pendingUploads.get(trackId);
   if (!uploads) return;
 
@@ -54,7 +52,7 @@ export function unregisterUpload(trackId: Id<"tracks">, abortController: AbortCo
  * Call this before or during track deletion to abort in-flight uploads.
  * Returns the number of uploads that were cancelled.
  */
-export function cancelUploadsForTrack(trackId: Id<"tracks">): number {
+export function cancelUploadsForTrack(trackId: string): number {
   const uploads = pendingUploads.get(trackId);
   if (!uploads || uploads.length === 0) return 0;
 
@@ -72,7 +70,7 @@ export function cancelUploadsForTrack(trackId: Id<"tracks">): number {
 /**
  * Check if a track has any pending uploads.
  */
-export function hasPendingUploads(trackId: Id<"tracks">): boolean {
+export function hasPendingUploads(trackId: string): boolean {
   const uploads = pendingUploads.get(trackId);
   return uploads !== undefined && uploads.length > 0;
 }
@@ -80,7 +78,7 @@ export function hasPendingUploads(trackId: Id<"tracks">): boolean {
 /**
  * Get the count of pending uploads for a track.
  */
-export function getPendingUploadCount(trackId: Id<"tracks">): number {
+export function getPendingUploadCount(trackId: string): number {
   const uploads = pendingUploads.get(trackId);
   return uploads?.length ?? 0;
 }

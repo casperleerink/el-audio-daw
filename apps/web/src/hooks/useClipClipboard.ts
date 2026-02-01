@@ -1,12 +1,11 @@
 import { useCallback, useRef } from "react";
-import type { Id } from "@el-audio-daw/backend/convex/_generated/dataModel";
 
 /**
  * Clipboard data for a single clip (FR-24)
  */
 export interface ClipboardClipData {
   /** Audio file reference for storage */
-  audioFileId: Id<"audioFiles">;
+  audioFileId: string;
   /** Clip name */
   name: string;
   /** Clip duration in samples */
@@ -36,7 +35,7 @@ interface UseClipClipboardReturn {
     clips: Array<{
       _id: string;
       trackId: string;
-      audioFileId: Id<"audioFiles">;
+      audioFileId: string;
       name: string;
       startTime: number;
       duration: number;
@@ -75,7 +74,7 @@ export function useClipClipboard(): UseClipClipboardReturn {
       clips: Array<{
         _id: string;
         trackId: string;
-        audioFileId: Id<"audioFiles">;
+        audioFileId: string;
         name: string;
         startTime: number;
         duration: number;

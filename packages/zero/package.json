@@ -26,5 +26,7 @@
     "drizzle-zero": "^0.17.3",
     "typescript": "catalog:"
   },
-  "trustedDependencies": ["@rocicorp/zero-sqlite3"]
+  "trustedDependencies": [
+    "@rocicorp/zero-sqlite3"
+  ]
 }
