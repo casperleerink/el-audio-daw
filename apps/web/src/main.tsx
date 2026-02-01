@@ -7,6 +7,7 @@ import ReactDOM from "react-dom/client";
 import { authClient } from "@/lib/auth-client";
 
 import Loader from "./components/loader";
+import { ZeroProvider } from "./components/ZeroProvider";
 import { routeTree } from "./routeTree.gen";
 const convex = new ConvexReactClient(env.VITE_CONVEX_URL);
 
@@ -18,7 +19,7 @@ const router = createRouter({
   Wrap: function WrapComponent({ children }: { children: React.ReactNode }) {
     return (
       <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-        {children}
+        <ZeroProvider>{children}</ZeroProvider>
       </ConvexBetterAuthProvider>
     );
   },
