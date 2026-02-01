@@ -1,7 +1,6 @@
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 
 import { cn } from "@/lib/utils";
-import { useEffect, useMemo } from "react";
 
 interface SliderProps extends SliderPrimitive.Root.Props {
   /** Called when the user releases the slider (mouseup/touchend) */

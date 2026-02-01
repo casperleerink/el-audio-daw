@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { ClipState, TrackState, TrackEffect } from "@el-audio-daw/audio";
-import { useAudioSyncActions, useIsEngineReady } from "@/stores/audioStore";
+import { useAudioStore } from "@/stores/audioStore";
 
 type TrackData = {
   _id: string;
@@ -59,9 +59,13 @@ export function useAudioEngineSync({
   clipStorageKeys,
   effects,
 }: UseAudioEngineSyncOptions): void {
-  const isEngineReady = useIsEngineReady();
-  const { setSampleRate, setTracks, setClips, setEffects, loadAudioIntoVFS, dispose } =
-    useAudioSyncActions();
+  const isEngineReady = useAudioStore((s) => s.isEngineReady);
+  const setSampleRate = useAudioStore((s) => s.setSampleRate);
+  const setTracks = useAudioStore((s) => s.setTracks);
+  const setClips = useAudioStore((s) => s.setClips);
+  const setEffects = useAudioStore((s) => s.setEffects);
+  const loadAudioIntoVFS = useAudioStore((s) => s.loadAudioIntoVFS);
+  const dispose = useAudioStore((s) => s.dispose);
 
   // Set sample rate for lazy initialization
   useEffect(() => {

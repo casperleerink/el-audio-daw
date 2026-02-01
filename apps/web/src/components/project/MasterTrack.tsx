@@ -1,9 +1,10 @@
 import { Slider } from "@/components/ui/slider";
 import { formatGain } from "@/lib/formatters";
-import { useProjectAudio } from "@/hooks/project/useProjectAudio";
+import { useAudioStore } from "@/stores/audioStore";
 
 export function MasterTrack() {
-  const { masterGain, setMasterGain } = useProjectAudio();
+  const masterGain = useAudioStore((s) => s.masterGain);
+  const setMasterGain = useAudioStore((s) => s.setMasterGain);
 
   return (
     <div className="shrink-0 border-t bg-muted/30 p-2">

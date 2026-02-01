@@ -32,7 +32,7 @@ export function TrackPanKnob({ trackId }: TrackPanKnobProps) {
       setLocalPan(value);
       setTrackPan(trackId, value);
     },
-    [trackId, setTrackPan]
+    [trackId, setTrackPan],
   );
 
   const handleCommit = useCallback(
@@ -40,7 +40,7 @@ export function TrackPanKnob({ trackId }: TrackPanKnobProps) {
       isDraggingRef.current = false;
       z.mutate(mutators.tracks.update({ id: trackId, pan: value }));
     },
-    [z, trackId]
+    [z, trackId],
   );
 
   return (

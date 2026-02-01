@@ -1,6 +1,6 @@
 import { useEditorStore } from "@/stores/editorStore";
 import { useProjectId, useSampleRate } from "@/stores/projectStore";
-import { useProjectAudio } from "@/hooks/project/useProjectAudio";
+import { useAudioStore } from "@/stores/audioStore";
 import { useProjectData } from "@/hooks/project/useProjectData";
 import { useProjectClips } from "@/hooks/project/useProjectClips";
 import { TimelineCanvas } from "./TimelineCanvas";
@@ -16,7 +16,8 @@ export function TimelinePanel({ scrollTop, onScrollChange }: TimelinePanelProps)
 
   const { tracks, waveformUrls } = useProjectData();
   const { clips, getAudioFileDuration } = useProjectClips();
-  const { playheadTime, seek } = useProjectAudio();
+  const playheadTime = useAudioStore((s) => s.playheadTime);
+  const seek = useAudioStore((s) => s.seek);
 
   const selectedClipIds = useEditorStore((s) => s.selectedClipIds);
   const { selectClip, toggleClipSelection, clearClipSelection } = useEditorStore();

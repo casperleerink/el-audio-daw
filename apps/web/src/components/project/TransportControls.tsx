@@ -4,11 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
 import { formatTime } from "@/lib/formatters";
-import { useProjectAudio } from "@/hooks/project/useProjectAudio";
+import { useAudioStore } from "@/stores/audioStore";
 import { useProjectTracks } from "@/hooks/project/useProjectTracks";
 
 export function TransportControls() {
-  const { isEngineInitializing, isPlaying, playheadTime, togglePlayStop, stop } = useProjectAudio();
+  const isEngineInitializing = useAudioStore((s) => s.isEngineInitializing);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const playheadTime = useAudioStore((s) => s.playheadTime);
+  const togglePlayStop = useAudioStore((s) => s.togglePlayStop);
+  const stop = useAudioStore((s) => s.stop);
   const { addTrack } = useProjectTracks();
 
   return (

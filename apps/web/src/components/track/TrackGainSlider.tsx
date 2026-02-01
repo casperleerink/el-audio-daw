@@ -29,21 +29,21 @@ export function TrackGainSlider({ trackId }: TrackGainSliderProps) {
 
   const handleChange = useCallback(
     (value: number | readonly number[]) => {
-      const gainValue = Array.isArray(value) ? value[0] ?? 0 : value;
+      const gainValue = Array.isArray(value) ? (value[0] ?? 0) : value;
       isDraggingRef.current = true;
       setLocalGain(gainValue);
       setTrackGain(trackId, gainValue);
     },
-    [trackId, setTrackGain]
+    [trackId, setTrackGain],
   );
 
   const handleCommit = useCallback(
     (value: number | readonly number[]) => {
-      const gainValue = Array.isArray(value) ? value[0] ?? 0 : value;
+      const gainValue = Array.isArray(value) ? (value[0] ?? 0) : value;
       isDraggingRef.current = false;
       z.mutate(mutators.tracks.update({ id: trackId, gain: gainValue }));
     },
-    [z, trackId]
+    [z, trackId],
   );
 
   return (

@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { useShallow } from "zustand/react/shallow";
 import {
   AudioEngine,
   type ClipState,
@@ -39,20 +38,14 @@ interface AudioStoreState {
   setTracks: (tracks: TrackState[]) => void;
   setClips: (clips: ClipState[]) => void;
   setEffects: (effects: TrackEffect[]) => void;
-  loadAudioIntoVFS: (
-    key: string,
-    storageKey: string,
-    projectId: string
-  ) => Promise<void>;
+  loadAudioIntoVFS: (key: string, storageKey: string, projectId: string) => Promise<void>;
 
   // Direct parameter updates (for real-time control without graph rebuild)
   setTrackGain: (trackId: string, gainDb: number) => void;
   setTrackPan: (trackId: string, pan: number) => void;
 
   // Meter subscription
-  onMeterUpdate: (
-    callback: (meters: Map<string, MeterValue>) => void
-  ) => () => void;
+  onMeterUpdate: (callback: (meters: Map<string, MeterValue>) => void) => () => void;
 }
 
 // Engine instance stored outside of reactive state to avoid unnecessary re-renders
@@ -79,13 +72,7 @@ export const useAudioStore = create<AudioStoreState>((set, get) => ({
       return engineInstance;
     }
 
-    const {
-      sampleRate,
-      pendingTracks,
-      pendingClips,
-      pendingEffects,
-      masterGain,
-    } = get();
+    const { sampleRate, pendingTracks, pendingClips, pendingEffects, masterGain } = get();
     set({ isEngineInitializing: true });
 
     try {
@@ -206,11 +193,7 @@ export const useAudioStore = create<AudioStoreState>((set, get) => ({
     engineInstance?.setEffects(effects);
   },
 
-  loadAudioIntoVFS: async (
-    key: string,
-    storageKey: string,
-    projectId: string
-  ) => {
+  loadAudioIntoVFS: async (key: string, storageKey: string, projectId: string) => {
     if (!engineInstance?.isInitialized()) return;
     try {
       // Fetch presigned download URL from storage key
@@ -235,38 +218,3 @@ export const useAudioStore = create<AudioStoreState>((set, get) => ({
     return engineInstance.onMeterUpdate(callback);
   },
 }));
-
-// Selector hooks for optimized subscriptions
-export const usePlayheadTime = () => useAudioStore((s) => s.playheadTime);
-export const useIsPlaying = () => useAudioStore((s) => s.isPlaying);
-export const useIsEngineReady = () => useAudioStore((s) => s.isEngineReady);
-export const useIsEngineInitializing = () =>
-  useAudioStore((s) => s.isEngineInitializing);
-export const useMasterGain = () => useAudioStore((s) => s.masterGain);
-
-// Action hooks (stable references, won't cause re-renders)
-// useShallow prevents infinite loops by using shallow equality comparison
-export const useAudioActions = () =>
-  useAudioStore(
-    useShallow((s) => ({
-      play: s.play,
-      stop: s.stop,
-      togglePlayStop: s.togglePlayStop,
-      seek: s.seek,
-      setMasterGain: s.setMasterGain,
-      onMeterUpdate: s.onMeterUpdate,
-    }))
-  );
-
-// Internal sync actions (used by useAudioEngineSync)
-export const useAudioSyncActions = () =>
-  useAudioStore(
-    useShallow((s) => ({
-      setSampleRate: s.setSampleRate,
-      setTracks: s.setTracks,
-      setClips: s.setClips,
-      setEffects: s.setEffects,
-      loadAudioIntoVFS: s.loadAudioIntoVFS,
-      dispose: s.dispose,
-    }))
-  );

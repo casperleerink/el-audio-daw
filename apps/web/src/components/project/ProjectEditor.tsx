@@ -5,7 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useEditorStore } from "@/stores/editorStore";
 import { useProjectId, useSampleRate } from "@/stores/projectStore";
-import { usePlayheadTime, useAudioActions } from "@/stores/audioStore";
+import { useAudioStore } from "@/stores/audioStore";
 import { useProjectKeyboardShortcuts } from "@/hooks/useProjectKeyboardShortcuts";
 import { useAudioEngineSync } from "@/hooks/useAudioEngineSync";
 import { useProjectData } from "@/hooks/project/useProjectData";
@@ -53,8 +53,8 @@ export function ProjectEditor() {
   });
 
   // Use selective subscriptions from audio store
-  const playheadTime = usePlayheadTime();
-  const { togglePlayStop } = useAudioActions();
+  const playheadTime = useAudioStore((s) => s.playheadTime);
+  const togglePlayStop = useAudioStore((s) => s.togglePlayStop);
 
   const { clearClipSelection, selectAllOnTrack } = useEditorStore();
 

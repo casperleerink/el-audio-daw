@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import type { MeterValue } from "@el-audio-daw/audio";
-import { useAudioStore, useIsEngineReady } from "@/stores/audioStore";
+import { useAudioStore } from "@/stores/audioStore";
 
 export type { MeterValue };
 
@@ -13,7 +13,7 @@ type MeterListener = (value: MeterValue) => void;
  */
 export function useMeterSubscription() {
   const listenersRef = useRef<Map<string, MeterListener>>(new Map());
-  const isEngineReady = useIsEngineReady();
+  const isEngineReady = useAudioStore((s) => s.isEngineReady);
   const onMeterUpdate = useAudioStore((s) => s.onMeterUpdate);
 
   useEffect(() => {
