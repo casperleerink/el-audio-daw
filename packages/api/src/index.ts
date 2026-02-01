@@ -14,7 +14,7 @@ app.use(
   cors({
     origin: ["http://localhost:3001", "http://localhost:4848"],
     credentials: true,
-  })
+  }),
 );
 
 app.route("/api/auth", authRoutes);

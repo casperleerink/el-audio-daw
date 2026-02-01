@@ -4,11 +4,7 @@ import { auth } from "@el-audio-daw/auth";
 import { queries } from "@el-audio-daw/zero/queries";
 import { mutators } from "@el-audio-daw/zero/mutators";
 import { schema, type ZeroContext } from "@el-audio-daw/zero/schema";
-import {
-  handleQueryRequest,
-  handleMutateRequest,
-  type Database,
-} from "@rocicorp/zero/server";
+import { handleQueryRequest, handleMutateRequest, type Database } from "@rocicorp/zero/server";
 import { mustGetQuery, mustGetMutator, type QueryRequest } from "@rocicorp/zero";
 import { db } from "@el-audio-daw/db";
 
