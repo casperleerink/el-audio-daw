@@ -9,6 +9,7 @@ import {
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
+import type { EffectData } from "@el-audio-daw/schemas/effects";
 import { user } from "./auth-schema";
 export * from "./auth-schema";
 export const projects = pgTable("projects", {
@@ -111,7 +112,7 @@ export const trackEffects = pgTable(
       .references(() => tracks.id, { onDelete: "cascade" }),
     order: integer("order").notNull(),
     enabled: boolean("enabled").notNull().default(true),
-    effectData: jsonb("effect_data").notNull(),
+    effectData: jsonb("effect_data").notNull().$type<EffectData>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   },

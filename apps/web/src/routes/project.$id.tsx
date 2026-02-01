@@ -299,12 +299,7 @@ function ProjectEditor() {
         trackId: e.trackId,
         order: e.order,
         enabled: e.enabled ?? true,
-        effectData: e.effectData as {
-          type: "filter";
-          cutoff: number;
-          resonance: number;
-          filterType: "lowpass" | "highpass" | "bandpass" | "notch";
-        },
+        effectData: e.effectData,
       })),
     [allProjectEffects],
   );
@@ -873,9 +868,7 @@ function ProjectEditor() {
               <EffectCard
                 key={effect.id}
                 id={effect.id}
-                name={
-                  (effect.effectData as { type: string }).type === "filter" ? "Filter" : "Effect"
-                }
+                name={effect.effectData.type === "filter" ? "Filter" : "Effect"}
                 enabled={effect.enabled ?? true}
                 selected={selectedEffectId === effect.id}
                 onSelect={() => setSelectedEffectId(effect.id)}
@@ -883,49 +876,28 @@ function ProjectEditor() {
                 onDragStart={(e) => handleEffectDragStart(e, effect.id)}
                 onDragEnd={handleEffectDragEnd}
               >
-                {(effect.effectData as { type: string }).type === "filter" && (
+                {effect.effectData.type === "filter" && (
                   <FilterEffect
-                    cutoff={(effect.effectData as { cutoff: number }).cutoff}
-                    resonance={(effect.effectData as { resonance: number }).resonance}
-                    filterType={
-                      (
-                        effect.effectData as {
-                          filterType: "lowpass" | "highpass" | "bandpass" | "notch";
-                        }
-                      ).filterType
-                    }
+                    cutoff={effect.effectData.cutoff}
+                    resonance={effect.effectData.resonance}
+                    filterType={effect.effectData.filterType}
                     onCutoffChange={() => {}}
                     onCutoffCommit={(v) =>
                       handleEffectParamCommit(effect.id, {
-                        ...(effect.effectData as {
-                          type: "filter";
-                          cutoff: number;
-                          resonance: number;
-                          filterType: "lowpass" | "highpass" | "bandpass" | "notch";
-                        }),
+                        ...effect.effectData,
                         cutoff: v,
                       })
                     }
                     onResonanceChange={() => {}}
                     onResonanceCommit={(v) =>
                       handleEffectParamCommit(effect.id, {
-                        ...(effect.effectData as {
-                          type: "filter";
-                          cutoff: number;
-                          resonance: number;
-                          filterType: "lowpass" | "highpass" | "bandpass" | "notch";
-                        }),
+                        ...effect.effectData,
                         resonance: v,
                       })
                     }
                     onFilterTypeChange={(type) =>
                       handleEffectParamCommit(effect.id, {
-                        ...(effect.effectData as {
-                          type: "filter";
-                          cutoff: number;
-                          resonance: number;
-                          filterType: "lowpass" | "highpass" | "bandpass" | "notch";
-                        }),
+                        ...effect.effectData,
                         filterType: type,
                       })
                     }
