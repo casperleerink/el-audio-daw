@@ -264,7 +264,7 @@ export class AudioEngine {
   /**
    * Update a single track's gain without full graph re-render.
    * Uses refs for efficient parameter updates during continuous changes (e.g., slider drag).
-   * Falls back to full render if ref not available.
+   * Only updates refs when playing - when stopped, silence is rendered and refs aren't mounted.
    */
   setTrackGain(trackId: string, gainDb: number): void {
     // Update state (for consistency if renderGraph is called later)
@@ -273,9 +273,10 @@ export class AudioEngine {
       track.gain = gainDb;
     }
 
-    // Use ref for direct update if available (no graph rebuild)
+    // Use ref for direct update if available and playing (no graph rebuild)
+    // When not playing, silence is rendered and refs are not mounted
     const setter = this.trackGainRefs.get(trackId);
-    if (setter) {
+    if (setter && this.playing) {
       // Determine if track should be audible
       const anySoloed = this.state.tracks.some((t) => t.solo);
       const shouldPlay = anySoloed ? track?.solo : !track?.muted;
@@ -286,6 +287,7 @@ export class AudioEngine {
 
   /**
    * Update a single track's pan without full graph re-render.
+   * Only updates refs when playing - when stopped, silence is rendered and refs aren't mounted.
    */
   setTrackPan(trackId: string, pan: number): void {
     // Update state
@@ -294,10 +296,11 @@ export class AudioEngine {
       track.pan = pan;
     }
 
-    // Use refs for direct update if available
+    // Use refs for direct update if available and playing
+    // When not playing, silence is rendered and refs are not mounted
     const leftSetter = this.trackPanLeftRefs.get(trackId);
     const rightSetter = this.trackPanRightRefs.get(trackId);
-    if (leftSetter && rightSetter) {
+    if (leftSetter && rightSetter && this.playing) {
       const panAngle = ((pan + 1) * Math.PI) / 4;
       leftSetter({ value: Math.cos(panAngle) });
       rightSetter({ value: Math.sin(panAngle) });

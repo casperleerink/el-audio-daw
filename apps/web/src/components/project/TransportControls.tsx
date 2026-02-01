@@ -1,16 +1,28 @@
 import { Loader2, Pause, Play, Plus, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
 import { formatTime } from "@/lib/formatters";
 import { useAudioStore } from "@/stores/audioStore";
 import { useProjectTracks } from "@/hooks/project/useProjectTracks";
 
+function PlayheadDisplay() {
+  const playheadTime = useAudioStore((s) => s.playheadTime);
+  return (
+    <div className="font-mono text-sm tabular-nums">
+      {formatTime(playheadTime)}
+    </div>
+  );
+}
+
 export function TransportControls() {
   const isEngineInitializing = useAudioStore((s) => s.isEngineInitializing);
   const isPlaying = useAudioStore((s) => s.isPlaying);
-  const playheadTime = useAudioStore((s) => s.playheadTime);
   const togglePlayStop = useAudioStore((s) => s.togglePlayStop);
   const stop = useAudioStore((s) => s.stop);
   const { addTrack } = useProjectTracks();
@@ -44,7 +56,12 @@ export function TransportControls() {
         <Tooltip delay={500}>
           <TooltipTrigger
             render={
-              <Button variant="ghost" size="icon-sm" onClick={stop} disabled={isEngineInitializing}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={stop}
+                disabled={isEngineInitializing}
+              >
                 <Square className="size-3" />
               </Button>
             }
@@ -53,7 +70,7 @@ export function TransportControls() {
         </Tooltip>
       </div>
 
-      <div className="font-mono text-sm tabular-nums">{formatTime(playheadTime)}</div>
+      <PlayheadDisplay />
 
       <div className="ml-auto flex items-center gap-2">
         <Tooltip delay={500}>

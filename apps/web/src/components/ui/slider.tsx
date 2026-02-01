@@ -2,22 +2,30 @@ import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 
 import { cn } from "@/lib/utils";
 
-interface SliderProps extends SliderPrimitive.Root.Props {
-  /** Called when the user releases the slider (mouseup/touchend) */
-  onValueCommit?: (value: number | readonly number[]) => void;
-  /** Make the slider track transparent (useful when overlaying on meters) */
+interface SliderProps {
+  orientation?: "horizontal" | "vertical";
+  className?: string;
+  defaultValue?: number;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onValueChange: (value: number) => void;
+  onValueCommit?: (value: number) => void;
   transparentTrack?: boolean;
 }
 
 function Slider({
+  orientation = "horizontal",
   className,
   defaultValue,
   value,
   min = 0,
   max = 100,
+  step = 1,
   onValueCommit,
   transparentTrack = false,
-  ...props
+  onValueChange,
 }: SliderProps) {
   return (
     <SliderPrimitive.Root
@@ -27,13 +35,15 @@ function Slider({
       value={value}
       min={min}
       max={max}
+      step={step}
       thumbAlignment="edge"
       onValueCommitted={(v) => {
         if (onValueCommit) {
           onValueCommit(v);
         }
       }}
-      {...props}
+      orientation={orientation}
+      onValueChange={onValueChange}
     >
       <SliderPrimitive.Control className="relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:w-auto data-vertical:flex-col">
         <SliderPrimitive.Track
@@ -51,16 +61,11 @@ function Slider({
             )}
           />
         </SliderPrimitive.Track>
-        {Array.from(
-          { length: Array.isArray(value) ? value.length : 1 },
-          (_, index) => (
-            <SliderPrimitive.Thumb
-              data-slot="slider-thumb"
-              key={index}
-              className="relative size-3.5 rounded-full border-2 border-accent bg-accent-foreground shadow-md ring-ring/50 transition-all after:absolute after:-inset-2 hover:scale-110 hover:shadow-lg focus-visible:ring-2 focus-visible:outline-hidden active:scale-95 block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50"
-            />
-          )
-        )}
+
+        <SliderPrimitive.Thumb
+          data-slot="slider-thumb"
+          className="relative transition-none animate-none block size-3.5 rounded-full border-2 border-accent bg-accent-foreground ring-ring/50 transition-all shrink-0 select-none disabled:pointer-events-none disabled:opacity-50"
+        />
       </SliderPrimitive.Control>
     </SliderPrimitive.Root>
   );

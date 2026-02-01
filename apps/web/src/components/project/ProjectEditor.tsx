@@ -53,7 +53,6 @@ export function ProjectEditor() {
   });
 
   // Use selective subscriptions from audio store
-  const playheadTime = useAudioStore((s) => s.playheadTime);
   const togglePlayStop = useAudioStore((s) => s.togglePlayStop);
 
   const { clearClipSelection, selectAllOnTrack } = useEditorStore();
@@ -71,8 +70,8 @@ export function ProjectEditor() {
     onSelectAllOnFocusedTrack: handleSelectAllOnFocusedTrack,
     onDeleteSelectedClips: handleDeleteSelectedClips,
     onCopyClips: handleCopyClips,
-    onPasteClips: () => handlePasteClips(playheadTime),
-    onSplitClips: () => handleSplitClips(playheadTime),
+    onPasteClips: () => handlePasteClips(useAudioStore.getState().playheadTime),
+    onSplitClips: () => handleSplitClips(useAudioStore.getState().playheadTime),
   });
 
   // Loading state
