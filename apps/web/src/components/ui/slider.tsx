@@ -41,24 +41,27 @@ function Slider({
           data-slot="slider-track"
           className={cn(
             "rounded-sm data-horizontal:h-1.5 data-horizontal:w-full data-vertical:h-full data-vertical:w-2 relative grow overflow-hidden select-none",
-            transparentTrack ? "bg-transparent" : "bg-muted",
+            transparentTrack ? "bg-transparent" : "bg-muted"
           )}
         >
           <SliderPrimitive.Indicator
             data-slot="slider-range"
             className={cn(
               "select-none data-horizontal:h-full data-vertical:w-full",
-              transparentTrack ? "bg-transparent" : "bg-primary",
+              transparentTrack ? "bg-transparent" : "bg-primary"
             )}
           />
         </SliderPrimitive.Track>
-        {Array.from({ length: Array.isArray(value) ? value.length : 1 }, (_, index) => (
-          <SliderPrimitive.Thumb
-            data-slot="slider-thumb"
-            key={index}
-            className="relative size-3.5 rounded-full border-2 border-white bg-white shadow-md ring-ring/50 transition-all after:absolute after:-inset-2 hover:scale-110 hover:shadow-lg focus-visible:ring-2 focus-visible:outline-hidden active:scale-95 block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50"
-          />
-        ))}
+        {Array.from(
+          { length: Array.isArray(value) ? value.length : 1 },
+          (_, index) => (
+            <SliderPrimitive.Thumb
+              data-slot="slider-thumb"
+              key={index}
+              className="relative size-3.5 rounded-full border-2 border-accent bg-accent-foreground shadow-md ring-ring/50 transition-all after:absolute after:-inset-2 hover:scale-110 hover:shadow-lg focus-visible:ring-2 focus-visible:outline-hidden active:scale-95 block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50"
+            />
+          )
+        )}
       </SliderPrimitive.Control>
     </SliderPrimitive.Root>
   );

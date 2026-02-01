@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { ClipState, TrackState, TrackEffect } from "@el-audio-daw/audio";
 import { useAudioSyncActions, useIsEngineReady } from "@/stores/audioStore";
 
@@ -68,9 +68,24 @@ export function useAudioEngineSync({
     setSampleRate(sampleRate);
   }, [sampleRate, setSampleRate]);
 
+  // Track previous structural state to avoid unnecessary syncs
+  // Gain/pan are handled directly via refs, so we only sync when structural properties change
+  const prevTrackStructureRef = useRef<string | null>(null);
+
   // Sync tracks to store (buffers if engine not ready, syncs immediately if ready)
+  // Only syncs when structural changes occur (track count, IDs, mute, solo)
+  // Gain/pan changes are handled directly via audioStore.setTrackGain/setTrackPan
   useEffect(() => {
     if (!tracks) return;
+
+    // Create a structural key that ignores gain/pan (those are handled via refs)
+    const structuralKey = tracks.map((t) => `${t._id}:${t.muted}:${t.solo}`).join("|");
+
+    // Skip sync if only gain/pan changed (structural key unchanged)
+    if (prevTrackStructureRef.current === structuralKey) {
+      return;
+    }
+    prevTrackStructureRef.current = structuralKey;
 
     const trackStates: TrackState[] = tracks.map((t) => ({
       id: t._id,

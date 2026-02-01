@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useCallback, useRef } from "react";
 
 import { VirtualizedTrackList } from "@/components/VirtualizedTrackList";
 import { MeterProvider } from "@/contexts/MeterContext";
@@ -20,24 +20,18 @@ export function TrackListPanel({ scrollTop, onScrollChange }: TrackListPanelProp
   const { selectTrack } = useEditorStore();
 
   const { subscribe: meterSubscribe } = useMeterSubscription();
-  const {
-    tracksWithOptimisticUpdates,
-    addTrack,
-    updateTrackName,
-    deleteTrack,
-    reorderTracks,
-    handleUpdateTrackMute,
-    handleUpdateTrackSolo,
-    handleUpdateTrackGain,
-    handleCommitTrackGain,
-    handleUpdateTrackPan,
-    handleCommitTrackPan,
-  } = useProjectTracks();
+  const { trackIds, addTrack, reorderTracks } = useProjectTracks();
 
-  // Handle track header click for effects panel
-  const handleTrackSelect = (trackId: string) => {
-    selectTrack(selectedTrackId === trackId ? null : trackId);
-  };
+  // Use ref to keep callback stable while accessing latest selectedTrackId
+  const selectedTrackIdRef = useRef(selectedTrackId);
+  selectedTrackIdRef.current = selectedTrackId;
+
+  const handleTrackSelect = useCallback(
+    (trackId: string) => {
+      selectTrack(selectedTrackIdRef.current === trackId ? null : trackId);
+    },
+    [selectTrack],
+  );
 
   return (
     <div className="flex w-64 shrink-0 flex-col border-r">
@@ -47,19 +41,11 @@ export function TrackListPanel({ scrollTop, onScrollChange }: TrackListPanelProp
       <MeterProvider subscribe={meterSubscribe}>
         <VirtualizedTrackList
           ref={trackListRef}
-          tracks={tracksWithOptimisticUpdates ?? []}
+          trackIds={trackIds}
           scrollTop={scrollTop}
           focusedTrackId={focusedTrackId}
           selectedTrackId={selectedTrackId}
           onScrollChange={onScrollChange}
-          onMuteChange={handleUpdateTrackMute}
-          onSoloChange={handleUpdateTrackSolo}
-          onGainChange={handleUpdateTrackGain}
-          onGainCommit={handleCommitTrackGain}
-          onPanChange={handleUpdateTrackPan}
-          onPanCommit={handleCommitTrackPan}
-          onNameChange={updateTrackName}
-          onDelete={deleteTrack}
           onReorder={reorderTracks}
           onAddTrack={addTrack}
           onTrackSelect={handleTrackSelect}

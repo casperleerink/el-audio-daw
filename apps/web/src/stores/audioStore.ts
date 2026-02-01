@@ -39,10 +39,20 @@ interface AudioStoreState {
   setTracks: (tracks: TrackState[]) => void;
   setClips: (clips: ClipState[]) => void;
   setEffects: (effects: TrackEffect[]) => void;
-  loadAudioIntoVFS: (key: string, storageKey: string, projectId: string) => Promise<void>;
+  loadAudioIntoVFS: (
+    key: string,
+    storageKey: string,
+    projectId: string
+  ) => Promise<void>;
+
+  // Direct parameter updates (for real-time control without graph rebuild)
+  setTrackGain: (trackId: string, gainDb: number) => void;
+  setTrackPan: (trackId: string, pan: number) => void;
 
   // Meter subscription
-  onMeterUpdate: (callback: (meters: Map<string, MeterValue>) => void) => () => void;
+  onMeterUpdate: (
+    callback: (meters: Map<string, MeterValue>) => void
+  ) => () => void;
 }
 
 // Engine instance stored outside of reactive state to avoid unnecessary re-renders
@@ -69,7 +79,13 @@ export const useAudioStore = create<AudioStoreState>((set, get) => ({
       return engineInstance;
     }
 
-    const { sampleRate, pendingTracks, pendingClips, pendingEffects, masterGain } = get();
+    const {
+      sampleRate,
+      pendingTracks,
+      pendingClips,
+      pendingEffects,
+      masterGain,
+    } = get();
     set({ isEngineInitializing: true });
 
     try {
@@ -190,7 +206,11 @@ export const useAudioStore = create<AudioStoreState>((set, get) => ({
     engineInstance?.setEffects(effects);
   },
 
-  loadAudioIntoVFS: async (key: string, storageKey: string, projectId: string) => {
+  loadAudioIntoVFS: async (
+    key: string,
+    storageKey: string,
+    projectId: string
+  ) => {
     if (!engineInstance?.isInitialized()) return;
     try {
       // Fetch presigned download URL from storage key
@@ -199,6 +219,15 @@ export const useAudioStore = create<AudioStoreState>((set, get) => ({
     } catch (err) {
       console.error(`Failed to load audio ${key}:`, err);
     }
+  },
+
+  // Direct parameter updates - bypass React state for real-time responsiveness
+  setTrackGain: (trackId: string, gainDb: number) => {
+    engineInstance?.setTrackGain(trackId, gainDb);
+  },
+
+  setTrackPan: (trackId: string, pan: number) => {
+    engineInstance?.setTrackPan(trackId, pan);
   },
 
   onMeterUpdate: (callback) => {
@@ -211,7 +240,8 @@ export const useAudioStore = create<AudioStoreState>((set, get) => ({
 export const usePlayheadTime = () => useAudioStore((s) => s.playheadTime);
 export const useIsPlaying = () => useAudioStore((s) => s.isPlaying);
 export const useIsEngineReady = () => useAudioStore((s) => s.isEngineReady);
-export const useIsEngineInitializing = () => useAudioStore((s) => s.isEngineInitializing);
+export const useIsEngineInitializing = () =>
+  useAudioStore((s) => s.isEngineInitializing);
 export const useMasterGain = () => useAudioStore((s) => s.masterGain);
 
 // Action hooks (stable references, won't cause re-renders)
@@ -225,7 +255,7 @@ export const useAudioActions = () =>
       seek: s.seek,
       setMasterGain: s.setMasterGain,
       onMeterUpdate: s.onMeterUpdate,
-    })),
+    }))
   );
 
 // Internal sync actions (used by useAudioEngineSync)
@@ -238,5 +268,5 @@ export const useAudioSyncActions = () =>
       setEffects: s.setEffects,
       loadAudioIntoVFS: s.loadAudioIntoVFS,
       dispose: s.dispose,
-    })),
+    }))
   );

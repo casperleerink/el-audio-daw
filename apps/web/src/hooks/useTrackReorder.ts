@@ -1,11 +1,7 @@
 import { useCallback, useState } from "react";
 
-interface Track {
-  _id: string;
-}
-
-interface UseTrackReorderOptions<T extends Track> {
-  tracks: T[];
+interface UseTrackReorderOptions {
+  trackIds: string[];
   onReorder: (trackIds: string[]) => void;
 }
 
@@ -18,10 +14,10 @@ interface UseTrackReorderReturn {
   handleDrop: (e: React.DragEvent) => void;
 }
 
-export function useTrackReorder<T extends Track>({
-  tracks,
+export function useTrackReorder({
+  trackIds,
   onReorder,
-}: UseTrackReorderOptions<T>): UseTrackReorderReturn {
+}: UseTrackReorderOptions): UseTrackReorderReturn {
   const [draggedTrackId, setDraggedTrackId] = useState<string | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
 
@@ -54,7 +50,7 @@ export function useTrackReorder<T extends Track>({
 
       if (draggedTrackId === null || dropTargetIndex === null) return;
 
-      const draggedIndex = tracks.findIndex((t) => t._id === draggedTrackId);
+      const draggedIndex = trackIds.indexOf(draggedTrackId);
       if (draggedIndex === -1) return;
 
       // Don't do anything if dropping in the same position
@@ -65,7 +61,7 @@ export function useTrackReorder<T extends Track>({
       }
 
       // Build new order of track IDs
-      const newTrackIds = tracks.map((t) => t._id);
+      const newTrackIds = [...trackIds];
       const [removed] = newTrackIds.splice(draggedIndex, 1);
       if (!removed) return;
 
@@ -77,7 +73,7 @@ export function useTrackReorder<T extends Track>({
       setDraggedTrackId(null);
       setDropTargetIndex(null);
     },
-    [draggedTrackId, dropTargetIndex, tracks, onReorder],
+    [draggedTrackId, dropTargetIndex, trackIds, onReorder],
   );
 
   return {

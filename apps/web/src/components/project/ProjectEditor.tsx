@@ -26,7 +26,7 @@ export function ProjectEditor() {
   const projectId = useProjectId();
   const sampleRate = useSampleRate();
   const { project, clips, clipStorageKeys, isLoading, notFound } = useProjectData();
-  const { addTrack, tracksWithOptimisticUpdates } = useProjectTracks();
+  const { tracks, addTrack } = useProjectTracks();
   const {
     handleCopyClips,
     handlePasteClips,
@@ -40,7 +40,13 @@ export function ProjectEditor() {
   useAudioEngineSync({
     projectId,
     sampleRate,
-    tracks: tracksWithOptimisticUpdates,
+    tracks: tracks.map((t) => ({
+      _id: t.id,
+      muted: t.muted ?? false,
+      solo: t.solo ?? false,
+      gain: t.gain ?? 0,
+      pan: t.pan ?? 0,
+    })),
     clips: clipsForEngine,
     clipStorageKeys,
     effects: effectsForEngine,
