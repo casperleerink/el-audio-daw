@@ -644,7 +644,7 @@ function ProjectEditor() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-screen flex-col">
       {/* Header */}
       <header className="flex h-10 shrink-0 items-center justify-between border-b px-2">
         <div className="flex items-center gap-2">
@@ -755,7 +755,7 @@ function ProjectEditor() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col justify-between">
         <div className="flex min-h-0 flex-1">
           {/* Track List */}
           <div className="flex w-64 shrink-0 flex-col border-r">
