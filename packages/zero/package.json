@@ -11,6 +11,7 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
+    "dev": "npx zero-cache-dev",
     "zero:generate": "drizzle-zero generate --schema '../db/src/schema.ts' --drizzle-kit-config '../db/drizzle.config.ts' --output './src/schema.gen.ts'"
   },
   "dependencies": {
