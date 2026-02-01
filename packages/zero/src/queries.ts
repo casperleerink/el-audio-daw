@@ -62,9 +62,7 @@ export const queries = defineQueries({
       ({ args: { trackId }, ctx: { userID } }) =>
         zql.clips
           .where("trackId", trackId)
-          .whereExists("project", (q) =>
-            q.whereExists("users", (pu) => pu.where("userId", userID)),
-          )
+          .whereExists("project", (q) => q.whereExists("users", (pu) => pu.where("userId", userID)))
           .related("audioFile"),
     ),
   },

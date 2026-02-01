@@ -1,5 +1,14 @@
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, integer, real, boolean, jsonb, index } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  integer,
+  real,
+  boolean,
+  jsonb,
+  index,
+} from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 export * from "./auth-schema";
 export const projects = pgTable("projects", {

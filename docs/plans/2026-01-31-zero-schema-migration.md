@@ -13,6 +13,7 @@
 ## Task 1: Create packages/schemas package
 
 **Files:**
+
 - Create: `packages/schemas/package.json`
 - Create: `packages/schemas/src/index.ts`
 - Create: `packages/schemas/src/effects.ts`
@@ -100,6 +101,7 @@ git commit -m "feat: add @el-audio-daw/schemas package with effect schemas"
 ## Task 2: Add tables to Drizzle schema
 
 **Files:**
+
 - Modify: `packages/db/src/schema.ts`
 
 **Step 1: Add imports**
@@ -231,6 +233,7 @@ git commit -m "feat(db): add tracks, audioFiles, clips, trackEffects tables"
 ## Task 3: Add Drizzle relations
 
 **Files:**
+
 - Modify: `packages/db/src/schema.ts`
 
 **Step 1: Update projectRelations**
@@ -319,12 +322,9 @@ git commit -m "feat(db): add relations for tracks, audioFiles, clips, trackEffec
 
 **Step 1: Generate migration**
 
-Run: `bun run --filter=@el-audio-daw/db db:generate`
-Expected: Migration file created in `packages/db/drizzle/`
-
-**Step 2: Review migration**
-
-Check the generated SQL migration file for correctness.
+Run: `bun run --filter=@el-audio-daw/db db:push`
+or `cd packages/db && bun run db:push`
+Expected to succeed
 
 **Step 3: Commit migration**
 
@@ -359,6 +359,7 @@ git commit -m "chore(zero): regenerate schema with new tables"
 ## Task 6: Add Zero queries for tracks
 
 **Files:**
+
 - Modify: `packages/zero/src/queries.ts`
 
 **Step 1: Add tracks queries**
@@ -411,6 +412,7 @@ git commit -m "feat(zero): add tracks queries"
 ## Task 7: Add Zero queries for audioFiles and clips
 
 **Files:**
+
 - Modify: `packages/zero/src/queries.ts`
 
 **Step 1: Add audioFiles queries**
@@ -463,6 +465,7 @@ git commit -m "feat(zero): add audioFiles and clips queries"
 ## Task 8: Add Zero mutators for tracks
 
 **Files:**
+
 - Modify: `packages/zero/src/mutators.ts`
 
 **Step 1: Add tracks mutators**
@@ -583,6 +586,7 @@ git commit -m "feat(zero): add tracks mutators"
 ## Task 9: Add Zero mutators for audioFiles
 
 **Files:**
+
 - Modify: `packages/zero/src/mutators.ts`
 
 **Step 1: Add audioFiles mutators**
@@ -666,6 +670,7 @@ git commit -m "feat(zero): add audioFiles mutators"
 ## Task 10: Add Zero mutators for clips
 
 **Files:**
+
 - Modify: `packages/zero/src/mutators.ts`
 
 **Step 1: Add clips mutators**
@@ -783,12 +788,14 @@ git commit -m "feat(zero): add clips mutators"
 ## Task 11: Add Zero mutators for trackEffects
 
 **Files:**
+
 - Modify: `packages/zero/src/mutators.ts`
 - Modify: `packages/zero/package.json` (add schemas dependency)
 
 **Step 1: Add schemas dependency**
 
 In `packages/zero/package.json`, add to dependencies:
+
 ```json
 "@el-audio-daw/schemas": "workspace:*"
 ```
@@ -800,6 +807,7 @@ Run: `bun install`
 **Step 3: Add import**
 
 Add to top of mutators.ts:
+
 ```ts
 import { effectDataSchema } from "@el-audio-daw/schemas/effects";
 ```

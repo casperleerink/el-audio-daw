@@ -7,9 +7,7 @@ export const filterEffectSchema = z.object({
   filterType: z.enum(["lowpass", "highpass", "bandpass", "notch"]),
 });
 
-export const effectDataSchema = z.discriminatedUnion("type", [
-  filterEffectSchema,
-]);
+export const effectDataSchema = z.discriminatedUnion("type", [filterEffectSchema]);
 
 export type FilterEffect = z.infer<typeof filterEffectSchema>;
 export type EffectData = z.infer<typeof effectDataSchema>;

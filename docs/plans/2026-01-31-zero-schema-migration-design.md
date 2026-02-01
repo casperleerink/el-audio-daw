@@ -4,13 +4,13 @@ Migrate remaining Convex schemas (tracks, audioFiles, clips, trackEffects) to Dr
 
 ## Decisions
 
-| Topic | Decision |
-|-------|----------|
-| Storage | UploadThing URLs as text fields (`storageUrl`, `waveformUrl`) |
-| Timestamps | Postgres native timestamps (Zero converts to numbers automatically) |
-| effectData | JSONB column with Zod discriminated union validation |
-| Zod | Use catalog version (`^4.1.13`), create `packages/schemas` for shared schemas |
-| Cascade | All child tables cascade delete on parent |
+| Topic      | Decision                                                                      |
+| ---------- | ----------------------------------------------------------------------------- |
+| Storage    | UploadThing URLs as text fields (`storageUrl`, `waveformUrl`)                 |
+| Timestamps | Postgres native timestamps (Zero converts to numbers automatically)           |
+| effectData | JSONB column with Zod discriminated union validation                          |
+| Zod        | Use catalog version (`^4.1.13`), create `packages/schemas` for shared schemas |
+| Cascade    | All child tables cascade delete on parent                                     |
 
 ## Tables to Add
 
