@@ -4,11 +4,14 @@ import { useNavigate } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import { useEditorStore } from "@/stores/editorStore";
+import { useProjectId, useSampleRate } from "@/stores/projectStore";
+import { usePlayheadTime, useAudioActions } from "@/stores/audioStore";
 import { useProjectKeyboardShortcuts } from "@/hooks/useProjectKeyboardShortcuts";
+import { useAudioEngineSync } from "@/hooks/useAudioEngineSync";
 import { useProjectData } from "@/hooks/project/useProjectData";
 import { useProjectTracks } from "@/hooks/project/useProjectTracks";
 import { useProjectClips } from "@/hooks/project/useProjectClips";
-import { useProjectAudio } from "@/hooks/project/useProjectAudio";
+import { useProjectEffects } from "@/hooks/project/useProjectEffects";
 import { ProjectEditorSkeleton } from "./ProjectEditorSkeleton";
 import { ProjectHeader } from "./ProjectHeader";
 import { TransportControls } from "./TransportControls";
@@ -20,11 +23,32 @@ export function ProjectEditor() {
   const navigate = useNavigate();
   const [scrollTop, setScrollTop] = useState(0);
 
-  const { project, clips, isLoading, notFound } = useProjectData();
-  const { addTrack } = useProjectTracks();
-  const { handleCopyClips, handlePasteClips, handleDeleteSelectedClips, handleSplitClips } =
-    useProjectClips();
-  const { playheadTime, togglePlayStop } = useProjectAudio();
+  const projectId = useProjectId();
+  const sampleRate = useSampleRate();
+  const { project, clips, clipStorageKeys, isLoading, notFound } = useProjectData();
+  const { addTrack, tracksWithOptimisticUpdates } = useProjectTracks();
+  const {
+    handleCopyClips,
+    handlePasteClips,
+    handleDeleteSelectedClips,
+    handleSplitClips,
+    clipsForEngine,
+  } = useProjectClips();
+  const { effectsForEngine } = useProjectEffects();
+
+  // Sync project data to audio engine (single source of truth)
+  useAudioEngineSync({
+    projectId,
+    sampleRate,
+    tracks: tracksWithOptimisticUpdates,
+    clips: clipsForEngine,
+    clipStorageKeys,
+    effects: effectsForEngine,
+  });
+
+  // Use selective subscriptions from audio store
+  const playheadTime = usePlayheadTime();
+  const { togglePlayStop } = useAudioActions();
 
   const { clearClipSelection, selectAllOnTrack } = useEditorStore();
 

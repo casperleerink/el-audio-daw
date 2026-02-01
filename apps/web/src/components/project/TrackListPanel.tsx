@@ -3,7 +3,7 @@ import { useRef } from "react";
 import { VirtualizedTrackList } from "@/components/VirtualizedTrackList";
 import { MeterProvider } from "@/contexts/MeterContext";
 import { useEditorStore } from "@/stores/editorStore";
-import { useProjectAudio } from "@/hooks/project/useProjectAudio";
+import { useMeterSubscription } from "@/hooks/useMeterSubscription";
 import { useProjectTracks } from "@/hooks/project/useProjectTracks";
 import { MasterTrack } from "./MasterTrack";
 
@@ -19,7 +19,7 @@ export function TrackListPanel({ scrollTop, onScrollChange }: TrackListPanelProp
   const focusedTrackId = useEditorStore((s) => s.focusedTrackId);
   const { selectTrack } = useEditorStore();
 
-  const { meterSubscribe } = useProjectAudio();
+  const { subscribe: meterSubscribe } = useMeterSubscription();
   const {
     tracksWithOptimisticUpdates,
     addTrack,

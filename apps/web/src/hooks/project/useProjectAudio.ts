@@ -1,40 +1,24 @@
-import { useAudioEngine } from "@/hooks/useAudioEngine";
-import { useSampleRate } from "@/stores/projectStore";
-import { useProjectData } from "./useProjectData";
-import { useProjectTracks } from "./useProjectTracks";
-import { useProjectClips } from "./useProjectClips";
-import { useProjectEffects } from "./useProjectEffects";
+import {
+  usePlayheadTime,
+  useIsPlaying,
+  useIsEngineReady,
+  useIsEngineInitializing,
+  useMasterGain,
+  useAudioActions,
+} from "@/stores/audioStore";
 
 /**
  * Hook for audio engine integration in the project editor.
- * Combines project data with the audio engine.
+ * Uses the shared Zustand store to ensure all components share the same engine instance.
+ * Uses selectors to minimize re-renders - only subscribes to the specific values needed.
  */
 export function useProjectAudio() {
-  const sampleRate = useSampleRate();
-  const { clipUrls } = useProjectData();
-  const { tracksWithOptimisticUpdates } = useProjectTracks();
-  const { clipsForEngine } = useProjectClips();
-  const { effectsForEngine } = useProjectEffects();
-
-  const {
-    isEngineInitializing,
-    isEngineReady,
-    isPlaying,
-    playheadTime,
-    masterGain,
-    setMasterGain,
-    play,
-    stop,
-    togglePlayStop,
-    seek,
-    meterSubscribe,
-  } = useAudioEngine({
-    sampleRate,
-    tracks: tracksWithOptimisticUpdates,
-    clips: clipsForEngine,
-    clipUrls,
-    effects: effectsForEngine,
-  });
+  const isEngineInitializing = useIsEngineInitializing();
+  const isEngineReady = useIsEngineReady();
+  const isPlaying = useIsPlaying();
+  const playheadTime = usePlayheadTime();
+  const masterGain = useMasterGain();
+  const { play, stop, togglePlayStop, seek, setMasterGain, onMeterUpdate } = useAudioActions();
 
   return {
     isEngineInitializing,
@@ -47,6 +31,6 @@ export function useProjectAudio() {
     stop,
     togglePlayStop,
     seek,
-    meterSubscribe,
+    meterSubscribe: onMeterUpdate,
   };
 }

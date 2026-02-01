@@ -18,16 +18,17 @@ export function useProjectData() {
   const clips = useMemo(() => project?.clips ?? [], [project]);
   const audioFiles = useMemo(() => project?.audioFiles ?? [], [project]);
 
-  // Build clipUrls from audioFiles (they have storageUrl)
-  const clipUrls = useMemo(() => {
-    const urls: Record<string, string> = {};
+  // Build clipStorageKeys keyed by audioFileId (for audio engine VFS loading)
+  // Note: storageUrl is actually a storage key, not a URL - it gets resolved to a presigned URL when needed
+  const clipStorageKeys = useMemo(() => {
+    const keys: Record<string, string> = {};
     for (const clip of clips) {
       const audioFile = clip.audioFile;
       if (audioFile?.storageUrl) {
-        urls[clip.id] = audioFile.storageUrl;
+        keys[clip.audioFileId] = audioFile.storageUrl;
       }
     }
-    return urls;
+    return keys;
   }, [clips]);
 
   // Build waveformUrls keyed by audioFileId
@@ -51,7 +52,7 @@ export function useProjectData() {
     tracks,
     clips,
     audioFiles,
-    clipUrls,
+    clipStorageKeys,
     waveformUrls,
     audioFilesMap,
     isLoading,
