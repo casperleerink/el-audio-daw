@@ -37,6 +37,13 @@ This is a monorepo (Bun workspaces + Turbo) for an audio DAW web application.
 - Optimistic updates for track controls (mute/solo/gain) with rollback on failure
 - Audio engine state kept in React refs, synced via useEffect when Convex data changes
 
+**React Components**:
+
+- Keep components small and focused on a single responsibility
+- Use composition over large monolithic components - break down into smaller pieces
+- Extract business logic into custom hooks, keep components focused on rendering
+- Avoid mixing unrelated concerns in the same component
+
 **Backend** (`packages/backend/convex/`):
 
 - Schema defines `projects`, `projectUsers`, `tracks` tables
