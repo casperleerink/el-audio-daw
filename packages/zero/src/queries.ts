@@ -11,7 +11,9 @@ export const queries = defineQueries({
       zql.projects
         .where("id", id)
         .whereExists("users", (q) => q.where("userId", userID))
-        .related("tracks", (q) => q.related("effects"))
+        .related("tracks", (q) =>
+          q.related("effects", (eq) => eq.orderBy("order", "asc")).orderBy("order", "asc"),
+        )
         .related("clips", (q) => q.related("audioFile"))
         .related("audioFiles")
         .related("users")
