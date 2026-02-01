@@ -261,16 +261,16 @@ export function TimelineCanvas({
     return () => observer.disconnect();
   }, []);
 
-  // Fetch waveforms when URLs become available
+  // Fetch waveforms when storage keys become available
   useEffect(() => {
     const fetchAllWaveforms = async () => {
       const entries = Object.entries(waveformUrls);
 
-      for (const [audioFileId, url] of entries) {
-        // Skip if already loaded or no URL
-        if (loadedWaveforms.has(audioFileId) || !url) continue;
+      for (const [audioFileId, storageKey] of entries) {
+        // Skip if already loaded or no storage key
+        if (loadedWaveforms.has(audioFileId) || !storageKey) continue;
 
-        const waveform = await fetchWaveform(audioFileId, url);
+        const waveform = await fetchWaveform(audioFileId, storageKey, projectId);
         if (waveform) {
           setLoadedWaveforms((prev) => new Map(prev).set(audioFileId, waveform));
         }
@@ -278,7 +278,7 @@ export function TimelineCanvas({
     };
 
     fetchAllWaveforms();
-  }, [waveformUrls, loadedWaveforms]);
+  }, [waveformUrls, loadedWaveforms, projectId]);
 
   // Clear cache when unmounting
   useEffect(() => {

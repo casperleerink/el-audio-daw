@@ -17,7 +17,7 @@ This is a monorepo (Bun workspaces + Turbo) for an audio DAW web application.
 
 - **apps/web**: React 19 frontend with Vite, TanStack Router, Tailwind CSS v4, and Base UI components
 - **packages/audio**: Audio engine using Elementary Audio (`@elemaudio/core`, `@elemaudio/web-renderer`) for real-time DSP
-- **packages/backend**: Convex backend with better-auth for authentication
+- **packages/zero**: Zero sync backend for local-first server state
 - **packages/env**: Shared environment variable validation (Zod)
 - **packages/config**: Shared TypeScript/tooling configs
 
@@ -33,9 +33,9 @@ This is a monorepo (Bun workspaces + Turbo) for an audio DAW web application.
 
 **Frontend State**:
 
-- Convex queries provide real-time sync for projects/tracks
-- Optimistic updates for track controls (mute/solo/gain) with rollback on failure
-- Audio engine state kept in React refs, synced via useEffect when Convex data changes
+- Zero sync queries provide real-time sync for all server data
+- Keep global UI state either in tanstack router URL or in zustand store
+- Audio engine state kept in React refs, synced via useEffect when data changes
 
 **React Components**:
 
@@ -43,13 +43,6 @@ This is a monorepo (Bun workspaces + Turbo) for an audio DAW web application.
 - Use composition over large monolithic components - break down into smaller pieces
 - Extract business logic into custom hooks, keep components focused on rendering
 - Avoid mixing unrelated concerns in the same component
-
-**Backend** (`packages/backend/convex/`):
-
-- Schema defines `projects`, `projectUsers`, `tracks` tables
-- Tracks ordered by `order` field, reordering updates all affected track orders
-- Convex documentation of LLM's: https://docs.convex.dev/llms.txt
-- Convex rules, read if doing convex related tasks: `convex_rules.mdc`
 
 **Zero Sync** (`packages/zero/`, `packages/db/`, `packages/api/`):
 
@@ -59,3 +52,9 @@ This is a monorepo (Bun workspaces + Turbo) for an audio DAW web application.
 - Mutators in `packages/zero/src/mutators.ts` - use `defineMutator` with access checks
 - API server in `packages/api/` handles auth context extraction
 - Frontend hooks in `apps/web/src/hooks/useZero*.ts`
+
+**Typescript**
+
+- Avoid `any`
+- Avoid `as` type casting unless absolute necessary
+- Infer types

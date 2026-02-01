@@ -8,11 +8,7 @@ export const Authenticated = ({ children }: { children: React.ReactNode }) => {
   return children;
 };
 
-export const Unauthenticated = ({
-  children,
-}: {
-  children: React.ReactNode;
-}) => {
+export const Unauthenticated = ({ children }: { children: React.ReactNode }) => {
   const { data: session } = authClient.useSession();
   if (session) {
     return null;

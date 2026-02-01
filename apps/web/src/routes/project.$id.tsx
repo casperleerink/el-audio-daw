@@ -3,11 +3,7 @@ import { useEffect, useState } from "react";
 
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
-import {
-  Authenticated,
-  AuthLoading,
-  Unauthenticated,
-} from "@/components/util/auth";
+import { Authenticated, AuthLoading, Unauthenticated } from "@/components/util/auth";
 import { ProjectEditor } from "@/components/project/ProjectEditor";
 import { ProjectEditorSkeleton } from "@/components/project/ProjectEditorSkeleton";
 import { useProjectStore } from "@/stores/projectStore";

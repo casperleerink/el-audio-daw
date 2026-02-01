@@ -184,8 +184,8 @@ export const mutators = defineMutators({
       z.object({
         id: z.uuid(),
         projectId: z.string().uuid(),
-        storageUrl: z.string().url(),
-        waveformUrl: z.string().url().optional(),
+        storageUrl: z.string().min(1),
+        waveformUrl: z.string().min(1).optional(),
         name: z.string().min(1).max(255),
         duration: z.number().int().positive(),
         sampleRate: z.number().int().positive(),
@@ -208,7 +208,7 @@ export const mutators = defineMutators({
     updateWaveform: defineMutator(
       z.object({
         id: z.string().uuid(),
-        waveformUrl: z.string().url(),
+        waveformUrl: z.string().min(1),
       }),
       async ({ tx, ctx: { userID }, args: { id, waveformUrl } }) => {
         const audioFile = await tx.run(zql.audioFiles.where("id", id).one());
