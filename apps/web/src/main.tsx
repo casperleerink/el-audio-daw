@@ -1,9 +1,4 @@
-import {
-  Outlet,
-  RouterProvider,
-  createRootRouteWithContext,
-  createRouter,
-} from "@tanstack/react-router";
+import { RouterProvider, createRouter } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 import Loader from "./components/loader";
 import { routeTree } from "./routeTree.gen";

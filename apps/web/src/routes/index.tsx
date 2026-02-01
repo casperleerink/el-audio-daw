@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { FolderOpen, Loader2, Music, Plus } from "lucide-react";
+import { FolderOpen, Music, Plus } from "lucide-react";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
