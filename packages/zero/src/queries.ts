@@ -31,24 +31,18 @@ export const queries = defineQueries({
       ({ args: { projectId }, ctx: { userID } }) =>
         zql.tracks
           .where("projectId", projectId)
-          .whereExists("project", (q) =>
-            q.whereExists("users", (pu) => pu.where("userId", userID)),
-          )
+          .whereExists("project", (q) => q.whereExists("users", (pu) => pu.where("userId", userID)))
           .related("clips", (q) => q.related("audioFile"))
-          .related("effects")
+          .related("effects", (q) => q.orderBy("order", "asc"))
           .orderBy("order", "asc"),
     ),
-    byId: defineQuery(
-      z.object({ id: z.string() }),
-      ({ args: { id }, ctx: { userID } }) =>
-        zql.tracks
-          .where("id", id)
-          .whereExists("project", (q) =>
-            q.whereExists("users", (pu) => pu.where("userId", userID)),
-          )
-          .related("clips", (q) => q.related("audioFile"))
-          .related("effects")
-          .one(),
+    byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx: { userID } }) =>
+      zql.tracks
+        .where("id", id)
+        .whereExists("project", (q) => q.whereExists("users", (pu) => pu.where("userId", userID)))
+        .related("clips", (q) => q.related("audioFile"))
+        .related("effects", (q) => q.orderBy("order", "asc"))
+        .one(),
     ),
   },
 });
