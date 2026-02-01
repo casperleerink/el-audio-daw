@@ -1,7 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-type TrackUpdate = { muted?: boolean; solo?: boolean; gain?: number; pan?: number };
+type TrackUpdate = {
+  muted?: boolean;
+  solo?: boolean;
+  gain?: number;
+  pan?: number;
+};
 
 type BaseTrack = {
   _id: string;

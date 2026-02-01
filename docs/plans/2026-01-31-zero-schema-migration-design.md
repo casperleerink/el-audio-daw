@@ -1,39 +1,22 @@
-import { relations } from "drizzle-orm";
-import {
-  pgTable,
-  text,
-  timestamp,
-  integer,
-  real,
-  boolean,
-  jsonb,
-  index,
-} from "drizzle-orm/pg-core";
-import { user } from "./auth-schema";
-export * from "./auth-schema";
-export const projects = pgTable("projects", {
-  id: text("id").notNull().primaryKey(),
-  name: text("name").notNull(),
-  duration: integer("duration"),
-  sampleRate: integer("sample_rate"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
-});
+# Zero Schema Migration Design
 
-export const projectUsers = pgTable(
-  "project_users",
-  {
-    id: text("id").primaryKey(),
-    projectId: text("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    userId: text("user_id").notNull(),
-    role: text("role").notNull().$type<"owner" | "collaborator">(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-  },
-  (table) => [index("project_users_project_id_user_id_idx").on(table.projectId, table.userId)],
-);
+Migrate remaining Convex schemas (tracks, audioFiles, clips, trackEffects) to Drizzle/Zero.
 
+## Decisions
+
+| Topic      | Decision                                                                      |
+| ---------- | ----------------------------------------------------------------------------- |
+| Storage    | UploadThing URLs as text fields (`storageUrl`, `waveformUrl`)                 |
+| Timestamps | Postgres native timestamps (Zero converts to numbers automatically)           |
+| effectData | JSONB column with Zod discriminated union validation                          |
+| Zod        | Use catalog version (`^4.1.13`), create `packages/schemas` for shared schemas |
+| Cascade    | All child tables cascade delete on parent                                     |
+
+## Tables to Add
+
+### tracks
+
+```ts
 export const tracks = pgTable(
   "tracks",
   {
@@ -56,7 +39,11 @@ export const tracks = pgTable(
     index("tracks_project_id_order_idx").on(table.projectId, table.order),
   ],
 );
+```
 
+### audioFiles
+
+```ts
 export const audioFiles = pgTable(
   "audio_files",
   {
@@ -74,7 +61,11 @@ export const audioFiles = pgTable(
   },
   (table) => [index("audio_files_project_id_idx").on(table.projectId)],
 );
+```
 
+### clips
+
+```ts
 export const clips = pgTable(
   "clips",
   {
@@ -101,7 +92,11 @@ export const clips = pgTable(
     index("clips_project_id_idx").on(table.projectId),
   ],
 );
+```
 
+### trackEffects
+
+```ts
 export const trackEffects = pgTable(
   "track_effects",
   {
@@ -120,23 +115,17 @@ export const trackEffects = pgTable(
     index("track_effects_track_id_order_idx").on(table.trackId, table.order),
   ],
 );
+```
 
+## Relations
+
+```ts
+// Update existing projectRelations
 export const projectRelations = relations(projects, ({ many }) => ({
   users: many(projectUsers),
   tracks: many(tracks),
   audioFiles: many(audioFiles),
   clips: many(clips),
-}));
-
-export const projectUserRelations = relations(projectUsers, ({ one }) => ({
-  project: one(projects, {
-    fields: [projectUsers.projectId],
-    references: [projects.id],
-  }),
-  user: one(user, {
-    fields: [projectUsers.userId],
-    references: [user.id],
-  }),
 }));
 
 export const trackRelations = relations(tracks, ({ one, many }) => ({
@@ -177,3 +166,34 @@ export const trackEffectRelations = relations(trackEffects, ({ one }) => ({
     references: [tracks.id],
   }),
 }));
+```
+
+## Zod Effect Schemas
+
+Location: `packages/schemas/src/effects.ts`
+
+```ts
+import { z } from "zod";
+
+export const filterEffectSchema = z.object({
+  type: z.literal("filter"),
+  cutoff: z.number().min(20).max(20000),
+  resonance: z.number().min(0).max(1),
+  filterType: z.enum(["lowpass", "highpass", "bandpass", "notch"]),
+});
+
+export const effectDataSchema = z.discriminatedUnion("type", [
+  filterEffectSchema,
+]);
+
+export type FilterEffect = z.infer<typeof filterEffectSchema>;
+export type EffectData = z.infer<typeof effectDataSchema>;
+```
+
+## Implementation Order
+
+1. Create `packages/schemas` package with effect schemas
+2. Add tables and relations to `packages/db/src/schema.ts`
+3. Run Drizzle migration (`bun run db:generate && bun run db:migrate`)
+4. Regenerate Zero schema (`bun run zero:generate`)
+5. Add Zero queries and mutators for new tables

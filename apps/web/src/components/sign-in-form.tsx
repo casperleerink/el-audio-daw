@@ -21,7 +21,11 @@ const signInDefaultValues: SignInValues = {
   password: "",
 };
 
-export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
+export default function SignInForm({
+  onSwitchToSignUp,
+}: {
+  onSwitchToSignUp: () => void;
+}) {
   return (
     <AuthForm<SignInValues>
       title="Welcome Back"
@@ -37,7 +41,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
             email: values.email,
             password: values.password,
           },
-          authCallbacks,
+          authCallbacks
         );
       }}
       switchText="Need an account? Sign Up"

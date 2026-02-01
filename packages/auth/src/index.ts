@@ -18,7 +18,7 @@ export const auth = betterAuth({
   advanced: {
     crossSubDomainCookies: {
       enabled: true,
-      domain: "el-audio-daw.com",
+      domain: "localhost",
     },
   },
   trustedOrigins: [
