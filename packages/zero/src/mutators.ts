@@ -177,6 +177,66 @@ export const mutators = defineMutators({
       },
     ),
   },
+
+  audioFiles: {
+    create: defineMutator(
+      z.object({
+        id: z.uuid(),
+        projectId: z.string().uuid(),
+        storageUrl: z.string().url(),
+        waveformUrl: z.string().url().optional(),
+        name: z.string().min(1).max(255),
+        duration: z.number().int().positive(),
+        sampleRate: z.number().int().positive(),
+        channels: z.number().int().min(1).max(2),
+      }),
+      async ({ tx, ctx: { userID }, args }) => {
+        const access = await tx.run(
+          zql.projectUsers.where("projectId", args.projectId).where("userId", userID).one(),
+        );
+        if (!access) throw new Error("Not authorized");
+
+        await tx.mutate.audioFiles.insert({
+          ...args,
+          waveformUrl: args.waveformUrl ?? null,
+          createdAt: Date.now(),
+        });
+      },
+    ),
+
+    updateWaveform: defineMutator(
+      z.object({
+        id: z.string().uuid(),
+        waveformUrl: z.string().url(),
+      }),
+      async ({ tx, ctx: { userID }, args: { id, waveformUrl } }) => {
+        const audioFile = await tx.run(zql.audioFiles.where("id", id).one());
+        if (!audioFile) throw new Error("Audio file not found");
+
+        const access = await tx.run(
+          zql.projectUsers.where("projectId", audioFile.projectId).where("userId", userID).one(),
+        );
+        if (!access) throw new Error("Not authorized");
+
+        await tx.mutate.audioFiles.update({ id, waveformUrl });
+      },
+    ),
+
+    delete: defineMutator(
+      z.object({ id: z.string().uuid() }),
+      async ({ tx, ctx: { userID }, args: { id } }) => {
+        const audioFile = await tx.run(zql.audioFiles.where("id", id).one());
+        if (!audioFile) throw new Error("Audio file not found");
+
+        const access = await tx.run(
+          zql.projectUsers.where("projectId", audioFile.projectId).where("userId", userID).one(),
+        );
+        if (!access) throw new Error("Not authorized");
+
+        await tx.mutate.audioFiles.delete({ id });
+      },
+    ),
+  },
 });
 
 export type Mutators = typeof mutators;
