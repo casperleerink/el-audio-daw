@@ -1,5 +1,6 @@
 import {
   createSchema,
+  createBuilder,
   table,
   string,
   number,
@@ -53,8 +54,17 @@ export const schema = createSchema({
 
 export type Schema = typeof schema;
 
+// Create zql builder from schema for use in queries and mutators
+export const zql = createBuilder(schema);
+
+// Context type for authenticated user
+export type ZeroContext = {
+  userID: string;
+};
+
 declare module "@rocicorp/zero" {
   interface DefaultTypes {
     schema: Schema;
+    context: ZeroContext;
   }
 }

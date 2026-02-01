@@ -1,5 +1,6 @@
-import { defineMutator, defineMutators, zql } from "@rocicorp/zero";
+import { defineMutator, defineMutators } from "@rocicorp/zero";
 import { z } from "zod";
+import { zql } from "./schema.js";
 
 export const mutators = defineMutators({
   projects: {

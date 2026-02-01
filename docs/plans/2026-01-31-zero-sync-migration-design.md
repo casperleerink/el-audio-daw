@@ -54,12 +54,14 @@ Migration from Convex to Zero for real-time data sync. This design adds Zero inf
 Drizzle schema and Postgres client. Shared foundation for auth and Zero.
 
 **Responsibilities:**
+
 - Drizzle table definitions
 - Database client setup
 - Migrations via drizzle-kit
 - Dev script: starts/stops Postgres container
 
 **Dependencies:**
+
 - `drizzle-orm`
 - `drizzle-kit`
 - `postgres` (node-postgres)
@@ -69,11 +71,13 @@ Drizzle schema and Postgres client. Shared foundation for auth and Zero.
 better-auth with Postgres adapter.
 
 **Responsibilities:**
+
 - better-auth instance configuration
 - Session management
 - Cookie-based auth (forwarded to zero-cache)
 
 **Dependencies:**
+
 - `better-auth`
 - `@el-audio-daw/db`
 
@@ -82,12 +86,14 @@ better-auth with Postgres adapter.
 Zero schema, queries, and mutators.
 
 **Responsibilities:**
+
 - Zero schema (generated from Drizzle via `@rocicorp/zero-drizzle`)
 - Query definitions using `defineQuery`
 - Mutator definitions using `defineMutator`
 - Exported for use by both API server and frontend
 
 **Dependencies:**
+
 - `@rocicorp/zero`
 - `@rocicorp/zero-drizzle`
 - `@el-audio-daw/db`
@@ -98,12 +104,14 @@ Zero schema, queries, and mutators.
 Hono server implementing Zero endpoints and auth.
 
 **Responsibilities:**
+
 - `/api/zero/query` - Query resolution for zero-cache
 - `/api/zero/mutate` - Mutation execution for zero-cache
 - `/api/auth/*` - better-auth routes
 - Cookie middleware for auth
 
 **Dependencies:**
+
 - `hono`
 - `@el-audio-daw/auth`
 - `@el-audio-daw/zero`
@@ -140,11 +148,13 @@ export const projectUsers = pgTable('project_users', {
 **Schema:** Auto-generated from Drizzle via `@rocicorp/zero-drizzle`.
 
 **Queries:**
+
 - `projects.mine` - User's projects via projectUsers relationship
 - `projects.byId` - Single project with access check
 - `projectUsers.byProject` - Collaborators for a project
 
 **Mutators:**
+
 - `projects.create` - Creates project + adds creator as owner
 - `projects.update` - Updates project name
 - `projects.delete` - Cascading delete (projectUsers first)
@@ -219,6 +229,7 @@ bun dev
 ```
 
 **Turbo dependencies:**
+
 - `api` depends on `db` (needs Postgres running)
 - `zero-cache` depends on `db` and `api` (needs both ready)
 - `web` depends on `zero-cache` (needs sync available)
@@ -240,6 +251,7 @@ Frontend imports types from `@el-audio-daw/zero` for type safety.
 ### File Storage
 
 When ready to migrate audio file uploads:
+
 - Cloudflare R2 (recommended) - S3-compatible, no egress fees
 - Add upload routes to API server
 - Presigned URL pattern matching current Convex flow
@@ -247,6 +259,7 @@ When ready to migrate audio file uploads:
 ### Additional Tables
 
 After validating projects/projectUsers:
+
 - tracks
 - clips
 - audioFiles
