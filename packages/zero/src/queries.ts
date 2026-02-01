@@ -45,6 +45,29 @@ export const queries = defineQueries({
         .one(),
     ),
   },
+  audioFiles: {
+    byProject: defineQuery(
+      z.object({ projectId: z.string() }),
+      ({ args: { projectId }, ctx: { userID } }) =>
+        zql.audioFiles
+          .where("projectId", projectId)
+          .whereExists("project", (q) =>
+            q.whereExists("users", (pu) => pu.where("userId", userID)),
+          ),
+    ),
+  },
+  clips: {
+    byTrack: defineQuery(
+      z.object({ trackId: z.string() }),
+      ({ args: { trackId }, ctx: { userID } }) =>
+        zql.clips
+          .where("trackId", trackId)
+          .whereExists("project", (q) =>
+            q.whereExists("users", (pu) => pu.where("userId", userID)),
+          )
+          .related("audioFile"),
+    ),
+  },
 });
 
 export type Queries = typeof queries;
