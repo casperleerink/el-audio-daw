@@ -25,6 +25,32 @@ export const queries = defineQueries({
           ),
     ),
   },
+  tracks: {
+    byProject: defineQuery(
+      z.object({ projectId: z.string() }),
+      ({ args: { projectId }, ctx: { userID } }) =>
+        zql.tracks
+          .where("projectId", projectId)
+          .whereExists("project", (q) =>
+            q.whereExists("users", (pu) => pu.where("userId", userID)),
+          )
+          .related("clips", (q) => q.related("audioFile"))
+          .related("effects")
+          .orderBy("order", "asc"),
+    ),
+    byId: defineQuery(
+      z.object({ id: z.string() }),
+      ({ args: { id }, ctx: { userID } }) =>
+        zql.tracks
+          .where("id", id)
+          .whereExists("project", (q) =>
+            q.whereExists("users", (pu) => pu.where("userId", userID)),
+          )
+          .related("clips", (q) => q.related("audioFile"))
+          .related("effects")
+          .one(),
+    ),
+  },
 });
 
 export type Queries = typeof queries;
