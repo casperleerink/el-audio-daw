@@ -43,3 +43,12 @@ This is a monorepo (Bun workspaces + Turbo) for an audio DAW web application.
 - Tracks ordered by `order` field, reordering updates all affected track orders
 - Convex documentation of LLM's: https://docs.convex.dev/llms.txt
 - Convex rules, read if doing convex related tasks: `convex_rules.mdc`
+
+**Zero Sync** (`packages/zero/`, `packages/db/`, `packages/api/`):
+
+- Use `zero-sync` skill when working with Zero code
+- Schema in `packages/zero/src/schema.gen.ts` - auto-generated from Drizzle, maps to Postgres tables
+- Queries in `packages/zero/src/queries.ts` - use `defineQuery` with Zod args
+- Mutators in `packages/zero/src/mutators.ts` - use `defineMutator` with access checks
+- API server in `packages/api/` handles auth context extraction
+- Frontend hooks in `apps/web/src/hooks/useZero*.ts`

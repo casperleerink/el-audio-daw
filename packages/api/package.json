@@ -1,0 +1,23 @@
+{
+  "name": "@el-audio-daw/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@el-audio-daw/auth": "workspace:*",
+    "@el-audio-daw/db": "workspace:*",
+    "@el-audio-daw/zero": "workspace:*",
+    "@hono/node-server": "^1.14.3",
+    "@rocicorp/zero": "catalog:",
+    "hono": "^4.7.10"
+  },
+  "devDependencies": {
+    "@el-audio-daw/config": "workspace:*",
+    "@types/node": "^22.12.0",
+    "typescript": "catalog:"
+  }
+}
