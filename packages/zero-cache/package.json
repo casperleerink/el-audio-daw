@@ -1,0 +1,9 @@
+{
+  "name": "@el-audio-daw/zero-cache",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx zero-cache"
+  }
+}
