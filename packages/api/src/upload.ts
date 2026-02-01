@@ -61,6 +61,7 @@ uploadRoutes.post("/upload", async (c) => {
 
     return c.json({
       uploadUrl,
+      storageUrl: key,
       key,
     });
   } catch (error) {
