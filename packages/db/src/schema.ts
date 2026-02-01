@@ -114,6 +114,9 @@ export const trackEffects = pgTable(
 
 export const projectRelations = relations(projects, ({ many }) => ({
   users: many(projectUsers),
+  tracks: many(tracks),
+  audioFiles: many(audioFiles),
+  clips: many(clips),
 }));
 
 export const projectUserRelations = relations(projectUsers, ({ one }) => ({
@@ -124,5 +127,44 @@ export const projectUserRelations = relations(projectUsers, ({ one }) => ({
   user: one(user, {
     fields: [projectUsers.userId],
     references: [user.id],
+  }),
+}));
+
+export const trackRelations = relations(tracks, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [tracks.projectId],
+    references: [projects.id],
+  }),
+  clips: many(clips),
+  effects: many(trackEffects),
+}));
+
+export const audioFileRelations = relations(audioFiles, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [audioFiles.projectId],
+    references: [projects.id],
+  }),
+  clips: many(clips),
+}));
+
+export const clipRelations = relations(clips, ({ one }) => ({
+  project: one(projects, {
+    fields: [clips.projectId],
+    references: [projects.id],
+  }),
+  track: one(tracks, {
+    fields: [clips.trackId],
+    references: [tracks.id],
+  }),
+  audioFile: one(audioFiles, {
+    fields: [clips.audioFileId],
+    references: [audioFiles.id],
+  }),
+}));
+
+export const trackEffectRelations = relations(trackEffects, ({ one }) => ({
+  track: one(tracks, {
+    fields: [trackEffects.trackId],
+    references: [tracks.id],
   }),
 }));
