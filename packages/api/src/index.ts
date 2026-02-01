@@ -25,7 +25,7 @@ app.use(
     exposeHeaders: ["Content-Length"],
     maxAge: 600,
     credentials: true,
-  })
+  }),
 );
 
 app.use("*", async (c, next) => {

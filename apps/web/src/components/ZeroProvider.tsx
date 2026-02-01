@@ -22,7 +22,7 @@ export function ZeroProvider({ children }: PropsWithChildren) {
       });
       router.invalidate();
     },
-    [router]
+    [router],
   );
 
   return (

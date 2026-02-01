@@ -29,7 +29,7 @@ zeroRoutes.post("/query", async (c) => {
       return query.fn({ args, ctx });
     },
     schema,
-    c.req.raw
+    c.req.raw,
   );
 
   return c.json(result);
@@ -49,7 +49,7 @@ zeroRoutes.post("/mutate", async (c) => {
           ctx,
         });
       }),
-    c.req.raw
+    c.req.raw,
   );
 
   return c.json(result);
