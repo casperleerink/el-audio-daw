@@ -15,8 +15,12 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { AddEffectDialog } from "@/components/AddEffectDialog";
+import { EffectCard } from "@/components/EffectCard";
+import { EffectsPanel } from "@/components/EffectsPanel";
+import { FilterEffect } from "@/components/effects/FilterEffect";
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import { VirtualizedTrackList } from "@/components/VirtualizedTrackList";
@@ -27,6 +31,7 @@ import { useClipDrag, type ClipData } from "@/hooks/useClipDrag";
 import { useClipMouseHandlers } from "@/hooks/useClipMouseHandlers";
 import { useClipTrim } from "@/hooks/useClipTrim";
 import { useClipSelection } from "@/hooks/useClipSelection";
+import { useEffectReorder } from "@/hooks/useEffectReorder";
 import { useOptimisticTrackUpdates } from "@/hooks/useOptimisticTrackUpdates";
 import { useProjectKeyboardShortcuts } from "@/hooks/useProjectKeyboardShortcuts";
 import { useTimelineCanvasEvents } from "@/hooks/useTimelineCanvasEvents";
@@ -213,6 +218,28 @@ function ProjectEditor() {
     splitClipOptimisticUpdate,
   );
 
+  // Track selection for effects panel
+  const [selectedTrackIdForEffects, setSelectedTrackIdForEffects] = useState<string | null>(null);
+  const [selectedEffectId, setSelectedEffectId] = useState<string | null>(null);
+  const [addEffectDialogOpen, setAddEffectDialogOpen] = useState(false);
+
+  // Effects query for selected track (UI display)
+  const effects = useQuery(
+    api.trackEffects.getTrackEffects,
+    selectedTrackIdForEffects ? { trackId: selectedTrackIdForEffects as Id<"tracks"> } : "skip",
+  );
+
+  // Effects query for all project tracks (audio engine)
+  const allProjectEffects = useQuery(api.trackEffects.getProjectEffects, {
+    projectId: id as Id<"projects">,
+  });
+
+  // Effect mutations
+  const createEffect = useMutation(api.trackEffects.createEffect);
+  const updateEffect = useMutation(api.trackEffects.updateEffect);
+  const deleteEffect = useMutation(api.trackEffects.deleteEffect);
+  const reorderEffect = useMutation(api.trackEffects.reorderEffect);
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [scrollTop, setScrollTop] = useState(0);
@@ -254,6 +281,24 @@ function ProjectEditor() {
     gain: clip.gain,
   }));
 
+  // Transform effects for audio engine
+  const effectsForEngine = useMemo(
+    () =>
+      (allProjectEffects ?? []).map((e) => ({
+        id: e._id,
+        trackId: e.trackId,
+        order: e.order,
+        enabled: e.enabled,
+        effectData: e.effectData as {
+          type: "filter";
+          cutoff: number;
+          resonance: number;
+          filterType: "lowpass" | "highpass" | "bandpass" | "notch";
+        },
+      })),
+    [allProjectEffects],
+  );
+
   const {
     isEngineInitializing,
     isPlaying,
@@ -269,6 +314,7 @@ function ProjectEditor() {
     tracks: tracksWithOptimisticUpdates,
     clips: clipsForEngine,
     clipUrls,
+    effects: effectsForEngine,
   });
 
   // Clip selection state (FR-1 through FR-9)
@@ -487,6 +533,98 @@ function ProjectEditor() {
     onSplitClips: handleSplitClips,
   });
 
+  // Handle track header click for effects panel
+  const handleTrackSelect = useCallback((trackId: string) => {
+    setSelectedTrackIdForEffects((prev) => (prev === trackId ? null : trackId));
+    setSelectedEffectId(null);
+  }, []);
+
+  // Handle adding an effect
+  const handleAddEffect = useCallback(
+    async (type: "filter") => {
+      if (!selectedTrackIdForEffects) return;
+
+      const defaultEffectData =
+        type === "filter"
+          ? {
+              type: "filter" as const,
+              cutoff: 1000,
+              resonance: 0.5,
+              filterType: "lowpass" as const,
+            }
+          : null;
+
+      if (!defaultEffectData) return;
+
+      await createEffect({
+        trackId: selectedTrackIdForEffects as Id<"tracks">,
+        effectData: defaultEffectData,
+      });
+    },
+    [selectedTrackIdForEffects, createEffect],
+  );
+
+  // Handle effect parameter commit (to server)
+  const handleEffectParamCommit = useCallback(
+    async (
+      effectId: string,
+      effectData: {
+        type: "filter";
+        cutoff: number;
+        resonance: number;
+        filterType: "lowpass" | "highpass" | "bandpass" | "notch";
+      },
+    ) => {
+      await updateEffect({
+        id: effectId as Id<"trackEffects">,
+        effectData,
+      });
+    },
+    [updateEffect],
+  );
+
+  // Handle effect enabled toggle
+  const handleEffectEnabledChange = useCallback(
+    async (effectId: string, enabled: boolean) => {
+      await updateEffect({
+        id: effectId as Id<"trackEffects">,
+        enabled,
+      });
+    },
+    [updateEffect],
+  );
+
+  // Handle effect deletion via keyboard
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.key === "Delete" || e.key === "Backspace") &&
+        selectedEffectId &&
+        selectedTrackIdForEffects
+      ) {
+        // Don't delete effect if we're in an input field
+        const target = e.target as HTMLElement;
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+
+        e.preventDefault();
+        void deleteEffect({ id: selectedEffectId as Id<"trackEffects"> });
+        setSelectedEffectId(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedEffectId, selectedTrackIdForEffects, deleteEffect]);
+
+  // Effect reorder hook
+  const { handleDragStart: handleEffectDragStart, handleDragEnd: handleEffectDragEnd } =
+    useEffectReorder({
+      effects: effects ?? [],
+      onReorder: (effectId, newOrder) => {
+        void reorderEffect({ id: effectId as Id<"trackEffects">, newOrder });
+      },
+    });
+
   // Loading state
   if (project === undefined || tracks === undefined) {
     return <ProjectEditorSkeleton />;
@@ -617,80 +755,140 @@ function ProjectEditor() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex min-h-0 flex-1">
-        {/* Track List */}
-        <div className="flex w-64 shrink-0 flex-col border-r">
-          {/* Spacer to align with timeline ruler */}
-          <div className="h-6 shrink-0 border-b" />
-          {/* Track Headers */}
-          <MeterProvider subscribe={meterSubscribe}>
-            <VirtualizedTrackList
-              ref={trackListRef}
-              tracks={tracksWithOptimisticUpdates ?? []}
-              scrollTop={scrollTop}
-              focusedTrackId={focusedTrackId}
-              onScrollChange={setScrollTop}
-              onMuteChange={handleUpdateTrackMute}
-              onSoloChange={handleUpdateTrackSolo}
-              onGainChange={handleUpdateTrackGain}
-              onGainCommit={handleCommitTrackGain}
-              onPanChange={handleUpdateTrackPan}
-              onPanCommit={handleCommitTrackPan}
-              onNameChange={handleUpdateTrackName}
-              onDelete={handleDeleteTrack}
-              onReorder={handleReorderTracks}
-              onAddTrack={handleAddTrack}
-            />
-          </MeterProvider>
-
-          {/* Master Track */}
-          <div className="shrink-0 border-t bg-muted/30 p-2">
-            <div className="flex items-center gap-2">
-              <span className="w-16 text-xs font-medium">Master</span>
-              <Slider
-                className="flex-1"
-                min={-60}
-                max={12}
-                step={0.1}
-                value={[masterGain]}
-                onValueChange={(val) => setMasterGain(Array.isArray(val) ? (val[0] ?? 0) : val)}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1">
+          {/* Track List */}
+          <div className="flex w-64 shrink-0 flex-col border-r">
+            {/* Spacer to align with timeline ruler */}
+            <div className="h-6 shrink-0 border-b" />
+            {/* Track Headers */}
+            <MeterProvider subscribe={meterSubscribe}>
+              <VirtualizedTrackList
+                ref={trackListRef}
+                tracks={tracksWithOptimisticUpdates ?? []}
+                scrollTop={scrollTop}
+                focusedTrackId={focusedTrackId}
+                selectedTrackId={selectedTrackIdForEffects}
+                onScrollChange={setScrollTop}
+                onMuteChange={handleUpdateTrackMute}
+                onSoloChange={handleUpdateTrackSolo}
+                onGainChange={handleUpdateTrackGain}
+                onGainCommit={handleCommitTrackGain}
+                onPanChange={handleUpdateTrackPan}
+                onPanCommit={handleCommitTrackPan}
+                onNameChange={handleUpdateTrackName}
+                onDelete={handleDeleteTrack}
+                onReorder={handleReorderTracks}
+                onAddTrack={handleAddTrack}
+                onTrackSelect={handleTrackSelect}
               />
-              <span className="w-16 text-right font-mono text-xs whitespace-nowrap">
-                {formatGain(masterGain)}
-              </span>
+            </MeterProvider>
+
+            {/* Master Track */}
+            <div className="shrink-0 border-t bg-muted/30 p-2">
+              <div className="flex items-center gap-2">
+                <span className="w-16 text-xs font-medium">Master</span>
+                <Slider
+                  className="flex-1"
+                  min={-60}
+                  max={12}
+                  step={0.1}
+                  value={[masterGain]}
+                  onValueChange={(val) => setMasterGain(Array.isArray(val) ? (val[0] ?? 0) : val)}
+                />
+                <span className="w-16 text-right font-mono text-xs whitespace-nowrap">
+                  {formatGain(masterGain)}
+                </span>
+              </div>
             </div>
+          </div>
+
+          {/* Timeline Area */}
+          <div className="flex flex-1 flex-col">
+            <TimelineCanvas
+              tracks={tracks}
+              clips={(clips ?? []).map((clip) => ({
+                _id: clip._id,
+                trackId: clip.trackId,
+                audioFileId: clip.audioFileId,
+                name: clip.name,
+                startTime: clip.startTime,
+                duration: clip.duration,
+                audioStartTime: clip.audioStartTime,
+                pending: isPending(clip),
+              }))}
+              sampleRate={project?.sampleRate ?? 44100}
+              playheadTime={playheadTime}
+              scrollTop={scrollTop}
+              onScrollChange={setScrollTop}
+              onSeek={seek}
+              projectId={id as Id<"projects">}
+              selectedClipIds={selectedClipIds}
+              onSelectClip={selectClip}
+              onToggleClipSelection={toggleClipSelection}
+              onClearSelection={clearSelection}
+              getAudioFileDuration={getAudioFileDuration}
+              waveformUrls={waveformUrls ?? {}}
+            />
           </div>
         </div>
 
-        {/* Timeline Area */}
-        <div className="flex flex-1 flex-col">
-          <TimelineCanvas
-            tracks={tracks}
-            clips={(clips ?? []).map((clip) => ({
-              _id: clip._id,
-              trackId: clip.trackId,
-              audioFileId: clip.audioFileId,
-              name: clip.name,
-              startTime: clip.startTime,
-              duration: clip.duration,
-              audioStartTime: clip.audioStartTime,
-              pending: isPending(clip),
-            }))}
-            sampleRate={project?.sampleRate ?? 44100}
-            playheadTime={playheadTime}
-            scrollTop={scrollTop}
-            onScrollChange={setScrollTop}
-            onSeek={seek}
-            projectId={id as Id<"projects">}
-            selectedClipIds={selectedClipIds}
-            onSelectClip={selectClip}
-            onToggleClipSelection={toggleClipSelection}
-            onClearSelection={clearSelection}
-            getAudioFileDuration={getAudioFileDuration}
-            waveformUrls={waveformUrls ?? {}}
-          />
-        </div>
+        {/* Effects Panel */}
+        {selectedTrackIdForEffects && (
+          <EffectsPanel
+            selectedTrackId={selectedTrackIdForEffects}
+            selectedTrackName={
+              tracks?.find((t) => t._id === selectedTrackIdForEffects)?.name ?? "Track"
+            }
+            selectedTrackIndex={tracks?.findIndex((t) => t._id === selectedTrackIdForEffects) ?? 0}
+            onClose={() => setSelectedTrackIdForEffects(null)}
+            onAddEffect={() => setAddEffectDialogOpen(true)}
+          >
+            {(effects ?? []).map((effect) => (
+              <EffectCard
+                key={effect._id}
+                id={effect._id}
+                name={effect.effectData.type === "filter" ? "Filter" : "Effect"}
+                enabled={effect.enabled}
+                selected={selectedEffectId === effect._id}
+                onSelect={() => setSelectedEffectId(effect._id)}
+                onEnabledChange={(enabled) => handleEffectEnabledChange(effect._id, enabled)}
+                onDragStart={(e) => handleEffectDragStart(e, effect._id)}
+                onDragEnd={handleEffectDragEnd}
+              >
+                {effect.effectData.type === "filter" && (
+                  <FilterEffect
+                    cutoff={effect.effectData.cutoff}
+                    resonance={effect.effectData.resonance}
+                    filterType={effect.effectData.filterType}
+                    onCutoffChange={() => {}}
+                    onCutoffCommit={(v) =>
+                      handleEffectParamCommit(effect._id, { ...effect.effectData, cutoff: v })
+                    }
+                    onResonanceChange={() => {}}
+                    onResonanceCommit={(v) =>
+                      handleEffectParamCommit(effect._id, { ...effect.effectData, resonance: v })
+                    }
+                    onFilterTypeChange={(type) =>
+                      handleEffectParamCommit(effect._id, {
+                        ...effect.effectData,
+                        filterType: type,
+                      })
+                    }
+                  />
+                )}
+              </EffectCard>
+            ))}
+          </EffectsPanel>
+        )}
       </div>
+
+      {/* Add Effect Dialog */}
+      <AddEffectDialog
+        open={addEffectDialogOpen}
+        onOpenChange={setAddEffectDialogOpen}
+        onSelectEffect={handleAddEffect}
+      />
     </div>
   );
 }

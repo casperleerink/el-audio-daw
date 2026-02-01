@@ -29,6 +29,7 @@ interface TrackHeaderProps {
   index: number;
   isDragging?: boolean;
   isFocused?: boolean; // FR-9: Track has clip selection focus
+  isSelected?: boolean; // Track is selected for effects panel
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onMuteChange: (muted: boolean) => void;
@@ -43,6 +44,7 @@ interface TrackHeaderProps {
   onPanCommit: (pan: number) => void;
   onNameChange: (name: string) => void;
   onDelete: () => void;
+  onTrackSelect: () => void;
 }
 
 function TrackHeader({
@@ -50,6 +52,7 @@ function TrackHeader({
   index,
   isDragging,
   isFocused,
+  isSelected,
   onDragStart,
   onDragEnd,
   onMuteChange,
@@ -60,6 +63,7 @@ function TrackHeader({
   onPanCommit,
   onNameChange,
   onDelete,
+  onTrackSelect,
 }: TrackHeaderProps) {
   const trackColor = getTrackColor(index);
   const { isEditing, editName, inputRef, startEditing, setEditName, handleSubmit, handleKeyDown } =
@@ -104,13 +108,14 @@ function TrackHeader({
 
   return (
     <div
-      className={`box-border flex h-[100px] border-b transition-all duration-150 ${isDragging ? "scale-[0.98] opacity-50 shadow-lg ring-2 ring-primary/30" : ""}`}
+      className={`box-border flex h-[100px] cursor-pointer border-b transition-all duration-150 ${isDragging ? "scale-[0.98] opacity-50 shadow-lg ring-2 ring-primary/30" : ""} ${isSelected ? "bg-accent/30" : ""}`}
       draggable={isDragHandleActive}
       onDragStart={onDragStart}
       onDragEnd={() => {
         setIsDragHandleActive(false);
         onDragEnd();
       }}
+      onClick={onTrackSelect}
     >
       {/* Color strip */}
       <div
@@ -240,6 +245,7 @@ export interface VirtualizedTrackListProps {
   tracks: TrackData[];
   scrollTop: number;
   focusedTrackId?: string | null; // FR-9: Currently focused track for selection
+  selectedTrackId?: string | null; // Track selected for effects panel
   onScrollChange: (scrollTop: number) => void;
   onMuteChange: (trackId: string, muted: boolean) => void;
   onSoloChange: (trackId: string, solo: boolean) => void;
@@ -255,6 +261,7 @@ export interface VirtualizedTrackListProps {
   onDelete: (trackId: string) => void;
   onReorder: (trackIds: string[]) => void;
   onAddTrack: () => void;
+  onTrackSelect: (trackId: string) => void;
 }
 
 export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackListProps>(
@@ -263,6 +270,7 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
       tracks,
       scrollTop,
       focusedTrackId,
+      selectedTrackId,
       onScrollChange,
       onMuteChange,
       onSoloChange,
@@ -274,6 +282,7 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
       onDelete,
       onReorder,
       onAddTrack,
+      onTrackSelect,
     },
     ref,
   ) {
@@ -370,6 +379,7 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
                   index={virtualRow.index}
                   isDragging={isDragging}
                   isFocused={focusedTrackId === track._id}
+                  isSelected={selectedTrackId === track._id}
                   onDragStart={(e) => handleDragStart(e, track._id)}
                   onDragEnd={handleDragEnd}
                   onMuteChange={(muted) => onMuteChange(track._id, muted)}
@@ -380,6 +390,7 @@ export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, Virtualized
                   onPanCommit={(pan) => onPanCommit(track._id, pan)}
                   onNameChange={(name) => onNameChange(track._id, name)}
                   onDelete={() => onDelete(track._id)}
+                  onTrackSelect={() => onTrackSelect(track._id)}
                 />
                 {showDropIndicatorAfter && (
                   <div className="pointer-events-none absolute inset-0 rounded bg-primary/10 ring-2 ring-inset ring-primary/50" />
