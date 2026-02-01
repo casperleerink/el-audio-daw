@@ -76,9 +76,9 @@ export default defineSchema({
           v.literal("lowpass"),
           v.literal("highpass"),
           v.literal("bandpass"),
-          v.literal("notch")
+          v.literal("notch"),
         ),
-      })
+      }),
       // Future effects added as new union members
     ),
   })

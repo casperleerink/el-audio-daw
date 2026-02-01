@@ -188,6 +188,7 @@ User releases knob → Convex mutation (commit)
 ### Optimistic Updates
 
 Follow existing pattern for track controls:
+
 - Local state for immediate audio engine response
 - Commit to Convex only on control release
 - Rollback on mutation error

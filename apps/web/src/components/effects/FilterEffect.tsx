@@ -63,10 +63,7 @@ export function FilterEffect({
   return (
     <div className="flex flex-col gap-1.5">
       {/* Filter Type Selector */}
-      <Select
-        value={filterType}
-        onValueChange={(v) => onFilterTypeChange(v as FilterType)}
-      >
+      <Select value={filterType} onValueChange={(v) => onFilterTypeChange(v as FilterType)}>
         <SelectTrigger size="sm" className="h-6 text-[10px]">
           <SelectValue />
         </SelectTrigger>
@@ -90,9 +87,7 @@ export function FilterEffect({
             onChange={handleCutoffChange}
             onCommit={handleCutoffCommit}
           />
-          <span className="text-[9px] text-muted-foreground">
-            {formatFrequency(localCutoff)}
-          </span>
+          <span className="text-[9px] text-muted-foreground">{formatFrequency(localCutoff)}</span>
           <span className="text-[8px] text-muted-foreground/70">Freq</span>
         </div>
         <div className="flex flex-col items-center gap-0.5">
@@ -105,9 +100,7 @@ export function FilterEffect({
             onChange={handleResonanceChange}
             onCommit={handleResonanceCommit}
           />
-          <span className="text-[9px] text-muted-foreground">
-            {localResonance.toFixed(2)}
-          </span>
+          <span className="text-[9px] text-muted-foreground">{localResonance.toFixed(2)}</span>
           <span className="text-[8px] text-muted-foreground/70">Res</span>
         </div>
       </div>

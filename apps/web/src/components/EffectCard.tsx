@@ -52,7 +52,9 @@ export function EffectCard({
           className="h-5 w-5 p-0 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className={cn("size-2 rounded-full", enabled ? "bg-current" : "border border-current")} />
+          <div
+            className={cn("size-2 rounded-full", enabled ? "bg-current" : "border border-current")}
+          />
         </Toggle>
       </div>
 

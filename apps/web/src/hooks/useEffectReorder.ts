@@ -10,21 +10,15 @@ interface UseEffectReorderOptions {
   onReorder: (effectId: string, newOrder: number) => void;
 }
 
-export function useEffectReorder({
-  effects,
-  onReorder,
-}: UseEffectReorderOptions) {
+export function useEffectReorder({ effects, onReorder }: UseEffectReorderOptions) {
   const [draggedEffectId, setDraggedEffectId] = useState<string | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
 
-  const handleDragStart = useCallback(
-    (e: React.DragEvent, effectId: string) => {
-      setDraggedEffectId(effectId);
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", effectId);
-    },
-    []
-  );
+  const handleDragStart = useCallback((e: React.DragEvent, effectId: string) => {
+    setDraggedEffectId(effectId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", effectId);
+  }, []);
 
   const handleDragEnd = useCallback(() => {
     setDraggedEffectId(null);
@@ -46,7 +40,7 @@ export function useEffectReorder({
 
       setDropTargetIndex(dropIndex);
     },
-    [draggedEffectId, effects]
+    [draggedEffectId, effects],
   );
 
   const handleDrop = useCallback(
@@ -70,7 +64,7 @@ export function useEffectReorder({
       setDraggedEffectId(null);
       setDropTargetIndex(null);
     },
-    [draggedEffectId, dropTargetIndex, effects, onReorder]
+    [draggedEffectId, dropTargetIndex, effects, onReorder],
   );
 
   return {

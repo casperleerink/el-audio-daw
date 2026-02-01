@@ -13,6 +13,7 @@
 ## Task 1: Add trackEffects Table to Convex Schema
 
 **Files:**
+
 - Modify: `packages/backend/convex/schema.ts`
 
 **Step 1: Add the trackEffects table definition**
@@ -60,6 +61,7 @@ git commit -m "feat(backend): add trackEffects table schema"
 ## Task 2: Create trackEffects Convex Functions
 
 **Files:**
+
 - Create: `packages/backend/convex/trackEffects.ts`
 
 **Step 1: Create the trackEffects module with all CRUD operations**
@@ -248,6 +250,7 @@ git commit -m "feat(backend): add trackEffects CRUD mutations and query"
 ## Task 3: Add Effect Types to Audio Engine
 
 **Files:**
+
 - Modify: `packages/audio/src/engine.ts`
 
 **Step 1: Add effect type definitions after ClipState interface**
@@ -324,6 +327,7 @@ git commit -m "feat(audio): add effect types and setEffects method"
 ## Task 4: Implement Effect Chain Rendering in Audio Engine
 
 **Files:**
+
 - Modify: `packages/audio/src/engine.ts`
 
 > **Important:** Use the `elementary-audio` skill to verify exact SVF API before implementation.
@@ -426,6 +430,7 @@ private renderFilter(
 In the `renderGraph` method, find the section where track signals are built (around line 454). After summing clips and before applying track gain, insert the effect chain:
 
 Find this code block:
+
 ```typescript
 // Sum all clips on this track (FR-21)
 const { left: trackLeft, right: trackRight } = this.sumStereoSignals(
@@ -437,6 +442,7 @@ const { left: trackLeft, right: trackRight } = this.sumStereoSignals(
 ```
 
 Insert effect chain between them:
+
 ```typescript
 // Sum all clips on this track (FR-21)
 const { left: trackSumLeft, right: trackSumRight } = this.sumStereoSignals(
@@ -476,6 +482,7 @@ git commit -m "feat(audio): implement effect chain rendering with SVF filter"
 ## Task 5: Create Effect Types Export
 
 **Files:**
+
 - Modify: `packages/audio/src/index.ts` (if exists, otherwise create)
 
 **Step 1: Export effect types from audio package**
@@ -513,6 +520,7 @@ git commit -m "feat(audio): export effect types from package"
 ## Task 6: Create EffectsPanel Component
 
 **Files:**
+
 - Create: `apps/web/src/components/EffectsPanel.tsx`
 
 **Step 1: Create the collapsible bottom panel component**
@@ -598,6 +606,7 @@ git commit -m "feat(frontend): create EffectsPanel component"
 ## Task 7: Create EffectCard Component
 
 **Files:**
+
 - Create: `apps/web/src/components/EffectCard.tsx`
 
 **Step 1: Create the effect card component**
@@ -682,6 +691,7 @@ git commit -m "feat(frontend): create EffectCard component"
 ## Task 8: Create FilterEffect Component
 
 **Files:**
+
 - Create: `apps/web/src/components/effects/FilterEffect.tsx`
 
 **Step 1: Create the filter effect UI component**
@@ -813,6 +823,7 @@ git commit -m "feat(frontend): create FilterEffect component with knobs"
 ## Task 9: Create AddEffectDialog Component
 
 **Files:**
+
 - Create: `apps/web/src/components/AddEffectDialog.tsx`
 
 **Step 1: Create the add effect dialog**
@@ -908,6 +919,7 @@ git commit -m "feat(frontend): create AddEffectDialog component"
 ## Task 10: Create Select UI Component
 
 **Files:**
+
 - Create: `apps/web/src/components/ui/select.tsx`
 
 **Step 1: Check if select component exists, if not create it**
@@ -1019,6 +1031,7 @@ git commit -m "feat(frontend): create Select component"
 ## Task 11: Create useEffectReorder Hook
 
 **Files:**
+
 - Create: `apps/web/src/hooks/useEffectReorder.ts`
 
 **Step 1: Create the effect reorder hook**
@@ -1116,6 +1129,7 @@ git commit -m "feat(frontend): create useEffectReorder hook"
 ## Task 12: Integrate Effects Panel into Project Editor
 
 **Files:**
+
 - Modify: `apps/web/src/routes/project.$id.tsx`
 
 **Step 1: Add imports at top of file**
@@ -1354,11 +1368,13 @@ git commit -m "feat(frontend): integrate effects panel into project editor"
 ## Task 13: Add Track Selection Click Handler to VirtualizedTrackList
 
 **Files:**
+
 - Modify: `apps/web/src/components/VirtualizedTrackList.tsx`
 
 **Step 1: Add onTrackSelect prop to interfaces**
 
 Update TrackHeaderProps:
+
 ```typescript
 interface TrackHeaderProps {
   // ... existing props ...
@@ -1367,6 +1383,7 @@ interface TrackHeaderProps {
 ```
 
 Update VirtualizedTrackListProps:
+
 ```typescript
 export interface VirtualizedTrackListProps {
   // ... existing props ...
@@ -1455,6 +1472,7 @@ git commit -m "feat(frontend): add track selection support to VirtualizedTrackLi
 ## Task 14: Connect Effects to Audio Engine
 
 **Files:**
+
 - Modify: `apps/web/src/routes/project.$id.tsx`
 - Modify: `apps/web/src/hooks/useAudioEngine.ts`
 
@@ -1535,6 +1553,7 @@ git commit -m "feat: complete effect chain system with filter effect"
 ## Summary
 
 This plan implements:
+
 1. Convex schema for `trackEffects` table with discriminated union types
 2. CRUD mutations and queries for effects
 3. Audio engine effect chain rendering (pre-fader)

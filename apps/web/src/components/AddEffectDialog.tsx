@@ -34,11 +34,7 @@ const effectOptions: EffectOption[] = [
   // Future effects will be added here
 ];
 
-export function AddEffectDialog({
-  open,
-  onOpenChange,
-  onSelectEffect,
-}: AddEffectDialogProps) {
+export function AddEffectDialog({ open, onOpenChange, onSelectEffect }: AddEffectDialogProps) {
   const handleSelect = (type: EffectType) => {
     onSelectEffect(type);
     onOpenChange(false);
@@ -49,9 +45,7 @@ export function AddEffectDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add Effect</DialogTitle>
-          <DialogDescription>
-            Choose an effect to add to the chain
-          </DialogDescription>
+          <DialogDescription>Choose an effect to add to the chain</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-2 py-2">
@@ -67,9 +61,7 @@ export function AddEffectDialog({
               </div>
               <div className="flex flex-col items-start gap-0.5">
                 <span className="text-sm font-medium">{option.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {option.description}
-                </span>
+                <span className="text-xs text-muted-foreground">{option.description}</span>
               </div>
             </Button>
           ))}
