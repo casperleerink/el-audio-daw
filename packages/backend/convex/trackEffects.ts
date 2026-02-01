@@ -12,9 +12,9 @@ const effectDataValidator = v.union(
       v.literal("lowpass"),
       v.literal("highpass"),
       v.literal("bandpass"),
-      v.literal("notch")
+      v.literal("notch"),
     ),
-  })
+  }),
 );
 
 export const getTrackEffects = query({
@@ -34,6 +34,38 @@ export const getTrackEffects = query({
       .collect();
 
     return effects.sort((a, b) => a.order - b.order);
+  },
+});
+
+export const getProjectEffects = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const user = await checkQueryAccess(ctx, args.projectId);
+    if (!user) return [];
+
+    // Get all tracks for this project
+    const tracks = await ctx.db
+      .query("tracks")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    const trackIds = new Set(tracks.map((t) => t._id));
+
+    // Get all effects for all tracks in this project
+    const allEffects = await ctx.db.query("trackEffects").collect();
+
+    // Filter to only effects belonging to this project's tracks
+    const projectEffects = allEffects.filter((e) => trackIds.has(e.trackId));
+
+    return projectEffects.sort((a, b) => {
+      // Sort by track first, then by order within track
+      if (a.trackId !== b.trackId) {
+        return a.trackId < b.trackId ? -1 : 1;
+      }
+      return a.order - b.order;
+    });
   },
 });
 
