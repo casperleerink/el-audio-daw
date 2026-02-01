@@ -15,6 +15,12 @@ export const auth = betterAuth({
       maxAge: 60 * 5, // 5 minutes
     },
   },
+  advanced: {
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: "el-audio-daw.com",
+    },
+  },
   trustedOrigins: [
     "http://localhost:3001", // Vite dev server
     "http://localhost:4848", // zero-cache

@@ -1,21 +1,19 @@
 import { defineQuery, defineQueries } from "@rocicorp/zero";
 import { z } from "zod";
-import { zql } from "./schema.js";
+import { zql } from "./schema.gen";
 
 export const queries = defineQueries({
   projects: {
     mine: defineQuery(({ ctx: { userID } }) =>
       zql.projectUsers.where("userId", userID).related("project"),
     ),
-
     byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx: { userID } }) =>
       zql.projects
         .where("id", id)
-        .whereExists("projectUsers", (q) => q.where("userId", userID))
+        .whereExists("users", (q) => q.where("userId", userID))
         .one(),
     ),
   },
-
   projectUsers: {
     byProject: defineQuery(
       z.object({ projectId: z.string() }),
@@ -23,7 +21,7 @@ export const queries = defineQueries({
         zql.projectUsers
           .where("projectId", projectId)
           .whereExists("project", (q) =>
-            q.whereExists("projectUsers", (pu) => pu.where("userId", userID)),
+            q.whereExists("users", (pu) => pu.where("userId", userID)),
           ),
     ),
   },

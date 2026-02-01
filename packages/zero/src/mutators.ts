@@ -1,16 +1,17 @@
 import { defineMutator, defineMutators } from "@rocicorp/zero";
 import { z } from "zod";
-import { zql } from "./schema.js";
+import { zql } from "./schema.gen";
 
 export const mutators = defineMutators({
   projects: {
     create: defineMutator(
       z.object({
-        id: z.string().uuid(),
+        id: z.uuid(),
+        projectUserId: z.uuid(),
         name: z.string().min(1).max(255),
       }),
-      async ({ tx, ctx: { userID }, args: { id, name } }) => {
-        const now = new Date().toISOString();
+      async ({ tx, ctx: { userID }, args: { id, projectUserId, name } }) => {
+        const now = Date.now();
 
         await tx.mutate.projects.insert({
           id,
@@ -22,7 +23,7 @@ export const mutators = defineMutators({
         });
 
         await tx.mutate.projectUsers.insert({
-          id: crypto.randomUUID(),
+          id: projectUserId,
           projectId: id,
           userId: userID,
           role: "owner",
@@ -48,7 +49,7 @@ export const mutators = defineMutators({
         await tx.mutate.projects.update({
           id,
           name,
-          updatedAt: new Date().toISOString(),
+          updatedAt: Date.now(),
         });
       },
     ),
