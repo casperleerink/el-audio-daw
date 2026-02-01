@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AudioEngine, type ClipState, type TrackState } from "@el-audio-daw/audio";
+import {
+  AudioEngine,
+  type ClipState,
+  type TrackState,
+  type TrackEffect,
+} from "@el-audio-daw/audio";
 import { useMeterValues } from "./useMeterValues";
 
 type TrackData = {
@@ -22,19 +27,40 @@ type ClipData = {
   gain: number;
 };
 
+type EffectData = {
+  id: string;
+  trackId: string;
+  order: number;
+  enabled: boolean;
+  effectData: {
+    type: "filter";
+    cutoff: number;
+    resonance: number;
+    filterType: "lowpass" | "highpass" | "bandpass" | "notch";
+  };
+};
+
 type UseAudioEngineOptions = {
   sampleRate: number;
   tracks: TrackData[] | undefined;
   clips: ClipData[] | undefined;
   /** Map of audioFileId -> URL (or null if not available) */
   clipUrls: Record<string, string | null> | undefined;
+  /** Effects for all tracks */
+  effects?: EffectData[] | undefined;
 };
 
 /**
  * Hook for managing the audio engine lifecycle and state.
  * Handles initialization, track/clip syncing, playback controls, and cleanup.
  */
-export function useAudioEngine({ sampleRate, tracks, clips, clipUrls }: UseAudioEngineOptions) {
+export function useAudioEngine({
+  sampleRate,
+  tracks,
+  clips,
+  clipUrls,
+  effects,
+}: UseAudioEngineOptions) {
   const [isEngineInitializing, setIsEngineInitializing] = useState(false);
   const [isEngineReady, setIsEngineReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -93,6 +119,21 @@ export function useAudioEngine({ sampleRate, tracks, clips, clipUrls }: UseAudio
     if (!isEngineReady || !engineRef.current?.isInitialized()) return;
     engineRef.current.setMasterGain(masterGain);
   }, [isEngineReady, masterGain]);
+
+  // Sync effects to audio engine
+  useEffect(() => {
+    if (!isEngineReady || !engineRef.current?.isInitialized() || !effects) return;
+
+    const effectStates: TrackEffect[] = effects.map((e) => ({
+      id: e.id,
+      trackId: e.trackId,
+      order: e.order,
+      enabled: e.enabled,
+      effectData: e.effectData,
+    }));
+
+    engineRef.current.setEffects(effectStates);
+  }, [isEngineReady, effects]);
 
   // Load clips into VFS and sync to audio engine
   useEffect(() => {

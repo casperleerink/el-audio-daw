@@ -28,9 +28,32 @@ export interface ClipState {
   gain: number;
 }
 
+/**
+ * Filter effect types matching Convex schema
+ */
+export type FilterType = "lowpass" | "highpass" | "bandpass" | "notch";
+
+export interface FilterEffectData {
+  type: "filter";
+  cutoff: number; // 20-20000 Hz
+  resonance: number; // 0-1
+  filterType: FilterType;
+}
+
+export type EffectData = FilterEffectData;
+
+export interface TrackEffect {
+  id: string;
+  trackId: string;
+  order: number;
+  enabled: boolean;
+  effectData: EffectData;
+}
+
 export interface AudioEngineState {
   tracks: TrackState[];
   clips: ClipState[];
+  effects: TrackEffect[];
   masterGain: number; // in dB, -60 to +12
 }
 
@@ -68,6 +91,7 @@ export class AudioEngine {
   private state: AudioEngineState = {
     tracks: [],
     clips: [],
+    effects: [],
     masterGain: 0,
   };
   /** Map of VFS keys (Convex storage IDs) to metadata about loaded audio */
@@ -239,6 +263,14 @@ export class AudioEngine {
   }
 
   /**
+   * Update effect states for all tracks
+   */
+  setEffects(effects: TrackEffect[]): void {
+    this.state.effects = effects;
+    this.renderGraph();
+  }
+
+  /**
    * Update master gain
    */
   setMasterGain(gainDb: number): void {
@@ -395,6 +427,74 @@ export class AudioEngine {
     for (const callback of this.playheadCallbacks) {
       callback(currentTime);
     }
+  }
+
+  /**
+   * Render the effect chain for a track
+   * Effects are applied in order, pre-fader
+   */
+  private renderEffectChain(
+    left: NodeRepr_t,
+    right: NodeRepr_t,
+    _trackId: string,
+    effects: TrackEffect[],
+  ): { left: NodeRepr_t; right: NodeRepr_t } {
+    let outputLeft = left;
+    let outputRight = right;
+
+    for (const effect of effects) {
+      if (!effect.enabled) continue; // Bypass disabled effects
+
+      const result = this.renderEffect(outputLeft, outputRight, effect);
+      outputLeft = result.left;
+      outputRight = result.right;
+    }
+
+    return { left: outputLeft, right: outputRight };
+  }
+
+  /**
+   * Render a single effect
+   */
+  private renderEffect(
+    left: NodeRepr_t,
+    right: NodeRepr_t,
+    effect: TrackEffect,
+  ): { left: NodeRepr_t; right: NodeRepr_t } {
+    const key = `effect-${effect.id}`;
+
+    switch (effect.effectData.type) {
+      case "filter":
+        return this.renderFilter(left, right, effect.effectData, key);
+      default:
+        return { left, right };
+    }
+  }
+
+  /**
+   * Render SVF filter effect
+   * Uses el.svf with mode prop for filter type selection
+   */
+  private renderFilter(
+    left: NodeRepr_t,
+    right: NodeRepr_t,
+    params: FilterEffectData,
+    key: string,
+  ): { left: NodeRepr_t; right: NodeRepr_t } {
+    // Smoothed parameters to prevent clicks
+    const cutoff = el.sm(el.const({ key: `${key}-cutoff`, value: params.cutoff }));
+    // Map resonance (0-1) to Q factor (0.5-10 is a reasonable range for musical use)
+    const q = el.sm(el.const({ key: `${key}-q`, value: 0.5 + params.resonance * 9.5 }));
+
+    // SVF filter for left and right channels
+    // el.svf takes {mode} prop and returns filtered signal
+    const filteredLeft = el.svf({ mode: params.filterType }, cutoff, q, left);
+    const filteredRight = el.svf({ mode: params.filterType }, cutoff, q, right);
+
+    return {
+      left: filteredLeft,
+      right: filteredRight,
+    };
   }
 
   /**
@@ -576,9 +676,21 @@ export class AudioEngine {
       });
 
       // Sum all clips on this track (FR-21)
-      const { left: trackLeft, right: trackRight } = this.sumStereoSignals(
+      const { left: trackSumLeft, right: trackSumRight } = this.sumStereoSignals(
         clipSignals,
         `track-${track.id}`,
+      );
+
+      // Apply effect chain (pre-fader)
+      const trackEffects = this.state.effects
+        .filter((e) => e.trackId === track.id)
+        .sort((a, b) => a.order - b.order);
+
+      const { left: trackLeft, right: trackRight } = this.renderEffectChain(
+        trackSumLeft,
+        trackSumRight,
+        track.id,
+        trackEffects,
       );
 
       // Apply track gain with smoothing (FR-20)
