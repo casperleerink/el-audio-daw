@@ -237,6 +237,100 @@ export const mutators = defineMutators({
       },
     ),
   },
+
+  clips: {
+    create: defineMutator(
+      z.object({
+        id: z.uuid(),
+        projectId: z.string().uuid(),
+        trackId: z.string().uuid(),
+        audioFileId: z.string().uuid(),
+        name: z.string().min(1).max(255),
+        startTime: z.number().int().min(0),
+        duration: z.number().int().positive(),
+        audioStartTime: z.number().int().min(0),
+        gain: z.number().default(0),
+      }),
+      async ({ tx, ctx: { userID }, args }) => {
+        const access = await tx.run(
+          zql.projectUsers.where("projectId", args.projectId).where("userId", userID).one(),
+        );
+        if (!access) throw new Error("Not authorized");
+
+        const now = Date.now();
+        await tx.mutate.clips.insert({
+          ...args,
+          createdAt: now,
+          updatedAt: now,
+        });
+      },
+    ),
+
+    update: defineMutator(
+      z.object({
+        id: z.string().uuid(),
+        name: z.string().min(1).max(255).optional(),
+        startTime: z.number().int().min(0).optional(),
+        duration: z.number().int().positive().optional(),
+        audioStartTime: z.number().int().min(0).optional(),
+        gain: z.number().optional(),
+      }),
+      async ({ tx, ctx: { userID }, args: { id, ...updates } }) => {
+        const clip = await tx.run(zql.clips.where("id", id).one());
+        if (!clip) throw new Error("Clip not found");
+
+        const access = await tx.run(
+          zql.projectUsers.where("projectId", clip.projectId).where("userId", userID).one(),
+        );
+        if (!access) throw new Error("Not authorized");
+
+        await tx.mutate.clips.update({
+          id,
+          ...updates,
+          updatedAt: Date.now(),
+        });
+      },
+    ),
+
+    move: defineMutator(
+      z.object({
+        id: z.string().uuid(),
+        trackId: z.string().uuid(),
+        startTime: z.number().int().min(0),
+      }),
+      async ({ tx, ctx: { userID }, args: { id, trackId, startTime } }) => {
+        const clip = await tx.run(zql.clips.where("id", id).one());
+        if (!clip) throw new Error("Clip not found");
+
+        const access = await tx.run(
+          zql.projectUsers.where("projectId", clip.projectId).where("userId", userID).one(),
+        );
+        if (!access) throw new Error("Not authorized");
+
+        await tx.mutate.clips.update({
+          id,
+          trackId,
+          startTime,
+          updatedAt: Date.now(),
+        });
+      },
+    ),
+
+    delete: defineMutator(
+      z.object({ id: z.string().uuid() }),
+      async ({ tx, ctx: { userID }, args: { id } }) => {
+        const clip = await tx.run(zql.clips.where("id", id).one());
+        if (!clip) throw new Error("Clip not found");
+
+        const access = await tx.run(
+          zql.projectUsers.where("projectId", clip.projectId).where("userId", userID).one(),
+        );
+        if (!access) throw new Error("Not authorized");
+
+        await tx.mutate.clips.delete({ id });
+      },
+    ),
+  },
 });
 
 export type Mutators = typeof mutators;
