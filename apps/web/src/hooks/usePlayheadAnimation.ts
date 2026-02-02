@@ -9,7 +9,10 @@ interface UsePlayheadAnimationOptions {
   pixelsPerSecond: number;
   dimensions: { width: number; height: number };
   rulerHeight: number;
-  hoverX: number | null;
+  /** Ref to hover X position (updated directly without React state for performance) */
+  hoverXRef: React.RefObject<number | null>;
+  /** Ref to hover time in seconds (updated directly without React state for performance) */
+  hoverTimeRef: React.RefObject<number | null>;
 }
 
 /**
@@ -23,7 +26,8 @@ export function usePlayheadAnimation({
   pixelsPerSecond,
   dimensions,
   rulerHeight,
-  hoverX,
+  hoverXRef,
+  hoverTimeRef,
 }: UsePlayheadAnimationOptions): void {
   const playheadTimeRef = useRef(0);
   const isEngineReady = useAudioStore((s) => s.isEngineReady);
@@ -49,38 +53,65 @@ export function usePlayheadAnimation({
     return unsubscribe;
   }, []);
 
-  // RAF loop for dynamic layer (runs when playing OR hovering)
+  // RAF loop for dynamic layer
+  // Always runs to read refs (hoverX/hoverTime updated without React state)
   useEffect(() => {
     const canvas = dynamicCanvasRef.current;
     if (!canvas) return;
 
-    // Always render at least once to clear or show current state
-    const renderFrame = () => {
-      renderDynamicLayer({
-        canvas,
-        dimensions,
-        scrollLeft,
-        pixelsPerSecond,
-        rulerHeight,
-        playheadTime: playheadTimeRef.current,
-        hoverX,
-      });
-    };
-
-    // If not playing and not hovering, render once and stop
-    if (!isPlaying && hoverX === null) {
-      renderFrame();
-      return;
-    }
-
-    // Start animation loop
     let animationId: number;
+    let lastHoverX: number | null = null;
+    let lastPlayheadTime = 0;
+
     const animate = () => {
-      renderFrame();
+      const currentHoverX = hoverXRef.current;
+      const currentHoverTime = hoverTimeRef.current;
+      const currentPlayheadTime = playheadTimeRef.current;
+
+      // Only render if something changed or if playing
+      const hoverChanged = currentHoverX !== lastHoverX;
+      const playheadChanged = currentPlayheadTime !== lastPlayheadTime;
+
+      if (isPlaying || hoverChanged || playheadChanged) {
+        renderDynamicLayer({
+          canvas,
+          dimensions,
+          scrollLeft,
+          pixelsPerSecond,
+          rulerHeight,
+          playheadTime: currentPlayheadTime,
+          hoverX: currentHoverX,
+          hoverTime: currentHoverTime,
+        });
+        lastHoverX = currentHoverX;
+        lastPlayheadTime = currentPlayheadTime;
+      }
+
       animationId = requestAnimationFrame(animate);
     };
 
+    // Initial render
+    renderDynamicLayer({
+      canvas,
+      dimensions,
+      scrollLeft,
+      pixelsPerSecond,
+      rulerHeight,
+      playheadTime: playheadTimeRef.current,
+      hoverX: hoverXRef.current,
+      hoverTime: hoverTimeRef.current,
+    });
+
     animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
-  }, [dynamicCanvasRef, isPlaying, hoverX, scrollLeft, pixelsPerSecond, dimensions, rulerHeight]);
+  }, [
+    dynamicCanvasRef,
+    isPlaying,
+    scrollLeft,
+    pixelsPerSecond,
+    dimensions,
+    rulerHeight,
+    hoverXRef,
+    hoverTimeRef,
+  ]);
 }

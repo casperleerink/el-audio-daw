@@ -505,6 +505,64 @@ export function drawHoverIndicator(renderCtx: TimelineRenderContext, hoverX: num
   }
 }
 
+/**
+ * Format time in seconds to mm:ss.cc format
+ */
+function formatTimeForTooltip(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  const cs = Math.floor((seconds % 1) * 100);
+  return `${mins}:${secs.toString().padStart(2, "0")}.${cs.toString().padStart(2, "0")}`;
+}
+
+/**
+ * Draw hover time tooltip on canvas
+ */
+export function drawHoverTooltip(
+  renderCtx: TimelineRenderContext,
+  hoverX: number,
+  hoverTime: number,
+  rulerHeight: number,
+): void {
+  const { ctx, width } = renderCtx;
+
+  const text = formatTimeForTooltip(hoverTime);
+  ctx.font = "11px monospace";
+  const textMetrics = ctx.measureText(text);
+  const textWidth = textMetrics.width;
+
+  const paddingX = 6;
+  const tooltipWidth = textWidth + paddingX * 2;
+  const tooltipHeight = 18;
+  const borderRadius = 3;
+
+  // Position tooltip below ruler, flipping if near right edge
+  const tooltipY = rulerHeight + 4;
+  let tooltipX: number;
+  if (hoverX > width - tooltipWidth - 10) {
+    // Near right edge: position to the left of cursor
+    tooltipX = hoverX - tooltipWidth;
+  } else {
+    // Normal: center on cursor
+    tooltipX = hoverX - tooltipWidth / 2;
+  }
+  // Clamp to left edge
+  tooltipX = Math.max(2, tooltipX);
+
+  // Draw rounded rect background
+  ctx.fillStyle = "#f5f5f5";
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  ctx.roundRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight, borderRadius);
+  ctx.fill();
+
+  // Draw text
+  ctx.fillStyle = "#171717";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, tooltipX + paddingX, tooltipY + tooltipHeight / 2);
+}
+
 interface RenderTimelineOptions {
   canvas: HTMLCanvasElement;
   dimensions: { width: number; height: number };
@@ -554,6 +612,8 @@ export interface DynamicLayerOptions {
   rulerHeight: number;
   playheadTime: number;
   hoverX: number | null;
+  /** Hover time in seconds for tooltip rendering */
+  hoverTime: number | null;
 }
 
 /**
@@ -631,12 +691,20 @@ export function renderStaticLayer(options: StaticLayerOptions): void {
 }
 
 /**
- * Render dynamic content: playhead, hover indicator
+ * Render dynamic content: playhead, hover indicator, hover tooltip
  * Called every animation frame during playback or hover
  */
 export function renderDynamicLayer(options: DynamicLayerOptions): void {
-  const { canvas, dimensions, scrollLeft, pixelsPerSecond, rulerHeight, playheadTime, hoverX } =
-    options;
+  const {
+    canvas,
+    dimensions,
+    scrollLeft,
+    pixelsPerSecond,
+    rulerHeight,
+    playheadTime,
+    hoverX,
+    hoverTime,
+  } = options;
 
   const ctx = canvas.getContext("2d");
   if (!ctx || dimensions.width === 0) return;
@@ -667,6 +735,11 @@ export function renderDynamicLayer(options: DynamicLayerOptions): void {
   // Draw playhead and hover indicator
   drawPlayhead(renderCtx, playheadTime);
   drawHoverIndicator(renderCtx, hoverX);
+
+  // Draw hover tooltip
+  if (hoverX !== null && hoverTime !== null) {
+    drawHoverTooltip(renderCtx, hoverX, hoverTime, rulerHeight);
+  }
 }
 
 /**

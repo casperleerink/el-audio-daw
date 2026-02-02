@@ -1,8 +1,20 @@
 import { useCallback, useMemo } from "react";
-import { useZero } from "@rocicorp/zero/react";
+import { useQuery, useZero } from "@rocicorp/zero/react";
 import { mutators } from "@el-audio-daw/zero/mutators";
 import { useProjectId } from "@/stores/projectStore";
-import { useProjectData } from "./useProjectData";
+import { zql } from "@el-audio-daw/zero";
+
+export const useGetTracks = () => {
+  const z = useZero();
+  const projectId = useProjectId();
+  const [tracks] = useQuery(
+    zql.tracks.where("projectId", "=", projectId ?? "").orderBy("order", "asc"),
+    {
+      enabled: !!projectId,
+    }
+  );
+  return tracks;
+};
 
 /**
  * Hook for track operations in the project editor.
@@ -11,8 +23,7 @@ import { useProjectData } from "./useProjectData";
 export function useProjectTracks() {
   const z = useZero();
   const projectId = useProjectId();
-  const { tracks } = useProjectData();
-
+  const tracks = useGetTracks();
   const trackIds = useMemo(() => tracks.map((t) => t.id), [tracks]);
 
   const addTrack = useCallback(async () => {
@@ -24,16 +35,18 @@ export function useProjectTracks() {
         projectId,
         name: `Track ${trackCount + 1}`,
         order: trackCount,
-      }),
-    );
+      })
+    ).client;
   }, [z, projectId, tracks.length]);
 
   const reorderTracks = useCallback(
     async (newTrackIds: string[]) => {
       if (!projectId) return;
-      await z.mutate(mutators.tracks.reorder({ projectId, trackIds: newTrackIds }));
+      await z.mutate(
+        mutators.tracks.reorder({ projectId, trackIds: newTrackIds })
+      ).client;
     },
-    [z, projectId],
+    [z, projectId]
   );
 
   return {

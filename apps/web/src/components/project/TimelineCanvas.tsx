@@ -12,7 +12,6 @@ import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { renderStaticLayer } from "@/lib/canvasRenderer";
 import { useAudioStore } from "@/stores/audioStore";
 import { fetchWaveform, clearWaveformCache, type WaveformData } from "@/lib/waveformCache";
-import { formatTime } from "@/lib/formatters";
 import { CLIP_PADDING, RULER_HEIGHT, TRACK_HEIGHT } from "@/lib/timelineConstants";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -191,8 +190,8 @@ export function TimelineCanvas({
 
   // Canvas event handlers (wheel, click, hover, trim handle detection)
   const {
-    hoverX,
-    hoverTime,
+    hoverXRef,
+    hoverTimeRef,
     hoveredClipId,
     hoveredClipZone,
     handleClick,
@@ -369,7 +368,7 @@ export function TimelineCanvas({
     animationTime,
   ]);
 
-  // Animate dynamic canvas layer (playhead, hover indicator)
+  // Animate dynamic canvas layer (playhead, hover indicator, hover tooltip)
   usePlayheadAnimation({
     dynamicCanvasRef,
     isPlaying,
@@ -377,7 +376,8 @@ export function TimelineCanvas({
     pixelsPerSecond,
     dimensions,
     rulerHeight: RULER_HEIGHT,
-    hoverX,
+    hoverXRef,
+    hoverTimeRef,
   });
 
   // Calculate drop indicator position (FR-30)
@@ -481,21 +481,6 @@ export function TimelineCanvas({
           <TooltipContent>Zoom In</TooltipContent>
         </Tooltip>
       </div>
-      {/* Hover time tooltip */}
-      {hoverX !== null && hoverTime !== null && (
-        <div
-          className="pointer-events-none absolute z-10"
-          style={{
-            left: hoverX,
-            top: RULER_HEIGHT + 4,
-            transform: hoverX > dimensions.width - 60 ? "translateX(-100%)" : "translateX(-50%)",
-          }}
-        >
-          <div className="bg-foreground text-background rounded px-1.5 py-0.5 text-xs font-mono whitespace-nowrap">
-            {formatTime(hoverTime, 2)}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

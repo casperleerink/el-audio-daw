@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ClipHoverZone } from "./useClipDrag";
 
 /** Clip data with trackId for selection */
@@ -52,10 +52,10 @@ interface UseTimelineCanvasEventsOptions {
 }
 
 interface UseTimelineCanvasEventsReturn {
-  /** Current hover X position relative to canvas (null if not hovering) */
-  hoverX: number | null;
-  /** Current hover time in seconds (null if not hovering) */
-  hoverTime: number | null;
+  /** Current hover X position relative to canvas (null if not hovering) - ref for perf */
+  hoverXRef: React.RefObject<number | null>;
+  /** Current hover time in seconds (null if not hovering) - ref for perf */
+  hoverTimeRef: React.RefObject<number | null>;
   /** Currently hovered clip ID (null if not hovering over a clip) */
   hoveredClipId: string | null;
   /** Which zone of the clip is being hovered (FR-14: left/right for trim handles) */
@@ -91,8 +91,10 @@ export function useTimelineCanvasEvents({
   onToggleClipSelection,
   onClearSelection,
 }: UseTimelineCanvasEventsOptions): UseTimelineCanvasEventsReturn {
-  const [hoverX, setHoverX] = useState<number | null>(null);
-  const [hoverTime, setHoverTime] = useState<number | null>(null);
+  // Use refs for hoverX/hoverTime to avoid React re-renders on mouse move
+  const hoverXRef = useRef<number | null>(null);
+  const hoverTimeRef = useRef<number | null>(null);
+  // Clip hover state still uses useState since it affects cursor and trim handles
   const [hoveredClipId, setHoveredClipId] = useState<string | null>(null);
   const [hoveredClipZone, setHoveredClipZone] = useState<ClipHoverZone | null>(null);
 
@@ -201,8 +203,9 @@ export function useTimelineCanvasEvents({
       const canvasX = e.clientX - rect.left;
       const scrolledX = canvasX + scrollLeft;
       const time = scrolledX / pixelsPerSecond;
-      setHoverX(canvasX);
-      setHoverTime(Math.max(0, time));
+      // Update refs directly (no React state) for performance
+      hoverXRef.current = canvasX;
+      hoverTimeRef.current = Math.max(0, time);
 
       // FR-14: Track which clip and zone is being hovered for trim handles
       const result = findClipAtPosition(e.clientX, e.clientY);
@@ -219,16 +222,16 @@ export function useTimelineCanvasEvents({
 
   // Handle mouse leave to clear hover state and end clip drag
   const handleMouseLeave = useCallback(() => {
-    setHoverX(null);
-    setHoverTime(null);
+    hoverXRef.current = null;
+    hoverTimeRef.current = null;
     setHoveredClipId(null);
     setHoveredClipZone(null);
     handleClipMouseLeave();
   }, [handleClipMouseLeave]);
 
   return {
-    hoverX,
-    hoverTime,
+    hoverXRef,
+    hoverTimeRef,
     hoveredClipId,
     hoveredClipZone,
     handleClick,
