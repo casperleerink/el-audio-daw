@@ -3,6 +3,8 @@
  * Fetches, parses, and caches waveform binary files.
  */
 
+import { env } from "@el-audio-daw/env/web";
+
 export interface WaveformLevel {
   samplesPerBucket: number;
   buckets: [number, number][]; // [min, max] pairs
@@ -65,19 +67,40 @@ function decodeWaveformBinary(buffer: ArrayBuffer): WaveformData {
 }
 
 /**
+ * Get a presigned download URL for a storage key.
+ */
+async function getDownloadUrl(projectId: string, key: string): Promise<string> {
+  const response = await fetch(`${env.VITE_BETTER_AUTH_URL}/api/storage/download-url`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ projectId, key }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get download URL: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.downloadUrl;
+}
+
+/**
  * Fetch and cache waveform data for an audio file.
- * Returns null if fetch fails or URL is null.
+ * Returns null if fetch fails or storage key is null.
+ * The storageKey is an R2 storage key that will be resolved to a presigned URL.
  */
 export async function fetchWaveform(
   audioFileId: string,
-  url: string | null,
+  storageKey: string | null,
+  projectId: string,
 ): Promise<WaveformData | null> {
   // Return cached data if available
   const cached = waveformCache.get(audioFileId);
   if (cached) return cached;
 
-  // No URL means waveform not yet generated
-  if (!url) return null;
+  // No key means waveform not yet generated
+  if (!storageKey) return null;
 
   // Check for pending fetch
   const pending = pendingFetches.get(audioFileId);
@@ -86,7 +109,10 @@ export async function fetchWaveform(
   // Start new fetch
   const fetchPromise = (async () => {
     try {
-      const response = await fetch(url);
+      // Get presigned download URL from the storage key
+      const downloadUrl = await getDownloadUrl(projectId, storageKey);
+
+      const response = await fetch(downloadUrl);
       if (!response.ok) {
         console.warn(`Failed to fetch waveform for ${audioFileId}: ${response.status}`);
         return null;

@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import Loader from "./components/loader";
 import { routeTree } from "./routeTree.gen";
 import { Zero } from "@rocicorp/zero";
+import { StrictMode } from "react";
 
 export interface RouterContext {
   zero: Zero;
@@ -15,6 +16,9 @@ const router = createRouter({
   context: {
     zero: undefined as unknown as Zero,
   } satisfies RouterContext,
+  Wrap(props) {
+    return <StrictMode>{props.children}</StrictMode>;
+  },
 });
 
 declare module "@tanstack/react-router" {
