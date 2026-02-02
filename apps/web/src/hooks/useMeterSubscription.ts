@@ -2,8 +2,6 @@ import { useEffect, useRef, useCallback } from "react";
 import type { MeterValue } from "@el-audio-daw/audio";
 import { useAudioStore } from "@/stores/audioStore";
 
-export type { MeterValue };
-
 type MeterListener = (value: MeterValue) => void;
 
 /**
@@ -33,12 +31,15 @@ export function useMeterSubscription() {
   }, [isEngineReady, onMeterUpdate]);
 
   // Subscribe a specific meter source (e.g., "track-123-L")
-  const subscribe = useCallback((source: string, callback: MeterListener): (() => void) => {
-    listenersRef.current.set(source, callback);
-    return () => {
-      listenersRef.current.delete(source);
-    };
-  }, []);
+  const subscribe = useCallback(
+    (source: string, callback: MeterListener): (() => void) => {
+      listenersRef.current.set(source, callback);
+      return () => {
+        listenersRef.current.delete(source);
+      };
+    },
+    []
+  );
 
   return { subscribe };
 }

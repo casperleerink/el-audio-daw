@@ -22,7 +22,7 @@ export function ZeroProvider({ children }: PropsWithChildren) {
       });
       router.invalidate();
     },
-    [router],
+    [router]
   );
 
   return (
@@ -39,7 +39,7 @@ export function ZeroProvider({ children }: PropsWithChildren) {
   );
 }
 
-export type ZeroContext = {
+type ZeroContext = {
   userID: string;
 };
 

@@ -10,7 +10,7 @@ interface ProjectActions {
   clearProject: () => void;
 }
 
-export type ProjectStore = ProjectState & ProjectActions;
+type ProjectStore = ProjectState & ProjectActions;
 
 export const useProjectStore = create<ProjectStore>((set) => ({
   // Initial state
