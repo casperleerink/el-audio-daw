@@ -50,14 +50,14 @@ function Slider({
           data-slot="slider-track"
           className={cn(
             "rounded-sm data-horizontal:h-1.5 data-horizontal:w-full data-vertical:h-full data-vertical:w-2 relative grow overflow-hidden select-none",
-            transparentTrack ? "bg-transparent" : "bg-muted"
+            transparentTrack ? "bg-transparent" : "bg-muted",
           )}
         >
           <SliderPrimitive.Indicator
             data-slot="slider-range"
             className={cn(
               "select-none data-horizontal:h-full data-vertical:w-full",
-              transparentTrack ? "bg-transparent" : "bg-primary"
+              transparentTrack ? "bg-transparent" : "bg-primary",
             )}
           />
         </SliderPrimitive.Track>

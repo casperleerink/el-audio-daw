@@ -46,6 +46,9 @@ interface AudioStoreState {
 
   // Meter subscription
   onMeterUpdate: (callback: (meters: Map<string, MeterValue>) => void) => () => void;
+
+  // Direct playhead subscription (bypasses Zustand state for performance)
+  onPlayheadUpdate: (callback: (time: number) => void) => () => void;
 }
 
 // Engine instance stored outside of reactive state to avoid unnecessary re-renders
@@ -216,5 +219,10 @@ export const useAudioStore = create<AudioStoreState>((set, get) => ({
   onMeterUpdate: (callback) => {
     if (!engineInstance) return () => {};
     return engineInstance.onMeterUpdate(callback);
+  },
+
+  onPlayheadUpdate: (callback) => {
+    if (!engineInstance) return () => {};
+    return engineInstance.onPlayheadUpdate(callback);
   },
 }));

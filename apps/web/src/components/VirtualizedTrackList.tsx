@@ -39,9 +39,7 @@ const TrackHeader = React.memo(function TrackHeader({
   return (
     <div
       className={`box-border flex h-[100px] cursor-pointer border-b transition-all duration-150 ${
-        isDragging
-          ? "scale-[0.98] opacity-50 shadow-lg ring-2 ring-primary/30"
-          : ""
+        isDragging ? "scale-[0.98] opacity-50 shadow-lg ring-2 ring-primary/30" : ""
       } ${isSelected ? "bg-accent/30" : ""}`}
       draggable={isDragHandleActive}
       onDragStart={(e) => onDragStart(e, trackId)}
@@ -53,9 +51,7 @@ const TrackHeader = React.memo(function TrackHeader({
     >
       {/* Color strip */}
       <div
-        className={`w-1 shrink-0 ${
-          isFocused ? "ring-1 ring-inset ring-white/50" : ""
-        }`}
+        className={`w-1 shrink-0 ${isFocused ? "ring-1 ring-inset ring-white/50" : ""}`}
         style={{ backgroundColor: trackColor }}
       />
 
@@ -99,128 +95,123 @@ interface VirtualizedTrackListProps {
   onTrackSelect: (trackId: string) => void;
 }
 
-export const VirtualizedTrackList = React.forwardRef<
-  HTMLDivElement,
-  VirtualizedTrackListProps
->(function VirtualizedTrackList(
-  {
-    trackIds,
-    scrollTop,
-    focusedTrackId,
-    selectedTrackId,
-    onScrollChange,
-    onReorder,
-    onAddTrack,
-    onTrackSelect,
-  },
-  ref
-) {
-  const parentRef = useRef<HTMLDivElement>(null);
-
-  const {
-    draggedTrackId,
-    dropTargetIndex,
-    handleDragStart,
-    handleDragEnd,
-    handleDragOver,
-    handleDrop,
-  } = useTrackReorder({ trackIds, onReorder });
-
-  useEffect(() => {
-    if (
-      parentRef.current &&
-      Math.abs(parentRef.current.scrollTop - scrollTop) > 1
-    ) {
-      parentRef.current.scrollTop = scrollTop;
-    }
-  }, [scrollTop]);
-
-  const virtualizer = useVirtualizer({
-    count: trackIds.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => TRACK_HEADER_HEIGHT,
-    overscan: 5,
-  });
-
-  const handleScroll = useCallback(
-    (e: React.UIEvent<HTMLDivElement>) => {
-      onScrollChange(e.currentTarget.scrollTop);
+export const VirtualizedTrackList = React.forwardRef<HTMLDivElement, VirtualizedTrackListProps>(
+  function VirtualizedTrackList(
+    {
+      trackIds,
+      scrollTop,
+      focusedTrackId,
+      selectedTrackId,
+      onScrollChange,
+      onReorder,
+      onAddTrack,
+      onTrackSelect,
     },
-    [onScrollChange]
-  );
+    ref,
+  ) {
+    const parentRef = useRef<HTMLDivElement>(null);
 
-  React.useImperativeHandle(ref, () => parentRef.current as HTMLDivElement, []);
+    const {
+      draggedTrackId,
+      dropTargetIndex,
+      handleDragStart,
+      handleDragEnd,
+      handleDragOver,
+      handleDrop,
+    } = useTrackReorder({ trackIds, onReorder });
 
-  if (trackIds.length === 0) {
+    useEffect(() => {
+      if (parentRef.current && Math.abs(parentRef.current.scrollTop - scrollTop) > 1) {
+        parentRef.current.scrollTop = scrollTop;
+      }
+    }, [scrollTop]);
+
+    const virtualizer = useVirtualizer({
+      count: trackIds.length,
+      getScrollElement: () => parentRef.current,
+      estimateSize: () => TRACK_HEADER_HEIGHT,
+      overscan: 5,
+    });
+
+    const handleScroll = useCallback(
+      (e: React.UIEvent<HTMLDivElement>) => {
+        onScrollChange(e.currentTarget.scrollTop);
+      },
+      [onScrollChange],
+    );
+
+    React.useImperativeHandle(ref, () => parentRef.current as HTMLDivElement, []);
+
+    if (trackIds.length === 0) {
+      return (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 text-center">
+          <p className="text-sm text-muted-foreground">No tracks yet</p>
+          <Button onClick={onAddTrack}>
+            <Plus className="size-4" />
+            Add Track
+          </Button>
+        </div>
+      );
+    }
+
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 text-center">
-        <p className="text-sm text-muted-foreground">No tracks yet</p>
-        <Button onClick={onAddTrack}>
-          <Plus className="size-4" />
-          Add Track
-        </Button>
+      <div
+        ref={parentRef}
+        className="flex-1 overflow-y-auto"
+        onScroll={handleScroll}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDrop}
+      >
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const trackId = trackIds[virtualRow.index];
+            if (!trackId) return null;
+
+            const isDragging = trackId === draggedTrackId;
+            const showDropIndicatorBefore = dropTargetIndex === virtualRow.index;
+            const showDropIndicatorAfter =
+              dropTargetIndex === virtualRow.index + 1 && virtualRow.index === trackIds.length - 1;
+
+            return (
+              <div
+                key={trackId}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+                onDragOver={(e) => handleDragOver(e, virtualRow.index)}
+              >
+                {showDropIndicatorBefore && (
+                  <div className="pointer-events-none absolute inset-0 rounded bg-primary/10 ring-2 ring-inset ring-primary/50" />
+                )}
+                <TrackHeader
+                  trackId={trackId}
+                  index={virtualRow.index}
+                  isDragging={isDragging}
+                  isFocused={focusedTrackId === trackId}
+                  isSelected={selectedTrackId === trackId}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  onTrackSelect={onTrackSelect}
+                />
+                {showDropIndicatorAfter && (
+                  <div className="pointer-events-none absolute inset-0 rounded bg-primary/10 ring-2 ring-inset ring-primary/50" />
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
-  }
-
-  return (
-    <div
-      ref={parentRef}
-      className="flex-1 overflow-y-auto"
-      onScroll={handleScroll}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={handleDrop}
-    >
-      <div
-        style={{
-          height: `${virtualizer.getTotalSize()}px`,
-          width: "100%",
-          position: "relative",
-        }}
-      >
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const trackId = trackIds[virtualRow.index];
-          if (!trackId) return null;
-
-          const isDragging = trackId === draggedTrackId;
-          const showDropIndicatorBefore = dropTargetIndex === virtualRow.index;
-          const showDropIndicatorAfter =
-            dropTargetIndex === virtualRow.index + 1 &&
-            virtualRow.index === trackIds.length - 1;
-
-          return (
-            <div
-              key={trackId}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: `${virtualRow.size}px`,
-                transform: `translateY(${virtualRow.start}px)`,
-              }}
-              onDragOver={(e) => handleDragOver(e, virtualRow.index)}
-            >
-              {showDropIndicatorBefore && (
-                <div className="pointer-events-none absolute inset-0 rounded bg-primary/10 ring-2 ring-inset ring-primary/50" />
-              )}
-              <TrackHeader
-                trackId={trackId}
-                index={virtualRow.index}
-                isDragging={isDragging}
-                isFocused={focusedTrackId === trackId}
-                isSelected={selectedTrackId === trackId}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onTrackSelect={onTrackSelect}
-              />
-              {showDropIndicatorAfter && (
-                <div className="pointer-events-none absolute inset-0 rounded bg-primary/10 ring-2 ring-inset ring-primary/50" />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-});
+  },
+);

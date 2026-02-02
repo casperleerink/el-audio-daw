@@ -1,14 +1,16 @@
 import { Loader2, Upload, ZoomIn, ZoomOut } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useZero } from "@rocicorp/zero/react";
 
 import { useClipDrag, type ClipData } from "@/hooks/useClipDrag";
 import { useClipMouseHandlers } from "@/hooks/useClipMouseHandlers";
 import { useClipTrim } from "@/hooks/useClipTrim";
+import { usePlayheadAnimation } from "@/hooks/usePlayheadAnimation";
 import { useTimelineCanvasEvents } from "@/hooks/useTimelineCanvasEvents";
 import { useTimelineFileDrop } from "@/hooks/useTimelineFileDrop";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
-import { renderTimeline } from "@/lib/canvasRenderer";
+import { renderStaticLayer } from "@/lib/canvasRenderer";
+import { useAudioStore } from "@/stores/audioStore";
 import { fetchWaveform, clearWaveformCache, type WaveformData } from "@/lib/waveformCache";
 import { formatTime } from "@/lib/formatters";
 import { CLIP_PADDING, RULER_HEIGHT, TRACK_HEIGHT } from "@/lib/timelineConstants";
@@ -20,7 +22,6 @@ export interface TimelineCanvasProps {
   tracks: { _id: string; name: string }[];
   clips: ClipData[];
   sampleRate: number;
-  playheadTime: number;
   scrollTop: number;
   onScrollChange: (scrollTop: number) => void;
   onSeek: (time: number) => void | Promise<void>;
@@ -39,7 +40,6 @@ export function TimelineCanvas({
   tracks,
   clips,
   sampleRate,
-  playheadTime,
   scrollTop,
   onScrollChange,
   onSeek,
@@ -54,7 +54,11 @@ export function TimelineCanvas({
   const z = useZero();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const dynamicCanvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  // Get isPlaying from store (for playhead animation)
+  const isPlaying = useAudioStore((s) => s.isPlaying);
 
   // Waveform cache state (triggers re-render when waveforms load)
   const [loadedWaveforms, setLoadedWaveforms] = useState<Map<string, WaveformData>>(new Map());
@@ -117,7 +121,7 @@ export function TimelineCanvas({
           audioStartTime: args.audioStartTime,
           duration: args.duration,
         }),
-      );
+      ).client;
     },
     [z],
   );
@@ -306,29 +310,31 @@ export function TimelineCanvas({
   }, [clips, loadedWaveforms, waveformUrls]);
 
   // Transform clips to include selection and hover state for rendering
-  const clipsWithState = clips.map((clip) => ({
-    ...clip,
-    selected: selectedClipIds.has(clip._id),
-    // FR-14: Include hover zone for trim handle rendering
-    hoverZone: clip._id === hoveredClipId ? hoveredClipZone : null,
-  }));
+  const clipsWithState = useMemo(
+    () =>
+      clips.map((clip) => ({
+        ...clip,
+        selected: selectedClipIds.has(clip._id),
+        // FR-14: Include hover zone for trim handle rendering
+        hoverZone: clip._id === hoveredClipId ? hoveredClipZone : null,
+      })),
+    [clips, selectedClipIds, hoveredClipId, hoveredClipZone],
+  );
 
-  // Draw canvas
+  // Draw static canvas layer (clips, waveforms, ruler, tracks)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    renderTimeline({
+    renderStaticLayer({
       canvas,
       dimensions,
       tracks,
       clips: clipsWithState,
       sampleRate,
-      playheadTime,
       scrollLeft,
       scrollTop,
       pixelsPerSecond,
-      hoverX,
       clipDragState: clipDragState
         ? {
             clipId: clipDragState.clipId,
@@ -354,18 +360,25 @@ export function TimelineCanvas({
     tracks,
     clipsWithState,
     sampleRate,
-    playheadTime,
     scrollLeft,
     scrollTop,
     pixelsPerSecond,
-    hoverX,
     clipDragState,
     trimDragState,
-    hoveredClipId,
-    hoveredClipZone,
     loadedWaveforms,
     animationTime,
   ]);
+
+  // Animate dynamic canvas layer (playhead, hover indicator)
+  usePlayheadAnimation({
+    dynamicCanvasRef,
+    isPlaying,
+    scrollLeft,
+    pixelsPerSecond,
+    dimensions,
+    rulerHeight: RULER_HEIGHT,
+    hoverX,
+  });
 
   // Calculate drop indicator position (FR-30)
   const dropIndicatorStyle = dropTarget
@@ -387,8 +400,15 @@ export function TimelineCanvas({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Static canvas layer (clips, waveforms, ruler, tracks) */}
       <canvas
         ref={canvasRef}
+        className="pointer-events-none absolute inset-0"
+        style={{ width: dimensions.width, height: dimensions.height }}
+      />
+      {/* Dynamic canvas layer (playhead, hover indicator) */}
+      <canvas
+        ref={dynamicCanvasRef}
         className={`absolute inset-0 ${
           clipDragState
             ? "cursor-grabbing"

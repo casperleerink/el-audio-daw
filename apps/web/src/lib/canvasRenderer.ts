@@ -3,11 +3,7 @@
  * Extracted from TimelineCanvas component to improve testability and readability.
  */
 
-import {
-  CLIP_BORDER_RADIUS,
-  CLIP_PADDING,
-  TRIM_HANDLE_WIDTH,
-} from "./timelineConstants";
+import { CLIP_BORDER_RADIUS, CLIP_PADDING, TRIM_HANDLE_WIDTH } from "./timelineConstants";
 import { drawWaveform, shouldDrawWaveform } from "./waveformRenderer";
 import type { WaveformData } from "./waveformCache";
 
@@ -85,7 +81,7 @@ export function getTrackColor(index: number): string {
 export function truncateText(
   ctx: CanvasRenderingContext2D,
   text: string,
-  maxWidth: number
+  maxWidth: number,
 ): string {
   let textWidth = ctx.measureText(text).width;
   if (textWidth <= maxWidth) {
@@ -120,8 +116,7 @@ interface CanvasRenderContext {
  * Draw the time ruler with markers and labels
  */
 export function drawTimeRuler(renderCtx: TimelineRenderContext): void {
-  const { ctx, width, colors, scrollLeft, pixelsPerSecond, rulerHeight } =
-    renderCtx;
+  const { ctx, width, colors, scrollLeft, pixelsPerSecond, rulerHeight } = renderCtx;
 
   // Draw ruler bottom border
   ctx.fillStyle = colors.border;
@@ -162,12 +157,8 @@ export function drawTimeRuler(renderCtx: TimelineRenderContext): void {
 /**
  * Draw track lane separator lines
  */
-export function drawTrackLanes(
-  renderCtx: TimelineRenderContext,
-  trackCount: number
-): void {
-  const { ctx, width, height, colors, scrollTop, rulerHeight, trackHeight } =
-    renderCtx;
+export function drawTrackLanes(renderCtx: TimelineRenderContext, trackCount: number): void {
+  const { ctx, width, height, colors, scrollTop, rulerHeight, trackHeight } = renderCtx;
 
   for (let i = 0; i < trackCount; i++) {
     const y = rulerHeight + i * trackHeight - scrollTop;
@@ -185,7 +176,7 @@ export function drawTargetTrackHighlight(
   renderCtx: TimelineRenderContext,
   clipDragState: ClipDragState | null,
   trackIndexMap: Map<string, number>,
-  originalTrackId: string | null
+  originalTrackId: string | null,
 ): void {
   if (!clipDragState || !originalTrackId) return;
 
@@ -227,21 +218,15 @@ function drawWaveformLoadingShimmer(
   clipY: number,
   clipWidth: number,
   clipHeight: number,
-  time: number
+  time: number,
 ): void {
   ctx.save();
 
   // Create shimmer gradient that moves over time
   const shimmerWidth = clipWidth * 0.3;
-  const offset =
-    ((time / 1000) % 2) * (clipWidth + shimmerWidth) - shimmerWidth;
+  const offset = ((time / 1000) % 2) * (clipWidth + shimmerWidth) - shimmerWidth;
 
-  const gradient = ctx.createLinearGradient(
-    clipX + offset,
-    0,
-    clipX + offset + shimmerWidth,
-    0
-  );
+  const gradient = ctx.createLinearGradient(clipX + offset, 0, clipX + offset + shimmerWidth, 0);
   gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
   gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.1)");
   gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
@@ -259,10 +244,7 @@ function drawWaveformLoadingShimmer(
 /**
  * Create a diagonal stripe pattern for pending clips
  */
-function createPendingPattern(
-  ctx: CanvasRenderingContext2D,
-  color: string
-): CanvasPattern | null {
+function createPendingPattern(ctx: CanvasRenderingContext2D, color: string): CanvasPattern | null {
   const patternCanvas = document.createElement("canvas");
   const patternSize = 8;
   patternCanvas.width = patternSize;
@@ -298,16 +280,8 @@ export function drawClips(options: DrawClipsOptions): void {
     waveformCache,
     animationTime,
   } = options;
-  const {
-    ctx,
-    width,
-    height,
-    scrollLeft,
-    scrollTop,
-    pixelsPerSecond,
-    rulerHeight,
-    trackHeight,
-  } = renderCtx;
+  const { ctx, width, height, scrollLeft, scrollTop, pixelsPerSecond, rulerHeight, trackHeight } =
+    renderCtx;
 
   // Calculate visible time range
   const startTime = scrollLeft / pixelsPerSecond;
@@ -403,14 +377,7 @@ export function drawClips(options: DrawClipsOptions): void {
         });
       } else if (animationTime !== undefined) {
         // Show shimmer while waveform is loading
-        drawWaveformLoadingShimmer(
-          ctx,
-          clipX,
-          clipY,
-          clipWidth,
-          clipHeight,
-          animationTime
-        );
+        drawWaveformLoadingShimmer(ctx, clipX, clipY, clipWidth, clipHeight, animationTime);
       }
     }
 
@@ -445,12 +412,7 @@ export function drawClips(options: DrawClipsOptions): void {
 
     // FR-14: Draw trim handles when clip is hovered (not pending, not dragging)
     const hoverZone = clip.hoverZone;
-    if (
-      hoverZone &&
-      !isPending &&
-      !isDragging &&
-      clipWidth >= TRIM_HANDLE_WIDTH * 2
-    ) {
+    if (hoverZone && !isPending && !isDragging && clipWidth >= TRIM_HANDLE_WIDTH * 2) {
       ctx.save();
       ctx.globalAlpha = 0.6;
       ctx.fillStyle = "#ffffff";
@@ -475,13 +437,12 @@ export function drawClips(options: DrawClipsOptions): void {
         const rightHandleAlpha = hoverZone === "right" ? 0.5 : 0.2;
         ctx.globalAlpha = rightHandleAlpha;
         ctx.beginPath();
-        ctx.roundRect(
-          clipX + clipWidth - TRIM_HANDLE_WIDTH,
-          clipY,
-          TRIM_HANDLE_WIDTH,
-          clipHeight,
-          [0, CLIP_BORDER_RADIUS, CLIP_BORDER_RADIUS, 0]
-        );
+        ctx.roundRect(clipX + clipWidth - TRIM_HANDLE_WIDTH, clipY, TRIM_HANDLE_WIDTH, clipHeight, [
+          0,
+          CLIP_BORDER_RADIUS,
+          CLIP_BORDER_RADIUS,
+          0,
+        ]);
         ctx.fill();
       }
 
@@ -510,10 +471,7 @@ export function drawClips(options: DrawClipsOptions): void {
 /**
  * Draw the playhead indicator line
  */
-export function drawPlayhead(
-  renderCtx: TimelineRenderContext,
-  playheadTime: number
-): void {
+export function drawPlayhead(renderCtx: TimelineRenderContext, playheadTime: number): void {
   const { ctx, width, height, colors, scrollLeft, pixelsPerSecond } = renderCtx;
 
   const startTime = scrollLeft / pixelsPerSecond;
@@ -528,10 +486,7 @@ export function drawPlayhead(
 /**
  * Draw the hover indicator dashed line
  */
-export function drawHoverIndicator(
-  renderCtx: TimelineRenderContext,
-  hoverX: number | null
-): void {
+export function drawHoverIndicator(renderCtx: TimelineRenderContext, hoverX: number | null): void {
   if (hoverX === null) return;
 
   const { ctx, width, height, colors } = renderCtx;
@@ -573,8 +528,150 @@ interface RenderTimelineOptions {
   animationTime?: number;
 }
 
+export interface StaticLayerOptions {
+  canvas: HTMLCanvasElement;
+  dimensions: { width: number; height: number };
+  tracks: { _id: string }[];
+  clips: ClipRenderData[];
+  sampleRate: number;
+  scrollLeft: number;
+  scrollTop: number;
+  pixelsPerSecond: number;
+  clipDragState: ClipDragState | null;
+  trimDragState: TrimDragState | null;
+  rulerHeight: number;
+  trackHeight: number;
+  dragOriginalTrackId?: string | null;
+  waveformCache: Map<string, WaveformData>;
+  animationTime?: number;
+}
+
+export interface DynamicLayerOptions {
+  canvas: HTMLCanvasElement;
+  dimensions: { width: number; height: number };
+  scrollLeft: number;
+  pixelsPerSecond: number;
+  rulerHeight: number;
+  playheadTime: number;
+  hoverX: number | null;
+}
+
+/**
+ * Render static content: background, ruler, track lanes, clips, waveforms
+ * Called only when clips/tracks/selection changes
+ */
+export function renderStaticLayer(options: StaticLayerOptions): void {
+  const {
+    canvas,
+    dimensions,
+    tracks,
+    clips,
+    sampleRate,
+    scrollLeft,
+    scrollTop,
+    pixelsPerSecond,
+    clipDragState,
+    trimDragState,
+    rulerHeight,
+    trackHeight,
+    dragOriginalTrackId,
+    waveformCache,
+    animationTime,
+  } = options;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx || dimensions.width === 0) return;
+
+  // Set up high-DPI canvas
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = dimensions.width * dpr;
+  canvas.height = dimensions.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  const colors = getCanvasColors();
+
+  const renderCtx: TimelineRenderContext = {
+    ctx,
+    width: dimensions.width,
+    height: dimensions.height,
+    colors,
+    scrollLeft,
+    scrollTop,
+    pixelsPerSecond,
+    rulerHeight,
+    trackHeight,
+  };
+
+  // Build track index map
+  const trackIndexMap = new Map<string, number>();
+  tracks.forEach((track, index) => {
+    trackIndexMap.set(track._id, index);
+  });
+
+  // Render in order: background, ruler, tracks, target highlight, clips
+  clearCanvas({
+    ctx,
+    width: dimensions.width,
+    height: dimensions.height,
+    colors,
+  });
+  drawTimeRuler(renderCtx);
+  drawTrackLanes(renderCtx, tracks.length);
+  drawTargetTrackHighlight(renderCtx, clipDragState, trackIndexMap, dragOriginalTrackId ?? null);
+  drawClips({
+    renderCtx,
+    clips,
+    trackIndexMap,
+    sampleRate,
+    clipDragState,
+    trimDragState,
+    waveformCache,
+    animationTime,
+  });
+}
+
+/**
+ * Render dynamic content: playhead, hover indicator
+ * Called every animation frame during playback or hover
+ */
+export function renderDynamicLayer(options: DynamicLayerOptions): void {
+  const { canvas, dimensions, scrollLeft, pixelsPerSecond, rulerHeight, playheadTime, hoverX } =
+    options;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx || dimensions.width === 0) return;
+
+  // Set up high-DPI canvas
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = dimensions.width * dpr;
+  canvas.height = dimensions.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  // Clear with transparent background
+  ctx.clearRect(0, 0, dimensions.width, dimensions.height);
+
+  const colors = getCanvasColors();
+
+  const renderCtx: TimelineRenderContext = {
+    ctx,
+    width: dimensions.width,
+    height: dimensions.height,
+    colors,
+    scrollLeft,
+    scrollTop: 0, // Not used for playhead/hover
+    pixelsPerSecond,
+    rulerHeight,
+    trackHeight: 0, // Not used for playhead/hover
+  };
+
+  // Draw playhead and hover indicator
+  drawPlayhead(renderCtx, playheadTime);
+  drawHoverIndicator(renderCtx, hoverX);
+}
+
 /**
  * Main render function that orchestrates all canvas drawing
+ * @deprecated Use renderStaticLayer + renderDynamicLayer for better performance
  */
 export function renderTimeline(options: RenderTimelineOptions): void {
   const {
@@ -636,12 +733,7 @@ export function renderTimeline(options: RenderTimelineOptions): void {
   drawTimeRuler(renderCtx);
   drawTrackLanes(renderCtx, tracks.length);
   // Draw target track highlight during cross-track drag (FR-33)
-  drawTargetTrackHighlight(
-    renderCtx,
-    clipDragState,
-    trackIndexMap,
-    dragOriginalTrackId ?? null
-  );
+  drawTargetTrackHighlight(renderCtx, clipDragState, trackIndexMap, dragOriginalTrackId ?? null);
   drawClips({
     renderCtx,
     clips,

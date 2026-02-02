@@ -24,11 +24,7 @@ interface EditorActions {
 
   // Clip selection
   selectClip: (clipId: string, trackId: string, isPending?: boolean) => void;
-  toggleClipSelection: (
-    clipId: string,
-    trackId: string,
-    isPending?: boolean
-  ) => void;
+  toggleClipSelection: (clipId: string, trackId: string, isPending?: boolean) => void;
   clearClipSelection: () => void;
   selectAllOnTrack: (clips: Clip[]) => void;
   setFocusedTrack: (trackId: string) => void;
@@ -123,12 +119,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 }));
 
 // Selectors for common derived state
-export const useSelectedTrackId = () =>
-  useEditorStore((s) => s.selectedTrackId);
-export const useSelectedClipIds = () =>
-  useEditorStore((s) => s.selectedClipIds);
+export const useSelectedTrackId = () => useEditorStore((s) => s.selectedTrackId);
+export const useSelectedClipIds = () => useEditorStore((s) => s.selectedClipIds);
 export const useFocusedTrackId = () => useEditorStore((s) => s.focusedTrackId);
-export const useSelectedEffectId = () =>
-  useEditorStore((s) => s.selectedEffectId);
-export const useIsEffectsPanelOpen = () =>
-  useEditorStore((s) => s.selectedTrackId !== null);
+export const useSelectedEffectId = () => useEditorStore((s) => s.selectedEffectId);
+export const useIsEffectsPanelOpen = () => useEditorStore((s) => s.selectedTrackId !== null);

@@ -16,7 +16,6 @@ export function TimelinePanel({ scrollTop, onScrollChange }: TimelinePanelProps)
 
   const { tracks, waveformUrls } = useProjectData();
   const { clips, getAudioFileDuration } = useProjectClips();
-  const playheadTime = useAudioStore((s) => s.playheadTime);
   const seek = useAudioStore((s) => s.seek);
 
   const selectedClipIds = useEditorStore((s) => s.selectedClipIds);
@@ -39,7 +38,6 @@ export function TimelinePanel({ scrollTop, onScrollChange }: TimelinePanelProps)
           pending: false,
         }))}
         sampleRate={sampleRate}
-        playheadTime={playheadTime}
         scrollTop={scrollTop}
         onScrollChange={onScrollChange}
         onSeek={seek}
