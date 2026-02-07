@@ -56,7 +56,7 @@ export function TrackGainSlider({ trackId }: TrackGainSliderProps) {
             min={-60}
             max={12}
             step={0.1}
-            value={[localGain]}
+            value={localGain}
             transparentTrack
             onValueChange={handleChange}
             onValueCommit={handleCommit}

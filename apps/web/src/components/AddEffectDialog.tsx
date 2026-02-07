@@ -53,15 +53,15 @@ export function AddEffectDialog({ open, onOpenChange, onSelectEffect }: AddEffec
             <Button
               key={option.type}
               variant="outline"
-              className="h-auto justify-start gap-3 p-3"
+              className="h-auto justify-start gap-3 whitespace-normal p-3"
               onClick={() => handleSelect(option.type)}
             >
               <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
                 {option.icon}
               </div>
-              <div className="flex flex-col items-start gap-0.5">
+              <div className="flex min-w-0 flex-col items-start gap-0.5">
                 <span className="text-sm font-medium">{option.name}</span>
-                <span className="text-xs text-muted-foreground">{option.description}</span>
+                <span className="text-left text-xs text-muted-foreground">{option.description}</span>
               </div>
             </Button>
           ))}

@@ -15,7 +15,7 @@ export function MasterTrack() {
           min={-60}
           max={12}
           step={0.1}
-          value={[masterGain]}
+          value={masterGain}
           onValueChange={(val) => setMasterGain(Array.isArray(val) ? (val[0] ?? 0) : val)}
         />
         <span className="w-16 text-right font-mono text-xs whitespace-nowrap">

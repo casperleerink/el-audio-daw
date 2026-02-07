@@ -38,7 +38,7 @@ const TrackHeader = React.memo(function TrackHeader({
 
   return (
     <div
-      className={`box-border flex h-[100px] cursor-pointer border-b transition-all duration-150 ${
+      className={`box-border flex h-[100px] border-b transition-all duration-150 ${
         isDragging ? "scale-[0.98] opacity-50 shadow-lg ring-2 ring-primary/30" : ""
       } ${isSelected ? "bg-accent/30" : ""}`}
       draggable={isDragHandleActive}
@@ -47,7 +47,6 @@ const TrackHeader = React.memo(function TrackHeader({
         setIsDragHandleActive(false);
         onDragEnd();
       }}
-      onClick={() => onTrackSelect(trackId)}
     >
       {/* Color strip */}
       <div
@@ -55,10 +54,13 @@ const TrackHeader = React.memo(function TrackHeader({
         style={{ backgroundColor: trackColor }}
       />
 
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col justify-between px-2 py-2">
+      {/* Main content area - click dead space to select track */}
+      <div
+        className="flex flex-1 cursor-pointer flex-col justify-between px-2 py-2"
+        onClick={() => onTrackSelect(trackId)}
+      >
         {/* Row 1: Drag handle, name, delete */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <div
             className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
             onMouseDown={() => setIsDragHandleActive(true)}
@@ -72,7 +74,10 @@ const TrackHeader = React.memo(function TrackHeader({
         </div>
 
         {/* Row 2: M/S buttons, pan control */}
-        <div className="flex items-center justify-between">
+        <div
+          className="flex items-center justify-between"
+          onClick={(e) => e.stopPropagation()}
+        >
           <TrackMuteSoloButtons trackId={trackId} />
           <TrackPanKnob trackId={trackId} />
         </div>
