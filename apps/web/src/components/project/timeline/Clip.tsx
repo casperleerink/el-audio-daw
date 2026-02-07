@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Group, Rect, Text } from "react-konva";
 import {
   CLIP_BORDER_RADIUS,
@@ -10,6 +10,7 @@ import { getTrackColor } from "@/lib/canvasRenderer";
 import type { WaveformData } from "@/lib/waveformCache";
 import type { ClipRenderData } from "./types";
 import { Waveform } from "./Waveform";
+import { TrimHandle } from "./TrimHandle";
 
 interface ClipProps {
   clip: ClipRenderData;
@@ -42,7 +43,7 @@ export const Clip = memo(function Clip({
   effectiveDuration,
   effectiveTrackIndex,
   isDragging,
-  isTrimming: _isTrimming,
+  isTrimming,
   waveformData,
   onClipClick,
   onClipMouseEnter,
@@ -51,6 +52,7 @@ export const Clip = memo(function Clip({
   const trackIndex = effectiveTrackIndex ?? baseTrackIndex;
   const startTime = effectiveStartTime ?? clip.startTime;
   const duration = effectiveDuration ?? clip.duration;
+  const [hoveredEdge, setHoveredEdge] = useState<"left" | "right" | null>(null);
   const isPending = clip.pending === true;
   const isSelected = clip.selected === true;
 
@@ -153,6 +155,28 @@ export const Clip = memo(function Clip({
           wrap="none"
           listening={false}
         />
+      )}
+
+      {/* Trim handles — only shown when clip is not pending/dragging */}
+      {!isPending && !isDragging && (
+        <>
+          <TrimHandle
+            edge="left"
+            clipWidth={clipWidth}
+            clipHeight={clipHeight}
+            isHovered={hoveredEdge === "left"}
+            onMouseEnter={() => setHoveredEdge("left")}
+            onMouseLeave={() => setHoveredEdge(null)}
+          />
+          <TrimHandle
+            edge="right"
+            clipWidth={clipWidth}
+            clipHeight={clipHeight}
+            isHovered={hoveredEdge === "right"}
+            onMouseEnter={() => setHoveredEdge("right")}
+            onMouseLeave={() => setHoveredEdge(null)}
+          />
+        </>
       )}
     </Group>
   );
