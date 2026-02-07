@@ -3,7 +3,7 @@ import { useProjectId, useSampleRate } from "@/stores/projectStore";
 import { useAudioStore } from "@/stores/audioStore";
 import { useProjectData } from "@/hooks/project/useProjectData";
 import { useProjectClips } from "@/hooks/project/useProjectClips";
-import { TimelineCanvas } from "./TimelineCanvas";
+import { TimelineCanvasKonva } from "./timeline/TimelineCanvasKonva";
 
 interface TimelinePanelProps {
   scrollTop: number;
@@ -25,7 +25,7 @@ export function TimelinePanel({ scrollTop, onScrollChange }: TimelinePanelProps)
 
   return (
     <div className="flex flex-1 flex-col">
-      <TimelineCanvas
+      <TimelineCanvasKonva
         tracks={tracks.map((t) => ({ _id: t.id, name: t.name }))}
         clips={clips.map((clip) => ({
           _id: clip.id,
