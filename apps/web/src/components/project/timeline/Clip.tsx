@@ -31,9 +31,14 @@ interface ClipProps {
   onClipClick?: (clipId: string, trackId: string, shiftKey: boolean) => void;
   onClipMouseEnter?: (clipId: string) => void;
   onClipMouseLeave?: () => void;
-  onDragStart?: (clipId: string, trackId: string, startTime: number) => void;
+  onDragStart?: (
+    e: Konva.KonvaEventObject<DragEvent>,
+    clipId: string,
+    trackId: string,
+    startTime: number,
+  ) => void;
   onDragMove?: (e: Konva.KonvaEventObject<DragEvent>, clipId: string) => void;
-  onDragEnd?: (clipId: string) => void;
+  onDragEnd?: (e: Konva.KonvaEventObject<DragEvent>, clipId: string) => void;
   onTrimStart?: (
     clipId: string,
     edge: "left" | "right",
@@ -145,14 +150,14 @@ export const Clip = memo(function Clip({
         onClipClick?.(clip._id, clip.trackId, e.evt.shiftKey);
         e.cancelBubble = true;
       }}
-      onDragStart={() => {
-        onDragStart?.(clip._id, clip.trackId, clip.startTime);
+      onDragStart={(e) => {
+        onDragStart?.(e, clip._id, clip.trackId, clip.startTime);
       }}
       onDragMove={(e) => {
         onDragMove?.(e, clip._id);
       }}
-      onDragEnd={() => {
-        onDragEnd?.(clip._id);
+      onDragEnd={(e) => {
+        onDragEnd?.(e, clip._id);
       }}
       onMouseEnter={() => onClipMouseEnter?.(clip._id)}
       onMouseLeave={() => onClipMouseLeave?.()}

@@ -35,9 +35,14 @@ interface StaticLayerProps {
   onClipMouseEnter?: (clipId: string) => void;
   onClipMouseLeave?: () => void;
   onBackgroundClick: (x: number) => void;
-  onDragStart?: (clipId: string, trackId: string, startTime: number) => void;
+  onDragStart?: (
+    e: Konva.KonvaEventObject<DragEvent>,
+    clipId: string,
+    trackId: string,
+    startTime: number,
+  ) => void;
   onDragMove?: (e: Konva.KonvaEventObject<DragEvent>, clipId: string) => void;
-  onDragEnd?: (clipId: string) => void;
+  onDragEnd?: (e: Konva.KonvaEventObject<DragEvent>, clipId: string) => void;
   onTrimStart?: (
     clipId: string,
     edge: "left" | "right",

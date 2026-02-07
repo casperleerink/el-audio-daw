@@ -113,6 +113,24 @@ export function TimelineCanvasKonva({
     [z],
   );
 
+  // Create clip mutation (used for alt+drag duplication)
+  const createClip = useCallback(
+    async (args: {
+      id: string;
+      projectId: string;
+      trackId: string;
+      audioFileId: string;
+      name: string;
+      startTime: number;
+      duration: number;
+      audioStartTime: number;
+      gain: number;
+    }) => {
+      await z.mutate(mutators.clips.create(args));
+    },
+    [z],
+  );
+
   // Clip drag
   const { clipDragState, handleDragStart, handleDragMove, handleDragEnd } = useKonvaClipDrag({
     tracks,
@@ -121,6 +139,10 @@ export function TimelineCanvasKonva({
     pixelsPerSecond,
     sampleRate,
     updateClipPosition,
+    selectedClipIds,
+    clips,
+    projectId,
+    createClip,
   });
 
   // Clip trim
