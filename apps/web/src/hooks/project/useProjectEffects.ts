@@ -27,7 +27,7 @@ export function useProjectEffects() {
       .orderBy("order", "asc"),
     {
       enabled: !!projectId,
-    }
+    },
   );
 
   const selectedTrackId = useEditorStore((s) => s.selectedTrackId);
@@ -56,7 +56,7 @@ export function useProjectEffects() {
         enabled: e.enabled ?? true,
         effectData: e.effectData,
       })),
-    [allProjectEffects]
+    [allProjectEffects],
   );
 
   // Handle adding an effect
@@ -87,29 +87,26 @@ export function useProjectEffects() {
           order,
           enabled: true,
           effectData: defaultEffectData,
-        })
+        }),
       );
     },
-    [selectedTrackId, effects, z]
+    [selectedTrackId, effects, z],
   );
 
   // Handle effect parameter commit (to server)
   const updateEffectParam = useCallback(
     async (effectId: string, effectData: FilterEffectData) => {
-      await z.mutate(
-        mutators.trackEffects.update({ id: effectId, effectData })
-      );
+      await z.mutate(mutators.trackEffects.update({ id: effectId, effectData }));
     },
-    [z]
+    [z],
   );
 
   // Handle effect enabled toggle
   const toggleEffectEnabled = useCallback(
     async (effectId: string, enabled: boolean) => {
-      await z.mutate(mutators.trackEffects.update({ id: effectId, enabled }))
-        .client;
+      await z.mutate(mutators.trackEffects.update({ id: effectId, enabled })).client;
     },
-    [z]
+    [z],
   );
 
   // Handle effect deletion
@@ -120,17 +117,13 @@ export function useProjectEffects() {
         selectEffect(null);
       }
     },
-    [z, selectedEffectId, selectEffect]
+    [z, selectedEffectId, selectEffect],
   );
 
   // Handle effect deletion via keyboard
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        (e.key === "Delete" || e.key === "Backspace") &&
-        selectedEffectId &&
-        selectedTrackId
-      ) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedEffectId && selectedTrackId) {
         // Don't delete effect if we're in an input field
         const target = e.target as HTMLElement;
         if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
@@ -145,30 +138,28 @@ export function useProjectEffects() {
   }, [selectedEffectId, selectedTrackId, deleteEffect]);
 
   // Effect reorder hook
-  const {
-    handleDragStart: handleEffectDragStart,
-    handleDragEnd: handleEffectDragEnd,
-  } = useEffectReorder({
-    effects: effects.map((e) => ({ ...e, _id: e.id })),
-    onReorder: (effectId, newOrder) => {
-      if (!selectedTrackId) return;
-      // Get all effect IDs in the new order
-      const currentEffects = [...effects].sort((a, b) => a.order - b.order);
-      const effectIds = currentEffects.map((e) => e.id);
-      // Move the effect to its new position
-      const oldIndex = effectIds.indexOf(effectId);
-      if (oldIndex !== -1) {
-        effectIds.splice(oldIndex, 1);
-        effectIds.splice(newOrder, 0, effectId);
-      }
-      void z.mutate(
-        mutators.trackEffects.reorder({
-          trackId: selectedTrackId,
-          effectIds,
-        })
-      );
-    },
-  });
+  const { handleDragStart: handleEffectDragStart, handleDragEnd: handleEffectDragEnd } =
+    useEffectReorder({
+      effects: effects.map((e) => ({ ...e, _id: e.id })),
+      onReorder: (effectId, newOrder) => {
+        if (!selectedTrackId) return;
+        // Get all effect IDs in the new order
+        const currentEffects = [...effects].sort((a, b) => a.order - b.order);
+        const effectIds = currentEffects.map((e) => e.id);
+        // Move the effect to its new position
+        const oldIndex = effectIds.indexOf(effectId);
+        if (oldIndex !== -1) {
+          effectIds.splice(oldIndex, 1);
+          effectIds.splice(newOrder, 0, effectId);
+        }
+        void z.mutate(
+          mutators.trackEffects.reorder({
+            trackId: selectedTrackId,
+            effectIds,
+          }),
+        );
+      },
+    });
 
   return {
     effects,

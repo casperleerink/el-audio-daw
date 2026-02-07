@@ -61,7 +61,9 @@ export function AddEffectDialog({ open, onOpenChange, onSelectEffect }: AddEffec
               </div>
               <div className="flex min-w-0 flex-col items-start gap-0.5">
                 <span className="text-sm font-medium">{option.name}</span>
-                <span className="text-left text-xs text-muted-foreground">{option.description}</span>
+                <span className="text-left text-xs text-muted-foreground">
+                  {option.description}
+                </span>
               </div>
             </Button>
           ))}

@@ -35,19 +35,16 @@ export function useKonvaClipDrag({
   const [clipDragState, setClipDragState] = useState<ClipDragState | null>(null);
   const justFinishedDragRef = useRef(false);
 
-  const handleDragStart = useCallback(
-    (clipId: string, trackId: string, startTime: number) => {
-      justFinishedDragRef.current = false;
-      setClipDragState({
-        clipId,
-        originalStartTime: startTime,
-        originalTrackId: trackId,
-        currentTrackId: trackId,
-        currentStartTime: startTime,
-      });
-    },
-    [],
-  );
+  const handleDragStart = useCallback((clipId: string, trackId: string, startTime: number) => {
+    justFinishedDragRef.current = false;
+    setClipDragState({
+      clipId,
+      originalStartTime: startTime,
+      originalTrackId: trackId,
+      currentTrackId: trackId,
+      currentStartTime: startTime,
+    });
+  }, []);
 
   const handleDragMove = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>, clipId: string) => {

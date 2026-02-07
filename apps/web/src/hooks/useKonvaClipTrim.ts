@@ -63,9 +63,7 @@ export function useKonvaClipTrim({
       setTrimState((prev) => {
         if (!prev || prev.clipId !== clipId) return prev;
 
-        const deltaSamples = Math.round(
-          (deltaXPixels / pixelsPerSecond) * sampleRate,
-        );
+        const deltaSamples = Math.round((deltaXPixels / pixelsPerSecond) * sampleRate);
 
         if (prev.edge === "left") {
           // Left trim: adjust startTime + audioStartTime, decrease duration

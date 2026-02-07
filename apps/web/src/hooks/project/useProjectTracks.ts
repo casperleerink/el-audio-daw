@@ -11,7 +11,7 @@ export const useGetTracks = () => {
     zql.tracks.where("projectId", "=", projectId ?? "").orderBy("order", "asc"),
     {
       enabled: !!projectId,
-    }
+    },
   );
   return tracks;
 };
@@ -35,18 +35,16 @@ export function useProjectTracks() {
         projectId,
         name: `Track ${trackCount + 1}`,
         order: trackCount,
-      })
+      }),
     ).client;
   }, [z, projectId, tracks.length]);
 
   const reorderTracks = useCallback(
     async (newTrackIds: string[]) => {
       if (!projectId) return;
-      await z.mutate(
-        mutators.tracks.reorder({ projectId, trackIds: newTrackIds })
-      ).client;
+      await z.mutate(mutators.tracks.reorder({ projectId, trackIds: newTrackIds })).client;
     },
-    [z, projectId]
+    [z, projectId],
   );
 
   return {
