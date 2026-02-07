@@ -6,7 +6,7 @@ import {
   RULER_HEIGHT,
   TRACK_HEIGHT,
 } from "@/lib/timelineConstants";
-import { getTrackColor } from "@/lib/canvasRenderer";
+import { getTrackColor } from "@/lib/timelineUtils";
 import type { WaveformData } from "@/lib/waveformCache";
 import type { ClipRenderData } from "./types";
 import { Waveform } from "./Waveform";
