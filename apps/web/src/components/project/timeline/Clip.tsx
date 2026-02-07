@@ -1,5 +1,6 @@
-import { memo, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Group, Rect, Text } from "react-konva";
+import type Konva from "konva";
 import {
   CLIP_BORDER_RADIUS,
   CLIP_PADDING,
@@ -30,6 +31,19 @@ interface ClipProps {
   onClipClick?: (clipId: string, trackId: string, shiftKey: boolean) => void;
   onClipMouseEnter?: (clipId: string) => void;
   onClipMouseLeave?: () => void;
+  onDragStart?: (clipId: string, trackId: string, startTime: number) => void;
+  onDragMove?: (e: Konva.KonvaEventObject<DragEvent>, clipId: string) => void;
+  onDragEnd?: (clipId: string) => void;
+  onTrimStart?: (
+    clipId: string,
+    edge: "left" | "right",
+    startTime: number,
+    audioStartTime: number,
+    duration: number,
+    audioFileId: string,
+  ) => void;
+  onTrimMove?: (deltaXPixels: number, clipId: string) => void;
+  onTrimEnd?: (clipId: string) => void;
 }
 
 export const Clip = memo(function Clip({
@@ -48,6 +62,12 @@ export const Clip = memo(function Clip({
   onClipClick,
   onClipMouseEnter,
   onClipMouseLeave,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  onTrimStart,
+  onTrimMove,
+  onTrimEnd,
 }: ClipProps) {
   const trackIndex = effectiveTrackIndex ?? baseTrackIndex;
   const startTime = effectiveStartTime ?? clip.startTime;
@@ -67,6 +87,45 @@ export const Clip = memo(function Clip({
   const clipHeight = TRACK_HEIGHT - CLIP_PADDING * 2 - 1;
 
   const trackColor = getTrackColor(trackIndex);
+  const trimStartXRef = useRef<number | null>(null);
+
+  // Trim: window-level mousemove/mouseup for smooth dragging
+  const handleTrimMouseDown = useCallback(
+    (edge: "left" | "right", e: Konva.KonvaEventObject<MouseEvent>) => {
+      e.cancelBubble = true;
+      trimStartXRef.current = e.evt.clientX;
+      onTrimStart?.(
+        clip._id,
+        edge,
+        clip.startTime,
+        clip.audioStartTime,
+        clip.duration,
+        clip.audioFileId,
+      );
+    },
+    [clip._id, clip.startTime, clip.audioStartTime, clip.duration, clip.audioFileId, onTrimStart],
+  );
+
+  useEffect(() => {
+    if (!isTrimming || trimStartXRef.current === null) return;
+
+    const startX = trimStartXRef.current;
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - startX;
+      onTrimMove?.(deltaX, clip._id);
+    };
+    const handleMouseUp = () => {
+      trimStartXRef.current = null;
+      onTrimEnd?.(clip._id);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isTrimming, clip._id, onTrimMove, onTrimEnd]);
 
   // Determine opacity
   const bodyOpacity = isPending ? 0.4 : isDragging ? 0.5 : 0.7;
@@ -80,10 +139,20 @@ export const Clip = memo(function Clip({
     <Group
       x={clipX}
       y={clipY}
+      draggable={!isPending && !isTrimming}
       onClick={(e) => {
         if (isPending) return;
         onClipClick?.(clip._id, clip.trackId, e.evt.shiftKey);
         e.cancelBubble = true;
+      }}
+      onDragStart={() => {
+        onDragStart?.(clip._id, clip.trackId, clip.startTime);
+      }}
+      onDragMove={(e) => {
+        onDragMove?.(e, clip._id);
+      }}
+      onDragEnd={() => {
+        onDragEnd?.(clip._id);
       }}
       onMouseEnter={() => onClipMouseEnter?.(clip._id)}
       onMouseLeave={() => onClipMouseLeave?.()}
@@ -167,6 +236,7 @@ export const Clip = memo(function Clip({
             isHovered={hoveredEdge === "left"}
             onMouseEnter={() => setHoveredEdge("left")}
             onMouseLeave={() => setHoveredEdge(null)}
+            onMouseDown={handleTrimMouseDown}
           />
           <TrimHandle
             edge="right"
@@ -175,6 +245,7 @@ export const Clip = memo(function Clip({
             isHovered={hoveredEdge === "right"}
             onMouseEnter={() => setHoveredEdge("right")}
             onMouseLeave={() => setHoveredEdge(null)}
+            onMouseDown={handleTrimMouseDown}
           />
         </>
       )}

@@ -1,5 +1,5 @@
 import { Loader2, Upload, ZoomIn, ZoomOut } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useZero } from "@rocicorp/zero/react";
 import type Konva from "konva";
 
@@ -10,11 +10,7 @@ import { useKonvaPlayheadAnimation } from "@/hooks/useKonvaPlayheadAnimation";
 import { useTimelineFileDrop } from "@/hooks/useTimelineFileDrop";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { useAudioStore } from "@/stores/audioStore";
-import {
-  fetchWaveform,
-  clearWaveformCache,
-  type WaveformData,
-} from "@/lib/waveformCache";
+import { fetchWaveform, clearWaveformCache, type WaveformData } from "@/lib/waveformCache";
 import { RULER_HEIGHT, TRACK_HEIGHT } from "@/lib/timelineConstants";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -64,9 +60,7 @@ export function TimelineCanvasKonva({
   const isPlaying = useAudioStore((s) => s.isPlaying);
 
   // Waveform cache
-  const [loadedWaveforms, setLoadedWaveforms] = useState<Map<string, WaveformData>>(
-    new Map(),
-  );
+  const [loadedWaveforms, setLoadedWaveforms] = useState<Map<string, WaveformData>>(new Map());
 
   // Hover state refs (perf: no React re-renders on mouse move)
   const hoverXRef = useRef<number | null>(null);
@@ -113,36 +107,29 @@ export function TimelineCanvasKonva({
   );
 
   const trimClip = useCallback(
-    async (args: {
-      id: string;
-      startTime: number;
-      audioStartTime: number;
-      duration: number;
-    }) => {
+    async (args: { id: string; startTime: number; audioStartTime: number; duration: number }) => {
       await z.mutate(mutators.clips.update(args)).client;
     },
     [z],
   );
 
   // Clip drag
-  const { clipDragState, handleDragStart, handleDragMove, handleDragEnd } =
-    useKonvaClipDrag({
-      tracks,
-      scrollLeft,
-      scrollTop,
-      pixelsPerSecond,
-      sampleRate,
-      updateClipPosition,
-    });
+  const { clipDragState, handleDragStart, handleDragMove, handleDragEnd } = useKonvaClipDrag({
+    tracks,
+    scrollLeft,
+    scrollTop,
+    pixelsPerSecond,
+    sampleRate,
+    updateClipPosition,
+  });
 
   // Clip trim
-  const { trimState, handleTrimStart, handleTrimMove, handleTrimEnd } =
-    useKonvaClipTrim({
-      pixelsPerSecond,
-      sampleRate,
-      trimClip,
-      getAudioFileDuration,
-    });
+  const { trimState, handleTrimStart, handleTrimMove, handleTrimEnd } = useKonvaClipTrim({
+    pixelsPerSecond,
+    sampleRate,
+    trimClip,
+    getAudioFileDuration,
+  });
 
   // Playhead animation
   const { playheadTimeRef } = useKonvaPlayheadAnimation({
@@ -202,8 +189,7 @@ export function TimelineCanvasKonva({
       for (const [audioFileId, storageKey] of Object.entries(waveformUrls)) {
         if (loadedWaveforms.has(audioFileId) || !storageKey) continue;
         const waveform = await fetchWaveform(audioFileId, storageKey, projectId);
-        if (waveform)
-          setLoadedWaveforms((prev) => new Map(prev).set(audioFileId, waveform));
+        if (waveform) setLoadedWaveforms((prev) => new Map(prev).set(audioFileId, waveform));
       }
     };
     fetchAll();
@@ -234,10 +220,7 @@ export function TimelineCanvasKonva({
         const delta = e.shiftKey ? e.deltaY : e.deltaX;
         setScrollLeft((prev) => Math.max(0, prev + delta));
       } else {
-        const newScrollTop = Math.min(
-          maxScrollTop,
-          Math.max(0, scrollTop + e.deltaY),
-        );
+        const newScrollTop = Math.min(maxScrollTop, Math.max(0, scrollTop + e.deltaY));
         onScrollChange(newScrollTop);
       }
     },
@@ -288,8 +271,7 @@ export function TimelineCanvasKonva({
   const dropIndicatorStyle = dropTarget
     ? {
         left:
-          (dropTarget.dropTimeInSamples / sampleRate -
-            scrollLeft / pixelsPerSecond) *
+          (dropTarget.dropTimeInSamples / sampleRate - scrollLeft / pixelsPerSecond) *
           pixelsPerSecond,
         top: RULER_HEIGHT + dropTarget.trackIndex * TRACK_HEIGHT - scrollTop,
         height: TRACK_HEIGHT,
@@ -330,6 +312,12 @@ export function TimelineCanvasKonva({
             waveformCache={loadedWaveforms}
             onClipClick={handleClipClick}
             onBackgroundClick={handleBackgroundClick}
+            onDragStart={handleDragStart}
+            onDragMove={handleDragMove}
+            onDragEnd={handleDragEnd}
+            onTrimStart={handleTrimStart}
+            onTrimMove={handleTrimMove}
+            onTrimEnd={handleTrimEnd}
           />
         }
         dynamicChildren={
@@ -384,12 +372,7 @@ export function TimelineCanvasKonva({
         <Tooltip delay={500}>
           <TooltipTrigger
             render={
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={handleZoomOut}
-                disabled={!canZoomOut}
-              >
+              <Button variant="ghost" size="icon-xs" onClick={handleZoomOut} disabled={!canZoomOut}>
                 <ZoomOut className="size-3" />
               </Button>
             }
@@ -399,12 +382,7 @@ export function TimelineCanvasKonva({
         <Tooltip delay={500}>
           <TooltipTrigger
             render={
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={handleZoomIn}
-                disabled={!canZoomIn}
-              >
+              <Button variant="ghost" size="icon-xs" onClick={handleZoomIn} disabled={!canZoomIn}>
                 <ZoomIn className="size-3" />
               </Button>
             }

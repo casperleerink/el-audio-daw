@@ -1,5 +1,6 @@
 import { memo, useMemo } from "react";
 import { Group, Rect } from "react-konva";
+import type Konva from "konva";
 import { RULER_HEIGHT, TRACK_HEIGHT } from "@/lib/timelineConstants";
 import { getCanvasColors } from "@/lib/timelineUtils";
 import type { WaveformData } from "@/lib/waveformCache";
@@ -34,6 +35,19 @@ interface StaticLayerProps {
   onClipMouseEnter?: (clipId: string) => void;
   onClipMouseLeave?: () => void;
   onBackgroundClick: (x: number) => void;
+  onDragStart?: (clipId: string, trackId: string, startTime: number) => void;
+  onDragMove?: (e: Konva.KonvaEventObject<DragEvent>, clipId: string) => void;
+  onDragEnd?: (clipId: string) => void;
+  onTrimStart?: (
+    clipId: string,
+    edge: "left" | "right",
+    startTime: number,
+    audioStartTime: number,
+    duration: number,
+    audioFileId: string,
+  ) => void;
+  onTrimMove?: (deltaXPixels: number, clipId: string) => void;
+  onTrimEnd?: (clipId: string) => void;
 }
 
 export const StaticLayer = memo(function StaticLayer({
@@ -54,6 +68,12 @@ export const StaticLayer = memo(function StaticLayer({
   onClipMouseEnter,
   onClipMouseLeave,
   onBackgroundClick,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  onTrimStart,
+  onTrimMove,
+  onTrimEnd,
 }: StaticLayerProps) {
   const colors = useMemo(() => getCanvasColors(), []);
 
@@ -158,6 +178,12 @@ export const StaticLayer = memo(function StaticLayer({
             onClipClick={onClipClick}
             onClipMouseEnter={onClipMouseEnter}
             onClipMouseLeave={onClipMouseLeave}
+            onDragStart={onDragStart}
+            onDragMove={onDragMove}
+            onDragEnd={onDragEnd}
+            onTrimStart={onTrimStart}
+            onTrimMove={onTrimMove}
+            onTrimEnd={onTrimEnd}
           />
         );
       })}

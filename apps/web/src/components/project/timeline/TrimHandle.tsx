@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { Rect } from "react-konva";
+import type Konva from "konva";
 import { CLIP_BORDER_RADIUS, TRIM_HANDLE_WIDTH } from "@/lib/timelineConstants";
 
 interface TrimHandleProps {
@@ -9,6 +10,7 @@ interface TrimHandleProps {
   isHovered: boolean;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onMouseDown?: (edge: "left" | "right", e: Konva.KonvaEventObject<MouseEvent>) => void;
 }
 
 export const TrimHandle = memo(function TrimHandle({
@@ -18,6 +20,7 @@ export const TrimHandle = memo(function TrimHandle({
   isHovered,
   onMouseEnter,
   onMouseLeave,
+  onMouseDown,
 }: TrimHandleProps) {
   // Don't render if clip is too narrow for handles
   if (clipWidth < TRIM_HANDLE_WIDTH * 2) return null;
@@ -44,6 +47,9 @@ export const TrimHandle = memo(function TrimHandle({
           container.style.cursor = "ew-resize";
         }
         onMouseEnter();
+      }}
+      onMouseDown={(e) => {
+        onMouseDown?.(edge, e);
       }}
       onMouseLeave={(e) => {
         const stage = e.target.getStage();
