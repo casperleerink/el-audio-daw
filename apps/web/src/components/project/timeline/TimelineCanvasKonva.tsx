@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useZero } from "@rocicorp/zero/react";
 import type Konva from "konva";
 
-import type { ClipData } from "@/hooks/useClipDrag";
+import type { ClipData } from "./types";
 import { useKonvaClipDrag } from "@/hooks/useKonvaClipDrag";
 import { useKonvaClipTrim } from "@/hooks/useKonvaClipTrim";
 import { useKonvaPlayheadAnimation } from "@/hooks/useKonvaPlayheadAnimation";

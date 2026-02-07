@@ -1,4 +1,4 @@
-export interface ClipRenderData {
+export interface ClipData {
   _id: string;
   trackId: string;
   audioFileId: string;
@@ -7,6 +7,9 @@ export interface ClipRenderData {
   duration: number; // in samples
   audioStartTime: number; // offset into source audio in samples
   pending?: boolean;
+}
+
+export interface ClipRenderData extends ClipData {
   selected?: boolean;
 }
 

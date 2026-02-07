@@ -3,7 +3,7 @@ import { GripVertical, Plus } from "lucide-react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { useTrackReorder } from "@/hooks/useTrackReorder";
-import { getTrackColor } from "@/lib/canvasRenderer";
+import { getTrackColor } from "@/lib/timelineUtils";
 import { TRACK_HEADER_HEIGHT } from "@/lib/timelineConstants";
 import { Button } from "@/components/ui/button";
 import { TrackDeleteButton } from "@/components/track/TrackDeleteButton";
@@ -74,10 +74,7 @@ const TrackHeader = React.memo(function TrackHeader({
         </div>
 
         {/* Row 2: M/S buttons, pan control */}
-        <div
-          className="flex items-center justify-between"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
           <TrackMuteSoloButtons trackId={trackId} />
           <TrackPanKnob trackId={trackId} />
         </div>

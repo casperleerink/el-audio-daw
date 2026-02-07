@@ -1,7 +1,7 @@
 import { ChevronDownIcon, PlusIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { getTrackColor } from "@/lib/canvasRenderer";
+import { getTrackColor } from "@/lib/timelineUtils";
 
 interface EffectsPanelProps {
   selectedTrackId: string | null;
