@@ -1,8 +1,9 @@
 import { useCallback, useMemo } from "react";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { mutators } from "@el-audio-daw/zero/mutators";
 import { useProjectId } from "@/stores/projectStore";
 import { zql } from "@el-audio-daw/zero";
+import { useUndoStore } from "@/stores/undoStore";
+import { createTrackCommand, reorderTracksCommand } from "@/commands/trackCommands";
 
 export const useGetTracks = () => {
   const z = useZero();
@@ -26,25 +27,30 @@ export function useProjectTracks() {
   const tracks = useGetTracks();
   const trackIds = useMemo(() => tracks.map((t) => t.id), [tracks]);
 
+  const pushUndo = useUndoStore((s) => s.push);
+
   const addTrack = useCallback(async () => {
     if (!projectId) return;
     const trackCount = tracks.length;
-    await z.mutate(
-      mutators.tracks.create({
-        id: crypto.randomUUID(),
-        projectId,
-        name: `Track ${trackCount + 1}`,
-        order: trackCount,
-      }),
-    ).client;
-  }, [z, projectId, tracks.length]);
+    const trackData = {
+      id: crypto.randomUUID(),
+      projectId,
+      name: `Track ${trackCount + 1}`,
+      order: trackCount,
+    };
+    const cmd = createTrackCommand(z, trackData);
+    await cmd.execute();
+    pushUndo(cmd);
+  }, [z, projectId, tracks.length, pushUndo]);
 
   const reorderTracks = useCallback(
     async (newTrackIds: string[]) => {
       if (!projectId) return;
-      await z.mutate(mutators.tracks.reorder({ projectId, trackIds: newTrackIds })).client;
+      const cmd = reorderTracksCommand(z, projectId, trackIds, newTrackIds);
+      await cmd.execute();
+      pushUndo(cmd);
     },
-    [z, projectId],
+    [z, projectId, trackIds, pushUndo],
   );
 
   return {

@@ -1,10 +1,12 @@
 import { useCallback, useMemo } from "react";
 import { useZero } from "@rocicorp/zero/react";
-import { mutators } from "@el-audio-daw/zero/mutators";
 import { useProjectId, useSampleRate } from "@/stores/projectStore";
 import { useClipClipboard } from "@/hooks/useClipClipboard";
 import { useEditorStore } from "@/stores/editorStore";
 import { useProjectData } from "./useProjectData";
+import { useUndoStore } from "@/stores/undoStore";
+import { deleteClipsCommand, createClipsCommand, splitClipCommand } from "@/commands/clipCommands";
+import { compoundCommand } from "@/commands/compoundCommand";
 
 /**
  * Hook for clip operations in the project editor.
@@ -18,6 +20,7 @@ export function useProjectClips() {
 
   const selectedClipIds = useEditorStore((s) => s.selectedClipIds);
   const { clearClipSelection } = useEditorStore();
+  const pushUndo = useUndoStore((s) => s.push);
 
   // Clipboard for copy/paste (FR-23 through FR-30)
   const { copyClips, getClipboardData, hasClips } = useClipClipboard();
@@ -78,41 +81,50 @@ export function useProjectClips() {
       // Convert playhead time (seconds) to samples
       const playheadTimeInSamples = Math.round(playheadTime * sampleRate);
 
-      // Create all clips using Zero mutator
-      for (const clip of clipboardData.clips) {
-        await z.mutate(
-          mutators.clips.create({
-            id: crypto.randomUUID(),
-            projectId,
-            trackId: targetTrackId,
-            audioFileId: clip.audioFileId,
-            name: clip.name,
-            startTime: playheadTimeInSamples + clip.offsetFromFirst,
-            duration: clip.duration,
-            audioStartTime: clip.audioStartTime,
-            gain: clip.gain,
-          }),
-        );
-      }
+      const clipSnapshots = clipboardData.clips.map((clip) => ({
+        id: crypto.randomUUID(),
+        projectId,
+        trackId: targetTrackId,
+        audioFileId: clip.audioFileId,
+        name: clip.name,
+        startTime: playheadTimeInSamples + clip.offsetFromFirst,
+        duration: clip.duration,
+        audioStartTime: clip.audioStartTime,
+        gain: clip.gain,
+      }));
+
+      const cmd = createClipsCommand(z, clipSnapshots);
+      await cmd.execute();
+      pushUndo(cmd);
     },
-    [hasClips, getClipboardData, sampleRate, z, projectId],
+    [hasClips, getClipboardData, sampleRate, z, projectId, pushUndo],
   );
 
   // Delete selected clips handler (FR-10 through FR-13)
   const handleDeleteSelectedClips = useCallback(async () => {
     if (selectedClipIds.size === 0) return;
 
-    // Get clip IDs as array before clearing selection
-    const clipIdsToDelete = Array.from(selectedClipIds);
+    // Snapshot full clip data before deletion (for undo)
+    const clipsToDelete = clips
+      .filter((clip) => selectedClipIds.has(clip.id))
+      .map((clip) => ({
+        id: clip.id,
+        projectId: clip.projectId,
+        trackId: clip.trackId,
+        audioFileId: clip.audioFileId,
+        name: clip.name,
+        startTime: clip.startTime,
+        duration: clip.duration,
+        audioStartTime: clip.audioStartTime,
+        gain: clip.gain ?? 0,
+      }));
 
-    // Clear selection first (optimistic behavior - clips will be gone)
     clearClipSelection();
 
-    // Delete all selected clips using Zero mutator
-    for (const clipId of clipIdsToDelete) {
-      await z.mutate(mutators.clips.delete({ id: clipId }));
-    }
-  }, [selectedClipIds, clearClipSelection, z]);
+    const cmd = deleteClipsCommand(z, clipsToDelete);
+    await cmd.execute();
+    pushUndo(cmd);
+  }, [selectedClipIds, clips, clearClipSelection, z, pushUndo]);
 
   // Split selected clips at playhead handler (FR-38 through FR-45)
   const handleSplitClips = useCallback(
@@ -126,7 +138,6 @@ export function useProjectClips() {
       // FR-39: Find selected clips that span the playhead
       const clipsToSplit = clips.filter((clip) => {
         if (!selectedClipIds.has(clip.id)) return false;
-        // Check if playhead is within clip bounds (exclusive of edges)
         const clipEnd = clip.startTime + clip.duration;
         return playheadTimeInSamples > clip.startTime && playheadTimeInSamples < clipEnd;
       });
@@ -137,38 +148,48 @@ export function useProjectClips() {
       // FR-43: Clear selection (neither resulting clip will be selected)
       clearClipSelection();
 
-      // FR-45: Split all qualifying clips - update original and create new clip
-      for (const clip of clipsToSplit) {
+      const splitCommands = clipsToSplit.map((clip) => {
         const splitPoint = playheadTimeInSamples - clip.startTime;
         const newDuration = splitPoint;
         const secondClipDuration = clip.duration - splitPoint;
         const secondClipAudioStartTime = clip.audioStartTime + splitPoint;
 
-        // Update original clip to be shorter
-        await z.mutate(
-          mutators.clips.update({
-            id: clip.id,
-            duration: newDuration,
-          }),
-        );
+        const originalBefore = {
+          id: clip.id,
+          projectId: clip.projectId,
+          trackId: clip.trackId,
+          audioFileId: clip.audioFileId,
+          name: clip.name,
+          startTime: clip.startTime,
+          duration: clip.duration,
+          audioStartTime: clip.audioStartTime,
+          gain: clip.gain ?? 0,
+        };
 
-        // Create new clip for the second half
-        await z.mutate(
-          mutators.clips.create({
-            id: crypto.randomUUID(),
-            projectId,
-            trackId: clip.trackId,
-            audioFileId: clip.audioFileId,
-            name: clip.name,
-            startTime: playheadTimeInSamples,
-            duration: secondClipDuration,
-            audioStartTime: secondClipAudioStartTime,
-            gain: clip.gain ?? 0,
-          }),
-        );
-      }
+        const newClip = {
+          id: crypto.randomUUID(),
+          projectId,
+          trackId: clip.trackId,
+          audioFileId: clip.audioFileId,
+          name: clip.name,
+          startTime: playheadTimeInSamples,
+          duration: secondClipDuration,
+          audioStartTime: secondClipAudioStartTime,
+          gain: clip.gain ?? 0,
+        };
+
+        return splitClipCommand(z, originalBefore, newDuration, newClip);
+      });
+
+      const cmd =
+        splitCommands.length === 1
+          ? splitCommands[0]!
+          : compoundCommand(`Split ${splitCommands.length} Clips`, splitCommands);
+
+      await cmd.execute();
+      pushUndo(cmd);
     },
-    [selectedClipIds, clips, sampleRate, clearClipSelection, z, projectId],
+    [selectedClipIds, clips, sampleRate, clearClipSelection, z, projectId, pushUndo],
   );
 
   return {

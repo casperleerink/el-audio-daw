@@ -7,6 +7,7 @@ import { Authenticated, AuthLoading, Unauthenticated } from "@/components/util/a
 import { ProjectEditor } from "@/components/project/ProjectEditor";
 import { ProjectEditorSkeleton } from "@/components/project/ProjectEditorSkeleton";
 import { useProjectStore } from "@/stores/projectStore";
+import { useUndoStore } from "@/stores/undoStore";
 import { queries } from "@el-audio-daw/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { authClient } from "@/lib/auth-client";
@@ -60,6 +61,7 @@ function ProjectEditorPage() {
 function ProjectEditorWrapper() {
   const { id } = Route.useParams();
   const { setProject, clearProject } = useProjectStore();
+  const clearUndoHistory = useUndoStore((s) => s.clear);
 
   // Query to get sample rate (project data is already preloaded)
   const [project] = useQuery(queries.projects.byId({ id }));
@@ -67,12 +69,13 @@ function ProjectEditorWrapper() {
   // Set project context in store when project loads
   useEffect(() => {
     if (project) {
+      clearUndoHistory();
       setProject(id, project.sampleRate ?? 44100);
     }
     return () => {
       clearProject();
     };
-  }, [id, project?.sampleRate, setProject, clearProject]);
+  }, [id, project?.sampleRate, setProject, clearProject, clearUndoHistory]);
 
   // Wait for project to load before rendering editor
   if (project === undefined) {

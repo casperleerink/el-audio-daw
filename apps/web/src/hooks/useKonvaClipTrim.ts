@@ -1,5 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import type { Zero } from "@rocicorp/zero";
+import { useUndoStore } from "@/stores/undoStore";
+import { trimClipCommand } from "@/commands/clipCommands";
 
 interface TrimState {
   clipId: string;
@@ -15,19 +18,14 @@ interface TrimState {
 interface UseKonvaClipTrimOptions {
   pixelsPerSecond: number;
   sampleRate: number;
-  trimClip: (args: {
-    id: string;
-    startTime: number;
-    audioStartTime: number;
-    duration: number;
-  }) => Promise<unknown>;
+  z: Zero;
   getAudioFileDuration?: (audioFileId: string) => number | undefined;
 }
 
 export function useKonvaClipTrim({
   pixelsPerSecond,
   sampleRate,
-  trimClip,
+  z,
   getAudioFileDuration,
 }: UseKonvaClipTrimOptions) {
   const [trimState, setTrimState] = useState<TrimState | null>(null);
@@ -122,21 +120,30 @@ export function useKonvaClipTrim({
       setTrimState(null);
 
       try {
-        // Calculate final audioStartTime from the delta
         const deltaSamples = state.currentStartTime - state.originalStartTime;
-        const finalAudioStartTime = state.originalAudioStartTime + deltaSamples;
+        const finalAudioStartTime = Math.max(0, state.originalAudioStartTime + deltaSamples);
 
-        await trimClip({
-          id: clipId,
-          startTime: state.currentStartTime,
-          audioStartTime: Math.max(0, finalAudioStartTime),
-          duration: state.currentDuration,
-        });
+        const cmd = trimClipCommand(
+          z,
+          clipId,
+          {
+            startTime: state.originalStartTime,
+            audioStartTime: state.originalAudioStartTime,
+            duration: state.originalDuration,
+          },
+          {
+            startTime: state.currentStartTime,
+            audioStartTime: finalAudioStartTime,
+            duration: state.currentDuration,
+          },
+        );
+        await cmd.execute();
+        useUndoStore.getState().push(cmd);
       } catch {
         toast.error("Failed to trim clip");
       }
     },
-    [trimState, trimClip],
+    [trimState, z],
   );
 
   return {

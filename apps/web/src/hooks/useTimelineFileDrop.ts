@@ -7,11 +7,13 @@ import {
   isInTrackArea,
   secondsToSamples,
 } from "@/lib/timelineCalculations";
+import { useZero } from "@rocicorp/zero/react";
 import { registerUpload, unregisterUpload } from "@/lib/uploadRegistry";
 import { generateWaveformBinary } from "@/lib/waveformGenerator";
+import { useUndoStore } from "@/stores/undoStore";
+import { createClipCommand } from "@/commands/clipCommands";
 import { useSyncRef } from "./useSyncRef";
 import { useZeroAudioFiles } from "./useZeroAudioFiles";
-import { useZeroClips } from "./useZeroClips";
 import { env } from "@el-audio-daw/env/web";
 
 // Audio file constants
@@ -140,7 +142,8 @@ export function useTimelineFileDrop({
 
   // Zero mutations for audio files and clips
   const { createAudioFile, updateWaveform } = useZeroAudioFiles(projectId);
-  const { createClip } = useZeroClips(projectId);
+  const z = useZero();
+  const pushUndo = useUndoStore((s) => s.push);
 
   // Store current values in refs for stable callbacks
   const scrollLeftRef = useSyncRef(scrollLeft);
@@ -299,14 +302,20 @@ export function useTimelineFileDrop({
         }
 
         // Create clip record referencing the audio file
-        await createClip({
+        const clipSnapshot = {
+          id: crypto.randomUUID(),
           projectId,
           trackId,
           audioFileId,
           name: clipName,
           startTime: dropPosition.dropTimeInSamples,
           duration: durationInSamples,
-        });
+          audioStartTime: 0,
+          gain: 0,
+        };
+        const cmd = createClipCommand(z, clipSnapshot);
+        await cmd.execute();
+        pushUndo(cmd);
 
         toast.success(`Added "${clipName}" to timeline`);
 
@@ -357,7 +366,8 @@ export function useTimelineFileDrop({
       isAudioFile,
       decodeAudioFile,
       createAudioFile,
-      createClip,
+      z,
+      pushUndo,
       updateWaveform,
       projectId,
       sampleRate,

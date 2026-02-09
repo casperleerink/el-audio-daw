@@ -8,6 +8,7 @@ import { useProjectId, useSampleRate } from "@/stores/projectStore";
 import { useAudioStore } from "@/stores/audioStore";
 import { useProjectKeyboardShortcuts } from "@/hooks/useProjectKeyboardShortcuts";
 import { useAudioEngineSync } from "@/hooks/useAudioEngineSync";
+import { useUndoStore } from "@/stores/undoStore";
 import { useProjectData } from "@/hooks/project/useProjectData";
 import { useProjectTracks } from "@/hooks/project/useProjectTracks";
 import { useProjectClips } from "@/hooks/project/useProjectClips";
@@ -54,6 +55,8 @@ export function ProjectEditor() {
 
   // Use selective subscriptions from audio store
   const togglePlayStop = useAudioStore((s) => s.togglePlayStop);
+  const undo = useUndoStore((s) => s.undo);
+  const redo = useUndoStore((s) => s.redo);
 
   const { clearClipSelection, selectAllOnTrack } = useEditorStore();
 
@@ -72,6 +75,8 @@ export function ProjectEditor() {
     onCopyClips: handleCopyClips,
     onPasteClips: () => handlePasteClips(useAudioStore.getState().playheadTime),
     onSplitClips: () => handleSplitClips(useAudioStore.getState().playheadTime),
+    onUndo: undo,
+    onRedo: redo,
   });
 
   // Loading state
