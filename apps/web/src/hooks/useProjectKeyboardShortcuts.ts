@@ -17,6 +17,10 @@ interface KeyboardShortcutActions {
   onPasteClips: () => void;
   /** Cmd+E: split clips at playhead */
   onSplitClips: () => void;
+  /** Cmd+Z: undo */
+  onUndo: () => void;
+  /** Cmd+Shift+Z: redo */
+  onRedo: () => void;
 }
 
 /**
@@ -42,6 +46,8 @@ export function useProjectKeyboardShortcuts(actions: KeyboardShortcutActions): v
     onCopyClips,
     onPasteClips,
     onSplitClips,
+    onUndo,
+    onRedo,
   } = actions;
 
   useEffect(() => {
@@ -97,6 +103,18 @@ export function useProjectKeyboardShortcuts(actions: KeyboardShortcutActions): v
         e.preventDefault();
         onSplitClips();
       }
+
+      // Undo: Cmd+Z / Ctrl+Z (without Shift)
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.code === "KeyZ") {
+        e.preventDefault();
+        onUndo();
+      }
+
+      // Redo: Cmd+Shift+Z / Ctrl+Shift+Z
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === "KeyZ") {
+        e.preventDefault();
+        onRedo();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -110,5 +128,7 @@ export function useProjectKeyboardShortcuts(actions: KeyboardShortcutActions): v
     onCopyClips,
     onPasteClips,
     onSplitClips,
+    onUndo,
+    onRedo,
   ]);
 }
