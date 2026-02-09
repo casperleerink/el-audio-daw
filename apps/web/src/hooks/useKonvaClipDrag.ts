@@ -1,8 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import type Konva from "konva";
+import type { Zero } from "@rocicorp/zero";
 import { CLIP_PADDING, RULER_HEIGHT, TRACK_HEIGHT } from "@/lib/timelineConstants";
 import type { ClipData } from "@/components/project/timeline/types";
+import { useUndoStore } from "@/stores/undoStore";
+import { moveClipCommand, createClipsCommand } from "@/commands/clipCommands";
 
 interface ClipDragState {
   clipId: string;
@@ -13,33 +16,16 @@ interface ClipDragState {
   isDuplicating: boolean;
 }
 
-interface CreateClipArgs {
-  id: string;
-  projectId: string;
-  trackId: string;
-  audioFileId: string;
-  name: string;
-  startTime: number;
-  duration: number;
-  audioStartTime: number;
-  gain: number;
-}
-
 interface UseKonvaClipDragOptions {
   tracks: { _id: string }[];
   scrollLeft: number;
   scrollTop: number;
   pixelsPerSecond: number;
   sampleRate: number;
-  updateClipPosition: (args: {
-    id: string;
-    startTime: number;
-    trackId?: string;
-  }) => Promise<unknown>;
+  z: Zero;
   selectedClipIds: Set<string>;
   clips: ClipData[];
   projectId: string;
-  createClip: (args: CreateClipArgs) => Promise<unknown>;
 }
 
 export function useKonvaClipDrag({
@@ -48,11 +34,10 @@ export function useKonvaClipDrag({
   scrollTop,
   pixelsPerSecond,
   sampleRate,
-  updateClipPosition,
+  z,
   selectedClipIds,
   clips,
   projectId,
-  createClip,
 }: UseKonvaClipDragOptions) {
   const [clipDragState, setClipDragState] = useState<ClipDragState | null>(null);
   const justFinishedDragRef = useRef(false);
@@ -129,22 +114,19 @@ export function useKonvaClipDrag({
         const viewStartTime = scrollLeft / pixelsPerSecond;
         const originalX = (originalStartSeconds - viewStartTime) * pixelsPerSecond;
         const originalTrackIndex = tracks.findIndex((t) => t._id === state.originalTrackId);
-        const originalY = RULER_HEIGHT + originalTrackIndex * TRACK_HEIGHT - scrollTop + CLIP_PADDING;
+        const originalY =
+          RULER_HEIGHT + originalTrackIndex * TRACK_HEIGHT - scrollTop + CLIP_PADDING;
         node.position({ x: originalX, y: originalY });
 
-        // Calculate offset between original and drop position
         const timeOffset = state.currentStartTime - state.originalStartTime;
         const targetTrackId = state.currentTrackId;
 
-        // Determine which clips to duplicate
         const clipsToDuplicate = selectedClipIds.has(clipId)
           ? clips.filter((c) => selectedClipIds.has(c._id))
           : clips.filter((c) => c._id === clipId);
 
         try {
-          for (const clip of clipsToDuplicate) {
-            // For the dragged clip, place at drop position directly
-            // For other selected clips, offset relative to the dragged clip
+          const clipSnapshots = clipsToDuplicate.map((clip) => {
             let newStartTime: number;
             let newTrackId: string;
 
@@ -153,7 +135,6 @@ export function useKonvaClipDrag({
               newTrackId = targetTrackId;
             } else {
               newStartTime = clip.startTime + timeOffset;
-              // Calculate track offset: shift by same number of tracks
               const draggedOriginalTrackIndex = tracks.findIndex(
                 (t) => t._id === state.originalTrackId,
               );
@@ -167,7 +148,7 @@ export function useKonvaClipDrag({
               newTrackId = tracks[newTrackIndex]?._id ?? clip.trackId;
             }
 
-            await createClip({
+            return {
               id: crypto.randomUUID(),
               projectId,
               trackId: newTrackId,
@@ -177,19 +158,25 @@ export function useKonvaClipDrag({
               duration: clip.duration,
               audioStartTime: clip.audioStartTime,
               gain: 0,
-            });
-          }
+            };
+          });
+
+          const cmd = createClipsCommand(z, clipSnapshots);
+          await cmd.execute();
+          useUndoStore.getState().push(cmd);
         } catch {
           toast.error("Failed to duplicate clip");
         }
       } else {
         try {
-          const trackChanged = state.currentTrackId !== state.originalTrackId;
-          await updateClipPosition({
-            id: clipId,
-            startTime: state.currentStartTime,
-            trackId: trackChanged ? state.currentTrackId : undefined,
-          });
+          const cmd = moveClipCommand(
+            z,
+            clipId,
+            { trackId: state.originalTrackId, startTime: state.originalStartTime },
+            { trackId: state.currentTrackId, startTime: state.currentStartTime },
+          );
+          await cmd.execute();
+          useUndoStore.getState().push(cmd);
         } catch {
           toast.error("Failed to move clip");
         }
@@ -197,11 +184,10 @@ export function useKonvaClipDrag({
     },
     [
       clipDragState,
-      updateClipPosition,
       selectedClipIds,
       clips,
       projectId,
-      createClip,
+      z,
       tracks,
       sampleRate,
       scrollLeft,

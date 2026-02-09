@@ -14,8 +14,6 @@ import { fetchWaveform, clearWaveformCache, type WaveformData } from "@/lib/wave
 import { RULER_HEIGHT, TRACK_HEIGHT } from "@/lib/timelineConstants";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { mutators } from "@el-audio-daw/zero/mutators";
-
 import { TimelineStage } from "./TimelineStage";
 import { StaticLayer } from "./StaticLayer";
 import { DynamicLayer } from "./DynamicLayer";
@@ -83,54 +81,6 @@ export function TimelineCanvasKonva({
     handleWheelZoom,
   } = useTimelineZoom({ containerRef, canvasRef, hoverX: null, dimensions });
 
-  // Zero mutations
-  const updateClipPosition = useCallback(
-    async (args: { id: string; startTime: number; trackId?: string }) => {
-      if (args.trackId) {
-        await z.mutate(
-          mutators.clips.move({
-            id: args.id,
-            trackId: args.trackId,
-            startTime: args.startTime,
-          }),
-        );
-      } else {
-        await z.mutate(
-          mutators.clips.update({
-            id: args.id,
-            startTime: args.startTime,
-          }),
-        );
-      }
-    },
-    [z],
-  );
-
-  const trimClip = useCallback(
-    async (args: { id: string; startTime: number; audioStartTime: number; duration: number }) => {
-      await z.mutate(mutators.clips.update(args)).client;
-    },
-    [z],
-  );
-
-  // Create clip mutation (used for alt+drag duplication)
-  const createClip = useCallback(
-    async (args: {
-      id: string;
-      projectId: string;
-      trackId: string;
-      audioFileId: string;
-      name: string;
-      startTime: number;
-      duration: number;
-      audioStartTime: number;
-      gain: number;
-    }) => {
-      await z.mutate(mutators.clips.create(args));
-    },
-    [z],
-  );
-
   // Clip drag
   const { clipDragState, handleDragStart, handleDragMove, handleDragEnd } = useKonvaClipDrag({
     tracks,
@@ -138,18 +88,17 @@ export function TimelineCanvasKonva({
     scrollTop,
     pixelsPerSecond,
     sampleRate,
-    updateClipPosition,
+    z,
     selectedClipIds,
     clips,
     projectId,
-    createClip,
   });
 
   // Clip trim
   const { trimState, handleTrimStart, handleTrimMove, handleTrimEnd } = useKonvaClipTrim({
     pixelsPerSecond,
     sampleRate,
-    trimClip,
+    z,
     getAudioFileDuration,
   });
 
