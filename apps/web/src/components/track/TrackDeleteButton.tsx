@@ -1,10 +1,12 @@
 import { useCallback } from "react";
 import { Trash2 } from "lucide-react";
-import { useZero } from "@rocicorp/zero/react";
-import { mutators } from "@el-audio-daw/zero/mutators";
+import { useQuery, useZero } from "@rocicorp/zero/react";
+import { zql } from "@el-audio-daw/zero";
 
 import { Button } from "@/components/ui/button";
 import { cancelUploadsForTrack } from "@/lib/uploadRegistry";
+import { useUndoStore } from "@/stores/undoStore";
+import { deleteTrackCommand } from "@/commands/trackCommands";
 
 interface TrackDeleteButtonProps {
   trackId: string;
@@ -12,11 +14,38 @@ interface TrackDeleteButtonProps {
 
 export function TrackDeleteButton({ trackId }: TrackDeleteButtonProps) {
   const z = useZero();
+  const pushUndo = useUndoStore((s) => s.push);
+  const [track] = useQuery(zql.tracks.where("id", trackId).one());
+  const [clips] = useQuery(zql.clips.where("trackId", trackId));
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
+    if (!track) return;
     cancelUploadsForTrack(trackId);
-    z.mutate(mutators.tracks.delete({ id: trackId }));
-  }, [z, trackId]);
+
+    const trackSnapshot = {
+      id: track.id,
+      projectId: track.projectId,
+      name: track.name,
+      order: track.order,
+      color: track.color,
+    };
+
+    const clipSnapshots = clips.map((c) => ({
+      id: c.id,
+      projectId: c.projectId,
+      trackId: c.trackId,
+      audioFileId: c.audioFileId,
+      name: c.name,
+      startTime: c.startTime,
+      duration: c.duration,
+      audioStartTime: c.audioStartTime,
+      gain: c.gain ?? 0,
+    }));
+
+    const cmd = deleteTrackCommand(z, trackSnapshot, clipSnapshots);
+    await cmd.execute();
+    pushUndo(cmd);
+  }, [z, trackId, track, clips, pushUndo]);
 
   return (
     <Button
