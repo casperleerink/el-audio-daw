@@ -32,7 +32,11 @@ export function createTrackCommand(z: Zero, track: TrackSnapshot): UndoCommand {
   };
 }
 
-export function deleteTrackCommand(z: Zero, track: TrackSnapshot, clips: ClipSnapshot[]): UndoCommand {
+export function deleteTrackCommand(
+  z: Zero,
+  track: TrackSnapshot,
+  clips: ClipSnapshot[],
+): UndoCommand {
   const subCommands: UndoCommand[] = [
     // Delete clips first, then track
     ...clips.map(

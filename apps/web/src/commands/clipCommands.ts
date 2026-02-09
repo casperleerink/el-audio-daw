@@ -37,7 +37,9 @@ export function moveClipCommand(
     execute: async () => {
       const trackChanged = to.trackId !== from.trackId;
       if (trackChanged) {
-        await z.mutate(mutators.clips.move({ id: clipId, trackId: to.trackId, startTime: to.startTime }));
+        await z.mutate(
+          mutators.clips.move({ id: clipId, trackId: to.trackId, startTime: to.startTime }),
+        );
       } else {
         await z.mutate(mutators.clips.update({ id: clipId, startTime: to.startTime }));
       }
@@ -45,7 +47,9 @@ export function moveClipCommand(
     undo: async () => {
       const trackChanged = to.trackId !== from.trackId;
       if (trackChanged) {
-        await z.mutate(mutators.clips.move({ id: clipId, trackId: from.trackId, startTime: from.startTime }));
+        await z.mutate(
+          mutators.clips.move({ id: clipId, trackId: from.trackId, startTime: from.startTime }),
+        );
       } else {
         await z.mutate(mutators.clips.update({ id: clipId, startTime: from.startTime }));
       }
@@ -126,10 +130,14 @@ export function splitClipCommand(
     {
       label: "Trim Original",
       execute: async () => {
-        await z.mutate(mutators.clips.update({ id: originalBefore.id, duration: originalAfterDuration }));
+        await z.mutate(
+          mutators.clips.update({ id: originalBefore.id, duration: originalAfterDuration }),
+        );
       },
       undo: async () => {
-        await z.mutate(mutators.clips.update({ id: originalBefore.id, duration: originalBefore.duration }));
+        await z.mutate(
+          mutators.clips.update({ id: originalBefore.id, duration: originalBefore.duration }),
+        );
       },
     },
     createClipCommand(z, newClip),
