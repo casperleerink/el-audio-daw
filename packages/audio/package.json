@@ -7,12 +7,10 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "build:wasm": "wasm-pack build rust --target web --out-dir ../pkg && node scripts/generate-worklet.mjs",
     "check-types": "tsc --noEmit"
   },
-  "dependencies": {
-    "@elemaudio/core": "^4.0.1",
-    "@elemaudio/web-renderer": "^4.0.3"
-  },
+  "dependencies": {}, 
   "devDependencies": {
     "@el-audio-daw/config": "workspace:*",
     "typescript": "catalog:"

@@ -75,7 +75,7 @@ export const useAudioStore = create<AudioStoreState>((set, get) => ({
       return engineInstance;
     }
 
-    const { sampleRate, pendingTracks, pendingClips, pendingEffects, masterGain } = get();
+    const { sampleRate, pendingTracks, pendingClips, pendingEffects, masterGain, playheadTime } = get();
     set({ isEngineInitializing: true });
 
     try {
@@ -99,6 +99,9 @@ export const useAudioStore = create<AudioStoreState>((set, get) => ({
         engine.setClips(pendingClips);
       }
       engine.setMasterGain(masterGain);
+      if (playheadTime > 0) {
+        engine.setPlayhead(playheadTime);
+      }
 
       set({ isEngineReady: true, isEngineInitializing: false });
       return engine;

@@ -51,3 +51,4 @@ temp
 
 # Git worktrees
 .worktrees
+.devenv
