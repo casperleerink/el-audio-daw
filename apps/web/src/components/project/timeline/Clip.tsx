@@ -35,17 +35,17 @@ interface ClipProps {
     e: Konva.KonvaEventObject<DragEvent>,
     clipId: string,
     trackId: string,
-    startTime: number,
+    startSampleFrame: number,
   ) => void;
   onDragMove?: (e: Konva.KonvaEventObject<DragEvent>, clipId: string) => void;
   onDragEnd?: (e: Konva.KonvaEventObject<DragEvent>, clipId: string) => void;
   onTrimStart?: (
     clipId: string,
     edge: "left" | "right",
-    startTime: number,
-    audioStartTime: number,
-    duration: number,
-    audioFileId: string,
+    startSampleFrame: number,
+    sourceStartSampleFrame: number,
+    durationSampleFrames: number,
+    sampleId: string,
   ) => void;
   onTrimMove?: (deltaXPixels: number, clipId: string) => void;
   onTrimEnd?: (clipId: string) => void;
@@ -75,15 +75,15 @@ export const Clip = memo(function Clip({
   onTrimEnd,
 }: ClipProps) {
   const trackIndex = effectiveTrackIndex ?? baseTrackIndex;
-  const startTime = effectiveStartTime ?? clip.startTime;
-  const duration = effectiveDuration ?? clip.duration;
+  const startSampleFrame = effectiveStartTime ?? clip.startSampleFrame;
+  const durationSampleFrames = effectiveDuration ?? clip.durationSampleFrames;
   const [hoveredEdge, setHoveredEdge] = useState<"left" | "right" | null>(null);
   const isPending = clip.pending === true;
   const isSelected = clip.selected === true;
 
   // Calculate clip rectangle
-  const startSeconds = startTime / sampleRate;
-  const durationSeconds = duration / sampleRate;
+  const startSeconds = startSampleFrame / sampleRate;
+  const durationSeconds = durationSampleFrames / sampleRate;
   const viewStartTime = scrollLeft / pixelsPerSecond;
 
   const clipX = (startSeconds - viewStartTime) * pixelsPerSecond;
@@ -102,13 +102,20 @@ export const Clip = memo(function Clip({
       onTrimStart?.(
         clip._id,
         edge,
-        clip.startTime,
-        clip.audioStartTime,
-        clip.duration,
-        clip.audioFileId,
+        clip.startSampleFrame,
+        clip.sourceStartSampleFrame,
+        clip.durationSampleFrames,
+        clip.sampleId,
       );
     },
-    [clip._id, clip.startTime, clip.audioStartTime, clip.duration, clip.audioFileId, onTrimStart],
+    [
+      clip._id,
+      clip.startSampleFrame,
+      clip.sourceStartSampleFrame,
+      clip.durationSampleFrames,
+      clip.sampleId,
+      onTrimStart,
+    ],
   );
 
   useEffect(() => {
@@ -151,7 +158,7 @@ export const Clip = memo(function Clip({
         e.cancelBubble = true;
       }}
       onDragStart={(e) => {
-        onDragStart?.(e, clip._id, clip.trackId, clip.startTime);
+        onDragStart?.(e, clip._id, clip.trackId, clip.startSampleFrame);
       }}
       onDragMove={(e) => {
         onDragMove?.(e, clip._id);
@@ -177,8 +184,8 @@ export const Clip = memo(function Clip({
           waveform={waveformData}
           clipWidth={clipWidth}
           clipHeight={clipHeight}
-          audioStartTime={clip.audioStartTime}
-          clipDuration={duration}
+          sourceStartSampleFrame={clip.sourceStartSampleFrame}
+          clipDuration={durationSampleFrames}
           sampleRate={sampleRate}
           pixelsPerSecond={pixelsPerSecond}
           color={trackColor}

@@ -21,13 +21,13 @@ interface StaticLayerProps {
   selectedClipIds: Set<string>;
   clipDragState: {
     clipId: string;
-    currentStartTime: number;
+    currentStartSampleFrame: number;
     currentTrackId: string;
   } | null;
   trimState: {
     clipId: string;
-    currentStartTime: number;
-    currentDuration: number;
+    currentStartSampleFrame: number;
+    currentDurationSampleFrames: number;
   } | null;
   dragOriginalTrackId?: string | null;
   waveformCache: Map<string, WaveformData>;
@@ -39,17 +39,17 @@ interface StaticLayerProps {
     e: Konva.KonvaEventObject<DragEvent>,
     clipId: string,
     trackId: string,
-    startTime: number,
+    startSampleFrame: number,
   ) => void;
   onDragMove?: (e: Konva.KonvaEventObject<DragEvent>, clipId: string) => void;
   onDragEnd?: (e: Konva.KonvaEventObject<DragEvent>, clipId: string) => void;
   onTrimStart?: (
     clipId: string,
     edge: "left" | "right",
-    startTime: number,
-    audioStartTime: number,
-    duration: number,
-    audioFileId: string,
+    startSampleFrame: number,
+    sourceStartSampleFrame: number,
+    durationSampleFrames: number,
+    sampleId: string,
   ) => void;
   onTrimMove?: (deltaXPixels: number, clipId: string) => void;
   onTrimEnd?: (clipId: string) => void;
@@ -90,9 +90,9 @@ export const StaticLayer = memo(function StaticLayer({
   }, [tracks]);
 
   // Viewport culling for clips
-  const startTime = scrollLeft / pixelsPerSecond;
-  const visibleDuration = width / pixelsPerSecond;
-  const endTime = startTime + visibleDuration;
+  const viewStartSeconds = scrollLeft / pixelsPerSecond;
+  const visibleDurationSeconds = width / pixelsPerSecond;
+  const viewEndSeconds = viewStartSeconds + visibleDurationSeconds;
 
   return (
     <Group>
@@ -151,19 +151,23 @@ export const StaticLayer = memo(function StaticLayer({
         const isTrimming = trimState?.clipId === clip._id;
 
         const effectiveStartTime = isDragging
-          ? clipDragState.currentStartTime
+          ? clipDragState.currentStartSampleFrame
           : isTrimming
-            ? trimState.currentStartTime
+            ? trimState.currentStartSampleFrame
             : undefined;
-        const effectiveDuration = isTrimming ? trimState.currentDuration : undefined;
+        const effectiveDuration = isTrimming ? trimState.currentDurationSampleFrames : undefined;
         const effectiveTrackIndex = isDragging
           ? trackIndexMap.get(clipDragState.currentTrackId)
           : undefined;
 
         // Viewport cull
-        const st = (effectiveStartTime ?? clip.startTime) / sampleRate;
-        const dur = (effectiveDuration ?? clip.duration) / sampleRate;
-        if (st + dur < startTime || st > endTime) return null;
+        const clipStartSeconds = (effectiveStartTime ?? clip.startSampleFrame) / sampleRate;
+        const clipDurationSeconds = (effectiveDuration ?? clip.durationSampleFrames) / sampleRate;
+        if (
+          clipStartSeconds + clipDurationSeconds < viewStartSeconds ||
+          clipStartSeconds > viewEndSeconds
+        )
+          return null;
 
         return (
           <Clip
@@ -179,7 +183,7 @@ export const StaticLayer = memo(function StaticLayer({
             effectiveTrackIndex={effectiveTrackIndex}
             isDragging={isDragging}
             isTrimming={isTrimming}
-            waveformData={waveformCache.get(clip.audioFileId)}
+            waveformData={waveformCache.get(clip.sampleId)}
             onClipClick={onClipClick}
             onClipMouseEnter={onClipMouseEnter}
             onClipMouseLeave={onClipMouseLeave}

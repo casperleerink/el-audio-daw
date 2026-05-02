@@ -15,7 +15,7 @@ export function TimelinePanel({ scrollTop, onScrollChange }: TimelinePanelProps)
   const sampleRate = useSampleRate();
 
   const { tracks, waveformUrls } = useProjectData();
-  const { clips, getAudioFileDuration } = useProjectClips();
+  const { clips, getSampleDuration } = useProjectClips();
   const seek = useAudioStore((s) => s.seek);
 
   const selectedClipIds = useEditorStore((s) => s.selectedClipIds);
@@ -30,11 +30,11 @@ export function TimelinePanel({ scrollTop, onScrollChange }: TimelinePanelProps)
         clips={clips.map((clip) => ({
           _id: clip.id,
           trackId: clip.trackId,
-          audioFileId: clip.audioFileId,
+          sampleId: clip.sampleId,
           name: clip.name,
-          startTime: clip.startTime,
-          duration: clip.duration,
-          audioStartTime: clip.audioStartTime,
+          startSampleFrame: clip.startSampleFrame,
+          durationSampleFrames: clip.durationSampleFrames,
+          sourceStartSampleFrame: clip.sourceStartSampleFrame,
           pending: false,
         }))}
         sampleRate={sampleRate}
@@ -46,7 +46,7 @@ export function TimelinePanel({ scrollTop, onScrollChange }: TimelinePanelProps)
         onSelectClip={selectClip}
         onToggleClipSelection={toggleClipSelection}
         onClearSelection={clearClipSelection}
-        getAudioFileDuration={getAudioFileDuration}
+        getSampleDuration={getSampleDuration}
         waveformUrls={waveformUrls}
       />
     </div>

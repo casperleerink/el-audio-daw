@@ -22,7 +22,7 @@ export default drizzleZeroConfig(drizzleSchema, {
     projectUsers: true,
     tracks: true,
     clips: true,
-    audioFiles: true,
+    samples: true,
     effects: true,
     trackEffects: true,
   },

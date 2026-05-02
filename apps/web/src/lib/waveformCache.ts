@@ -18,7 +18,7 @@ export interface WaveformData {
   levels: WaveformLevel[];
 }
 
-// In-memory cache keyed by audioFileId
+// In-memory cache keyed by sampleId
 const waveformCache = new Map<string, WaveformData>();
 
 // Pending fetches to avoid duplicate requests
@@ -86,24 +86,24 @@ async function getDownloadUrl(projectId: string, key: string): Promise<string> {
 }
 
 /**
- * Fetch and cache waveform data for an audio file.
+ * Fetch and cache waveform data for a Sample.
  * Returns null if fetch fails or storage key is null.
  * The storageKey is an R2 storage key that will be resolved to a presigned URL.
  */
 export async function fetchWaveform(
-  audioFileId: string,
+  sampleId: string,
   storageKey: string | null,
   projectId: string,
 ): Promise<WaveformData | null> {
   // Return cached data if available
-  const cached = waveformCache.get(audioFileId);
+  const cached = waveformCache.get(sampleId);
   if (cached) return cached;
 
   // No key means waveform not yet generated
   if (!storageKey) return null;
 
   // Check for pending fetch
-  const pending = pendingFetches.get(audioFileId);
+  const pending = pendingFetches.get(sampleId);
   if (pending) return pending;
 
   // Start new fetch
@@ -114,7 +114,7 @@ export async function fetchWaveform(
 
       const response = await fetch(downloadUrl);
       if (!response.ok) {
-        console.warn(`Failed to fetch waveform for ${audioFileId}: ${response.status}`);
+        console.warn(`Failed to fetch waveform for ${sampleId}: ${response.status}`);
         return null;
       }
 
@@ -122,18 +122,18 @@ export async function fetchWaveform(
       const data = decodeWaveformBinary(buffer);
 
       // Cache the result
-      waveformCache.set(audioFileId, data);
+      waveformCache.set(sampleId, data);
 
       return data;
     } catch (error) {
-      console.warn(`Error fetching waveform for ${audioFileId}:`, error);
+      console.warn(`Error fetching waveform for ${sampleId}:`, error);
       return null;
     } finally {
-      pendingFetches.delete(audioFileId);
+      pendingFetches.delete(sampleId);
     }
   })();
 
-  pendingFetches.set(audioFileId, fetchPromise);
+  pendingFetches.set(sampleId, fetchPromise);
   return fetchPromise;
 }
 
@@ -141,15 +141,15 @@ export async function fetchWaveform(
  * Get cached waveform data (synchronous).
  * Returns undefined if not cached.
  */
-export function getCachedWaveform(audioFileId: string): WaveformData | undefined {
-  return waveformCache.get(audioFileId);
+export function getCachedWaveform(sampleId: string): WaveformData | undefined {
+  return waveformCache.get(sampleId);
 }
 
 /**
  * Check if waveform is cached.
  */
-export function isWaveformCached(audioFileId: string): boolean {
-  return waveformCache.has(audioFileId);
+export function isWaveformCached(sampleId: string): boolean {
+  return waveformCache.has(sampleId);
 }
 
 /**

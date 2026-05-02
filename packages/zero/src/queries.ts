@@ -14,8 +14,8 @@ export const queries = defineQueries({
         .related("tracks", (q) =>
           q.related("effects", (eq) => eq.orderBy("order", "asc")).orderBy("order", "asc"),
         )
-        .related("clips", (q) => q.related("audioFile"))
-        .related("audioFiles")
+        .related("clips", (q) => q.related("sample"))
+        .related("samples")
         .related("users")
         .one(),
     ),
@@ -38,7 +38,7 @@ export const queries = defineQueries({
         zql.tracks
           .where("projectId", projectId)
           .whereExists("project", (q) => q.whereExists("users", (pu) => pu.where("userId", userID)))
-          .related("clips", (q) => q.related("audioFile"))
+          .related("clips", (q) => q.related("sample"))
           .related("effects", (q) => q.orderBy("order", "asc"))
           .orderBy("order", "asc"),
     ),
@@ -46,16 +46,16 @@ export const queries = defineQueries({
       zql.tracks
         .where("id", id)
         .whereExists("project", (q) => q.whereExists("users", (pu) => pu.where("userId", userID)))
-        .related("clips", (q) => q.related("audioFile"))
+        .related("clips", (q) => q.related("sample"))
         .related("effects", (q) => q.orderBy("order", "asc"))
         .one(),
     ),
   },
-  audioFiles: {
+  samples: {
     byProject: defineQuery(
       z.object({ projectId: z.string() }),
       ({ args: { projectId }, ctx: { userID } }) =>
-        zql.audioFiles
+        zql.samples
           .where("projectId", projectId)
           .whereExists("project", (q) =>
             q.whereExists("users", (pu) => pu.where("userId", userID)),
@@ -69,7 +69,7 @@ export const queries = defineQueries({
         zql.clips
           .where("projectId", projectId)
           .whereExists("project", (q) => q.whereExists("users", (pu) => pu.where("userId", userID)))
-          .related("audioFile"),
+          .related("sample"),
     ),
     byTrack: defineQuery(
       z.object({ trackId: z.string() }),
@@ -77,7 +77,7 @@ export const queries = defineQueries({
         zql.clips
           .where("trackId", trackId)
           .whereExists("project", (q) => q.whereExists("users", (pu) => pu.where("userId", userID)))
-          .related("audioFile"),
+          .related("sample"),
     ),
   },
 });

@@ -4,63 +4,6 @@
 import type { Row } from "@rocicorp/zero";
 import { createBuilder } from "@rocicorp/zero";
 
-const audioFilesTable = {
-  name: "audioFiles",
-  columns: {
-    id: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-    },
-    projectId: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "project_id",
-    },
-    storageUrl: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-      serverName: "storage_url",
-    },
-    waveformUrl: {
-      type: "string",
-      optional: true,
-      customType: null as unknown as string,
-      serverName: "waveform_url",
-    },
-    name: {
-      type: "string",
-      optional: false,
-      customType: null as unknown as string,
-    },
-    duration: {
-      type: "number",
-      optional: false,
-      customType: null as unknown as number,
-    },
-    sampleRate: {
-      type: "number",
-      optional: false,
-      customType: null as unknown as number,
-      serverName: "sample_rate",
-    },
-    channels: {
-      type: "number",
-      optional: false,
-      customType: null as unknown as number,
-    },
-    createdAt: {
-      type: "number",
-      optional: false,
-      customType: null as unknown as number,
-      serverName: "created_at",
-    },
-  },
-  primaryKey: ["id"],
-  serverName: "audio_files",
-} as const;
 const clipsTable = {
   name: "clips",
   columns: {
@@ -81,33 +24,34 @@ const clipsTable = {
       customType: null as unknown as string,
       serverName: "track_id",
     },
-    audioFileId: {
+    sampleId: {
       type: "string",
       optional: false,
       customType: null as unknown as string,
-      serverName: "audio_file_id",
+      serverName: "sample_id",
     },
     name: {
       type: "string",
       optional: false,
       customType: null as unknown as string,
     },
-    startTime: {
+    startSampleFrame: {
       type: "number",
       optional: false,
       customType: null as unknown as number,
-      serverName: "start_time",
+      serverName: "start_sample_frame",
     },
-    duration: {
+    durationSampleFrames: {
       type: "number",
       optional: false,
       customType: null as unknown as number,
+      serverName: "duration_sample_frames",
     },
-    audioStartTime: {
+    sourceStartSampleFrame: {
       type: "number",
       optional: false,
       customType: null as unknown as number,
-      serverName: "audio_start_time",
+      serverName: "source_start_sample_frame",
     },
     gain: {
       type: "number",
@@ -199,6 +143,63 @@ const projectsTable = {
       optional: false,
       customType: null as unknown as number,
       serverName: "updated_at",
+    },
+  },
+  primaryKey: ["id"],
+} as const;
+const samplesTable = {
+  name: "samples",
+  columns: {
+    id: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+    },
+    projectId: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "project_id",
+    },
+    storageUrl: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+      serverName: "storage_url",
+    },
+    waveformUrl: {
+      type: "string",
+      optional: true,
+      customType: null as unknown as string,
+      serverName: "waveform_url",
+    },
+    name: {
+      type: "string",
+      optional: false,
+      customType: null as unknown as string,
+    },
+    durationSampleFrames: {
+      type: "number",
+      optional: false,
+      customType: null as unknown as number,
+      serverName: "duration_sample_frames",
+    },
+    sampleRate: {
+      type: "number",
+      optional: false,
+      customType: null as unknown as number,
+      serverName: "sample_rate",
+    },
+    channels: {
+      type: "number",
+      optional: false,
+      customType: null as unknown as number,
+    },
+    createdAt: {
+      type: "number",
+      optional: false,
+      customType: null as unknown as number,
+      serverName: "created_at",
     },
   },
   primaryKey: ["id"],
@@ -344,14 +345,6 @@ const userTable = {
   },
   primaryKey: ["id"],
 } as const;
-const audioFilesRelationships = {
-  project: [
-    { sourceField: ["projectId"], destField: ["id"], destSchema: "projects", cardinality: "one" },
-  ],
-  clips: [
-    { sourceField: ["id"], destField: ["audioFileId"], destSchema: "clips", cardinality: "many" },
-  ],
-} as const;
 const clipsRelationships = {
   project: [
     { sourceField: ["projectId"], destField: ["id"], destSchema: "projects", cardinality: "one" },
@@ -359,13 +352,8 @@ const clipsRelationships = {
   track: [
     { sourceField: ["trackId"], destField: ["id"], destSchema: "tracks", cardinality: "one" },
   ],
-  audioFile: [
-    {
-      sourceField: ["audioFileId"],
-      destField: ["id"],
-      destSchema: "audioFiles",
-      cardinality: "one",
-    },
+  sample: [
+    { sourceField: ["sampleId"], destField: ["id"], destSchema: "samples", cardinality: "one" },
   ],
 } as const;
 const projectsRelationships = {
@@ -380,13 +368,8 @@ const projectsRelationships = {
   tracks: [
     { sourceField: ["id"], destField: ["projectId"], destSchema: "tracks", cardinality: "many" },
   ],
-  audioFiles: [
-    {
-      sourceField: ["id"],
-      destField: ["projectId"],
-      destSchema: "audioFiles",
-      cardinality: "many",
-    },
+  samples: [
+    { sourceField: ["id"], destField: ["projectId"], destSchema: "samples", cardinality: "many" },
   ],
   clips: [
     { sourceField: ["id"], destField: ["projectId"], destSchema: "clips", cardinality: "many" },
@@ -397,6 +380,14 @@ const projectUsersRelationships = {
     { sourceField: ["projectId"], destField: ["id"], destSchema: "projects", cardinality: "one" },
   ],
   user: [{ sourceField: ["userId"], destField: ["id"], destSchema: "user", cardinality: "one" }],
+} as const;
+const samplesRelationships = {
+  project: [
+    { sourceField: ["projectId"], destField: ["id"], destSchema: "projects", cardinality: "one" },
+  ],
+  clips: [
+    { sourceField: ["id"], destField: ["sampleId"], destSchema: "clips", cardinality: "many" },
+  ],
 } as const;
 const trackEffectsRelationships = {
   track: [
@@ -425,19 +416,19 @@ const tracksRelationships = {
  */
 export const schema = {
   tables: {
-    audioFiles: audioFilesTable,
     clips: clipsTable,
     projectUsers: projectUsersTable,
     projects: projectsTable,
+    samples: samplesTable,
     trackEffects: trackEffectsTable,
     tracks: tracksTable,
     user: userTable,
   },
   relationships: {
-    audioFiles: audioFilesRelationships,
     clips: clipsRelationships,
     projects: projectsRelationships,
     projectUsers: projectUsersRelationships,
+    samples: samplesRelationships,
     trackEffects: trackEffectsRelationships,
     tracks: tracksRelationships,
   },
@@ -450,11 +441,6 @@ export const schema = {
  * This type is auto-generated from your Drizzle schema definition.
  */
 export type Schema = typeof schema;
-/**
- * Represents a row from the "audioFiles" table.
- * This type is auto-generated from your Drizzle schema definition.
- */
-export type AudioFile = Row<(typeof schema)["tables"]["audioFiles"]>;
 /**
  * Represents a row from the "clips" table.
  * This type is auto-generated from your Drizzle schema definition.
@@ -470,6 +456,11 @@ export type ProjectUser = Row<(typeof schema)["tables"]["projectUsers"]>;
  * This type is auto-generated from your Drizzle schema definition.
  */
 export type Project = Row<(typeof schema)["tables"]["projects"]>;
+/**
+ * Represents a row from the "samples" table.
+ * This type is auto-generated from your Drizzle schema definition.
+ */
+export type Sample = Row<(typeof schema)["tables"]["samples"]>;
 /**
  * Represents a row from the "trackEffects" table.
  * This type is auto-generated from your Drizzle schema definition.

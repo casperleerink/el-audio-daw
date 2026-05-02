@@ -10,38 +10,25 @@ import { useProjectId } from "@/stores/projectStore";
 export function useProjectData() {
   const projectId = useProjectId();
 
-  // Single query loads project with all related data (tracks, clips, audioFiles, effects)
+  // Single query loads project with all related data (tracks, clips, samples, effects)
   const [project] = useQuery(queries.projects.byId({ id: projectId ?? "" }));
 
   // Extract related data from project (already synced via .related() in the query)
   const tracks = useMemo(() => project?.tracks ?? [], [project]);
   const clips = useMemo(() => project?.clips ?? [], [project]);
-  const audioFiles = useMemo(() => project?.audioFiles ?? [], [project]);
+  const samples = useMemo(() => project?.samples ?? [], [project]);
 
-  // Build clipStorageKeys keyed by audioFileId (for audio engine VFS loading)
-  // Note: storageUrl is actually a storage key, not a URL - it gets resolved to a presigned URL when needed
-  const clipStorageKeys = useMemo(() => {
-    const keys: Record<string, string> = {};
-    for (const clip of clips) {
-      const audioFile = clip.audioFile;
-      if (audioFile?.storageUrl) {
-        keys[clip.audioFileId] = audioFile.storageUrl;
-      }
-    }
-    return keys;
-  }, [clips]);
-
-  // Build waveformUrls keyed by audioFileId
+  // Build waveformUrls keyed by sampleId
   const waveformUrls = useMemo(() => {
     const urls: Record<string, string | null> = {};
-    for (const audioFile of audioFiles) {
-      urls[audioFile.id] = audioFile.waveformUrl ?? null;
+    for (const sample of samples) {
+      urls[sample.id] = sample.waveformUrl ?? null;
     }
     return urls;
-  }, [audioFiles]);
+  }, [samples]);
 
-  // Create audioFile lookup map for duration and metadata access
-  const audioFilesMap = useMemo(() => new Map(audioFiles.map((af) => [af.id, af])), [audioFiles]);
+  // Create sample lookup map for duration and metadata access
+  const samplesMap = useMemo(() => new Map(samples.map((af) => [af.id, af])), [samples]);
 
   // Loading and not-found states
   const isLoading = projectId !== null && project === undefined;
@@ -51,10 +38,9 @@ export function useProjectData() {
     project,
     tracks,
     clips,
-    audioFiles,
-    clipStorageKeys,
+    samples,
     waveformUrls,
-    audioFilesMap,
+    samplesMap,
     isLoading,
     notFound,
   };

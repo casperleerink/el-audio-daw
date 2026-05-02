@@ -7,7 +7,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 bun check            # Lint with oxlint and format with oxfmt
 bun check-types      # TypeScript type checking across all packages
+
+bun db:up            # Start postgres + minio (Docker Compose)
+bun db:down          # Stop containers
+bun db:reset         # Drop schema, push, clear Zero replica, reseed
+bun db:seed          # Reseed only (schema must already exist)
 ```
+
+For full details on the dev/reset/seed flow and local object storage, see `docs/agents/dev-workflow.md`.
 
 ## Architecture
 
@@ -72,3 +79,7 @@ Triage labels use the default canonical vocabulary: `needs-triage`, `needs-info`
 ### Domain docs
 
 Domain docs use a single-context layout: root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.
+
+### Dev workflow
+
+Local Postgres + MinIO via Docker Compose; reset/seed scripts live in `packages/api/scripts/`. See `docs/agents/dev-workflow.md`.

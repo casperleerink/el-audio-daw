@@ -5,24 +5,24 @@ import { compoundCommand } from "./compoundCommand";
 
 interface ClipPosition {
   trackId: string;
-  startTime: number;
+  startSampleFrame: number;
 }
 
 interface ClipTrimState {
-  startTime: number;
-  audioStartTime: number;
-  duration: number;
+  startSampleFrame: number;
+  sourceStartSampleFrame: number;
+  durationSampleFrames: number;
 }
 
 export interface ClipSnapshot {
   id: string;
   projectId: string;
   trackId: string;
-  audioFileId: string;
+  sampleId: string;
   name: string;
-  startTime: number;
-  duration: number;
-  audioStartTime: number;
+  startSampleFrame: number;
+  durationSampleFrames: number;
+  sourceStartSampleFrame: number;
   gain: number;
 }
 
@@ -38,20 +38,32 @@ export function moveClipCommand(
       const trackChanged = to.trackId !== from.trackId;
       if (trackChanged) {
         await z.mutate(
-          mutators.clips.move({ id: clipId, trackId: to.trackId, startTime: to.startTime }),
+          mutators.clips.move({
+            id: clipId,
+            trackId: to.trackId,
+            startSampleFrame: to.startSampleFrame,
+          }),
         );
       } else {
-        await z.mutate(mutators.clips.update({ id: clipId, startTime: to.startTime }));
+        await z.mutate(
+          mutators.clips.update({ id: clipId, startSampleFrame: to.startSampleFrame }),
+        );
       }
     },
     undo: async () => {
       const trackChanged = to.trackId !== from.trackId;
       if (trackChanged) {
         await z.mutate(
-          mutators.clips.move({ id: clipId, trackId: from.trackId, startTime: from.startTime }),
+          mutators.clips.move({
+            id: clipId,
+            trackId: from.trackId,
+            startSampleFrame: from.startSampleFrame,
+          }),
         );
       } else {
-        await z.mutate(mutators.clips.update({ id: clipId, startTime: from.startTime }));
+        await z.mutate(
+          mutators.clips.update({ id: clipId, startSampleFrame: from.startSampleFrame }),
+        );
       }
     },
   };
@@ -69,9 +81,9 @@ export function trimClipCommand(
       await z.mutate(
         mutators.clips.update({
           id: clipId,
-          startTime: to.startTime,
-          audioStartTime: to.audioStartTime,
-          duration: to.duration,
+          startSampleFrame: to.startSampleFrame,
+          sourceStartSampleFrame: to.sourceStartSampleFrame,
+          durationSampleFrames: to.durationSampleFrames,
         }),
       );
     },
@@ -79,9 +91,9 @@ export function trimClipCommand(
       await z.mutate(
         mutators.clips.update({
           id: clipId,
-          startTime: from.startTime,
-          audioStartTime: from.audioStartTime,
-          duration: from.duration,
+          startSampleFrame: from.startSampleFrame,
+          sourceStartSampleFrame: from.sourceStartSampleFrame,
+          durationSampleFrames: from.durationSampleFrames,
         }),
       );
     },
@@ -131,12 +143,18 @@ export function splitClipCommand(
       label: "Trim Original",
       execute: async () => {
         await z.mutate(
-          mutators.clips.update({ id: originalBefore.id, duration: originalAfterDuration }),
+          mutators.clips.update({
+            id: originalBefore.id,
+            durationSampleFrames: originalAfterDuration,
+          }),
         );
       },
       undo: async () => {
         await z.mutate(
-          mutators.clips.update({ id: originalBefore.id, duration: originalBefore.duration }),
+          mutators.clips.update({
+            id: originalBefore.id,
+            durationSampleFrames: originalBefore.durationSampleFrames,
+          }),
         );
       },
     },

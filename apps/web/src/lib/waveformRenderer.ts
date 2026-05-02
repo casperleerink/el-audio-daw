@@ -14,8 +14,8 @@ interface DrawWaveformOptions {
   clipWidth: number;
   clipHeight: number;
   /** Audio offset in samples (for trimmed clips) */
-  audioStartTime: number;
-  /** Clip duration in samples */
+  sourceStartSampleFrame: number;
+  /** Clip durationSampleFrames in samples */
   clipDuration: number;
   /** Project sample rate */
   sampleRate: number;
@@ -36,7 +36,7 @@ export function drawWaveform(options: DrawWaveformOptions): void {
     clipY,
     clipWidth,
     clipHeight,
-    audioStartTime,
+    sourceStartSampleFrame,
     clipDuration,
     sampleRate,
     pixelsPerSecond,
@@ -50,8 +50,8 @@ export function drawWaveform(options: DrawWaveformOptions): void {
   const level = selectMipmapLevel(waveform, samplesPerPixel);
 
   // Calculate which buckets are visible
-  const startBucket = Math.floor(audioStartTime / level.samplesPerBucket);
-  const endSample = audioStartTime + clipDuration;
+  const startBucket = Math.floor(sourceStartSampleFrame / level.samplesPerBucket);
+  const endSample = sourceStartSampleFrame + clipDuration;
   const endBucket = Math.ceil(endSample / level.samplesPerBucket);
 
   // Clamp to valid range
@@ -87,7 +87,7 @@ export function drawWaveform(options: DrawWaveformOptions): void {
 
     // Calculate x position relative to clip start
     const bucketStartSample = i * level.samplesPerBucket;
-    const sampleOffset = bucketStartSample - audioStartTime;
+    const sampleOffset = bucketStartSample - sourceStartSampleFrame;
     const x = clipX + (sampleOffset / sampleRate) * pixelsPerSecond;
 
     // Skip if outside visible clip area

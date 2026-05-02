@@ -41,24 +41,6 @@ export function useProjectEffects() {
     return track?.effects ?? [];
   }, [tracks, selectedTrackId]);
 
-  // All effects for audio engine (flattened from all tracks)
-  const allProjectEffects = useMemo(() => {
-    return tracks.flatMap((t) => t.effects ?? []);
-  }, [tracks]);
-
-  // Transform effects for audio engine
-  const effectsForEngine = useMemo(
-    () =>
-      allProjectEffects.map((e) => ({
-        id: e.id,
-        trackId: e.trackId,
-        order: e.order,
-        enabled: e.enabled ?? true,
-        effectData: e.effectData,
-      })),
-    [allProjectEffects],
-  );
-
   // Handle adding an effect
   const addEffect = useCallback(
     async (type: "filter") => {
@@ -163,7 +145,6 @@ export function useProjectEffects() {
 
   return {
     effects,
-    effectsForEngine,
     addEffect,
     updateEffectParam,
     toggleEffectEnabled,

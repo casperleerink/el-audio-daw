@@ -9,10 +9,10 @@ import { moveClipCommand, createClipsCommand } from "@/commands/clipCommands";
 
 interface ClipDragState {
   clipId: string;
-  originalStartTime: number;
+  originalStartSampleFrame: number;
   originalTrackId: string;
   currentTrackId: string;
-  currentStartTime: number;
+  currentStartSampleFrame: number;
   isDuplicating: boolean;
 }
 
@@ -43,14 +43,19 @@ export function useKonvaClipDrag({
   const justFinishedDragRef = useRef(false);
 
   const handleDragStart = useCallback(
-    (e: Konva.KonvaEventObject<DragEvent>, clipId: string, trackId: string, startTime: number) => {
+    (
+      e: Konva.KonvaEventObject<DragEvent>,
+      clipId: string,
+      trackId: string,
+      startSampleFrame: number,
+    ) => {
       justFinishedDragRef.current = false;
       setClipDragState({
         clipId,
-        originalStartTime: startTime,
+        originalStartSampleFrame: startSampleFrame,
         originalTrackId: trackId,
         currentTrackId: trackId,
-        currentStartTime: startTime,
+        currentStartSampleFrame: startSampleFrame,
         isDuplicating: e.evt.altKey,
       });
     },
@@ -83,7 +88,7 @@ export function useKonvaClipDrag({
       if (targetTrackId) {
         setClipDragState((prev) =>
           prev && prev.clipId === clipId
-            ? { ...prev, currentTrackId: targetTrackId, currentStartTime: timeInSamples }
+            ? { ...prev, currentTrackId: targetTrackId, currentStartSampleFrame: timeInSamples }
             : prev,
         );
       }
@@ -110,7 +115,7 @@ export function useKonvaClipDrag({
       if (state.isDuplicating) {
         // Reset Konva node to original position so the original clip stays put
         const node = e.target;
-        const originalStartSeconds = state.originalStartTime / sampleRate;
+        const originalStartSeconds = state.originalStartSampleFrame / sampleRate;
         const viewStartTime = scrollLeft / pixelsPerSecond;
         const originalX = (originalStartSeconds - viewStartTime) * pixelsPerSecond;
         const originalTrackIndex = tracks.findIndex((t) => t._id === state.originalTrackId);
@@ -118,7 +123,7 @@ export function useKonvaClipDrag({
           RULER_HEIGHT + originalTrackIndex * TRACK_HEIGHT - scrollTop + CLIP_PADDING;
         node.position({ x: originalX, y: originalY });
 
-        const timeOffset = state.currentStartTime - state.originalStartTime;
+        const timeOffset = state.currentStartSampleFrame - state.originalStartSampleFrame;
         const targetTrackId = state.currentTrackId;
 
         const clipsToDuplicate = selectedClipIds.has(clipId)
@@ -127,14 +132,14 @@ export function useKonvaClipDrag({
 
         try {
           const clipSnapshots = clipsToDuplicate.map((clip) => {
-            let newStartTime: number;
+            let newStartSampleFrame: number;
             let newTrackId: string;
 
             if (clip._id === clipId) {
-              newStartTime = state.currentStartTime;
+              newStartSampleFrame = state.currentStartSampleFrame;
               newTrackId = targetTrackId;
             } else {
-              newStartTime = clip.startTime + timeOffset;
+              newStartSampleFrame = clip.startSampleFrame + timeOffset;
               const draggedOriginalTrackIndex = tracks.findIndex(
                 (t) => t._id === state.originalTrackId,
               );
@@ -152,11 +157,11 @@ export function useKonvaClipDrag({
               id: crypto.randomUUID(),
               projectId,
               trackId: newTrackId,
-              audioFileId: clip.audioFileId,
+              sampleId: clip.sampleId,
               name: clip.name,
-              startTime: Math.max(0, newStartTime),
-              duration: clip.duration,
-              audioStartTime: clip.audioStartTime,
+              startSampleFrame: Math.max(0, newStartSampleFrame),
+              durationSampleFrames: clip.durationSampleFrames,
+              sourceStartSampleFrame: clip.sourceStartSampleFrame,
               gain: 0,
             };
           });
@@ -172,8 +177,8 @@ export function useKonvaClipDrag({
           const cmd = moveClipCommand(
             z,
             clipId,
-            { trackId: state.originalTrackId, startTime: state.originalStartTime },
-            { trackId: state.currentTrackId, startTime: state.currentStartTime },
+            { trackId: state.originalTrackId, startSampleFrame: state.originalStartSampleFrame },
+            { trackId: state.currentTrackId, startSampleFrame: state.currentStartSampleFrame },
           );
           await cmd.execute();
           useUndoStore.getState().push(cmd);

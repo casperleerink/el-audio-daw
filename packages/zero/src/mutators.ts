@@ -179,7 +179,7 @@ export const mutators = defineMutators({
     ),
   },
 
-  audioFiles: {
+  samples: {
     create: defineMutator(
       z.object({
         id: z.uuid(),
@@ -187,7 +187,7 @@ export const mutators = defineMutators({
         storageUrl: z.string().min(1),
         waveformUrl: z.string().min(1).optional(),
         name: z.string().min(1).max(255),
-        duration: z.number().int().positive(),
+        durationSampleFrames: z.number().int().positive(),
         sampleRate: z.number().int().positive(),
         channels: z.number().int().min(1).max(2),
       }),
@@ -197,7 +197,7 @@ export const mutators = defineMutators({
         );
         if (!access) throw new Error("Not authorized");
 
-        await tx.mutate.audioFiles.insert({
+        await tx.mutate.samples.insert({
           ...args,
           waveformUrl: args.waveformUrl ?? null,
           createdAt: Date.now(),
@@ -211,30 +211,30 @@ export const mutators = defineMutators({
         waveformUrl: z.string().min(1),
       }),
       async ({ tx, ctx: { userID }, args: { id, waveformUrl } }) => {
-        const audioFile = await tx.run(zql.audioFiles.where("id", id).one());
-        if (!audioFile) throw new Error("Audio file not found");
+        const sample = await tx.run(zql.samples.where("id", id).one());
+        if (!sample) throw new Error("Sample not found");
 
         const access = await tx.run(
-          zql.projectUsers.where("projectId", audioFile.projectId).where("userId", userID).one(),
+          zql.projectUsers.where("projectId", sample.projectId).where("userId", userID).one(),
         );
         if (!access) throw new Error("Not authorized");
 
-        await tx.mutate.audioFiles.update({ id, waveformUrl });
+        await tx.mutate.samples.update({ id, waveformUrl });
       },
     ),
 
     delete: defineMutator(
       z.object({ id: z.string().uuid() }),
       async ({ tx, ctx: { userID }, args: { id } }) => {
-        const audioFile = await tx.run(zql.audioFiles.where("id", id).one());
-        if (!audioFile) throw new Error("Audio file not found");
+        const sample = await tx.run(zql.samples.where("id", id).one());
+        if (!sample) throw new Error("Sample not found");
 
         const access = await tx.run(
-          zql.projectUsers.where("projectId", audioFile.projectId).where("userId", userID).one(),
+          zql.projectUsers.where("projectId", sample.projectId).where("userId", userID).one(),
         );
         if (!access) throw new Error("Not authorized");
 
-        await tx.mutate.audioFiles.delete({ id });
+        await tx.mutate.samples.delete({ id });
       },
     ),
   },
@@ -245,11 +245,11 @@ export const mutators = defineMutators({
         id: z.uuid(),
         projectId: z.string().uuid(),
         trackId: z.string().uuid(),
-        audioFileId: z.string().uuid(),
+        sampleId: z.string().uuid(),
         name: z.string().min(1).max(255),
-        startTime: z.number().int().min(0),
-        duration: z.number().int().positive(),
-        audioStartTime: z.number().int().min(0),
+        startSampleFrame: z.number().int().min(0),
+        durationSampleFrames: z.number().int().positive(),
+        sourceStartSampleFrame: z.number().int().min(0),
         gain: z.number().default(0),
       }),
       async ({ tx, ctx: { userID }, args }) => {
@@ -271,9 +271,9 @@ export const mutators = defineMutators({
       z.object({
         id: z.string().uuid(),
         name: z.string().min(1).max(255).optional(),
-        startTime: z.number().int().min(0).optional(),
-        duration: z.number().int().positive().optional(),
-        audioStartTime: z.number().int().min(0).optional(),
+        startSampleFrame: z.number().int().min(0).optional(),
+        durationSampleFrames: z.number().int().positive().optional(),
+        sourceStartSampleFrame: z.number().int().min(0).optional(),
         gain: z.number().optional(),
       }),
       async ({ tx, ctx: { userID }, args: { id, ...updates } }) => {
@@ -297,9 +297,9 @@ export const mutators = defineMutators({
       z.object({
         id: z.string().uuid(),
         trackId: z.string().uuid(),
-        startTime: z.number().int().min(0),
+        startSampleFrame: z.number().int().min(0),
       }),
-      async ({ tx, ctx: { userID }, args: { id, trackId, startTime } }) => {
+      async ({ tx, ctx: { userID }, args: { id, trackId, startSampleFrame } }) => {
         const clip = await tx.run(zql.clips.where("id", id).one());
         if (!clip) throw new Error("Clip not found");
 
@@ -311,7 +311,7 @@ export const mutators = defineMutators({
         await tx.mutate.clips.update({
           id,
           trackId,
-          startTime,
+          startSampleFrame,
           updatedAt: Date.now(),
         });
       },

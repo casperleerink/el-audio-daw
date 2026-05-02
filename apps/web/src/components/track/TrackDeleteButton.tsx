@@ -34,11 +34,11 @@ export function TrackDeleteButton({ trackId }: TrackDeleteButtonProps) {
       id: c.id,
       projectId: c.projectId,
       trackId: c.trackId,
-      audioFileId: c.audioFileId,
+      sampleId: c.sampleId,
       name: c.name,
-      startTime: c.startTime,
-      duration: c.duration,
-      audioStartTime: c.audioStartTime,
+      startSampleFrame: c.startSampleFrame,
+      durationSampleFrames: c.durationSampleFrames,
+      sourceStartSampleFrame: c.sourceStartSampleFrame,
       gain: c.gain ?? 0,
     }));
 

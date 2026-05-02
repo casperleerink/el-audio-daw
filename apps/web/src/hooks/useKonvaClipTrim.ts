@@ -7,26 +7,26 @@ import { trimClipCommand } from "@/commands/clipCommands";
 interface TrimState {
   clipId: string;
   edge: "left" | "right";
-  originalStartTime: number;
-  originalAudioStartTime: number;
-  originalDuration: number;
-  audioDuration: number;
-  currentStartTime: number;
-  currentDuration: number;
+  originalStartSampleFrame: number;
+  originalSourceStartSampleFrame: number;
+  originalDurationSampleFrames: number;
+  sampleDurationFrames: number;
+  currentStartSampleFrame: number;
+  currentDurationSampleFrames: number;
 }
 
 interface UseKonvaClipTrimOptions {
   pixelsPerSecond: number;
   sampleRate: number;
   z: Zero;
-  getAudioFileDuration?: (audioFileId: string) => number | undefined;
+  getSampleDuration?: (sampleId: string) => number | undefined;
 }
 
 export function useKonvaClipTrim({
   pixelsPerSecond,
   sampleRate,
   z,
-  getAudioFileDuration,
+  getSampleDuration,
 }: UseKonvaClipTrimOptions) {
   const [trimState, setTrimState] = useState<TrimState | null>(null);
   const justFinishedTrimRef = useRef(false);
@@ -35,25 +35,25 @@ export function useKonvaClipTrim({
     (
       clipId: string,
       edge: "left" | "right",
-      startTime: number,
-      audioStartTime: number,
-      duration: number,
-      audioFileId: string,
+      startSampleFrame: number,
+      sourceStartSampleFrame: number,
+      durationSampleFrames: number,
+      sampleId: string,
     ) => {
       justFinishedTrimRef.current = false;
-      const audioDuration = getAudioFileDuration?.(audioFileId) ?? duration;
+      const sampleDurationFrames = getSampleDuration?.(sampleId) ?? durationSampleFrames;
       setTrimState({
         clipId,
         edge,
-        originalStartTime: startTime,
-        originalAudioStartTime: audioStartTime,
-        originalDuration: duration,
-        audioDuration,
-        currentStartTime: startTime,
-        currentDuration: duration,
+        originalStartSampleFrame: startSampleFrame,
+        originalSourceStartSampleFrame: sourceStartSampleFrame,
+        originalDurationSampleFrames: durationSampleFrames,
+        sampleDurationFrames,
+        currentStartSampleFrame: startSampleFrame,
+        currentDurationSampleFrames: durationSampleFrames,
       });
     },
-    [getAudioFileDuration],
+    [getSampleDuration],
   );
 
   const handleTrimMove = useCallback(
@@ -64,40 +64,40 @@ export function useKonvaClipTrim({
         const deltaSamples = Math.round((deltaXPixels / pixelsPerSecond) * sampleRate);
 
         if (prev.edge === "left") {
-          // Left trim: adjust startTime + audioStartTime, decrease duration
-          let newAudioStartTime = prev.originalAudioStartTime + deltaSamples;
-          let newStartTime = prev.originalStartTime + deltaSamples;
-          let newDuration = prev.originalDuration - deltaSamples;
+          // Left trim: adjust startSampleFrame + sourceStartSampleFrame, decrease durationSampleFrames
+          let newSourceStartSampleFrame = prev.originalSourceStartSampleFrame + deltaSamples;
+          let newStartSampleFrame = prev.originalStartSampleFrame + deltaSamples;
+          let newDurationSampleFrames = prev.originalDurationSampleFrames - deltaSamples;
 
           // Constraints
-          if (newAudioStartTime < 0) {
-            const correction = -newAudioStartTime;
-            newAudioStartTime = 0;
-            newStartTime += correction;
-            newDuration -= correction;
+          if (newSourceStartSampleFrame < 0) {
+            const correction = -newSourceStartSampleFrame;
+            newSourceStartSampleFrame = 0;
+            newStartSampleFrame += correction;
+            newDurationSampleFrames -= correction;
           }
-          if (newStartTime < 0) {
-            const correction = -newStartTime;
-            newStartTime = 0;
-            newDuration -= correction;
+          if (newStartSampleFrame < 0) {
+            const correction = -newStartSampleFrame;
+            newStartSampleFrame = 0;
+            newDurationSampleFrames -= correction;
           }
-          if (newDuration < 1) {
-            newDuration = 1;
+          if (newDurationSampleFrames < 1) {
+            newDurationSampleFrames = 1;
           }
 
           return {
             ...prev,
-            currentStartTime: newStartTime,
-            currentDuration: newDuration,
+            currentStartSampleFrame: newStartSampleFrame,
+            currentDurationSampleFrames: newDurationSampleFrames,
           };
         } else {
-          // Right trim: adjust duration only
-          let newDuration = prev.originalDuration + deltaSamples;
-          const maxDuration = prev.audioDuration - prev.originalAudioStartTime;
-          newDuration = Math.min(newDuration, maxDuration);
-          newDuration = Math.max(1, newDuration);
+          // Right trim: adjust durationSampleFrames only
+          let newDurationSampleFrames = prev.originalDurationSampleFrames + deltaSamples;
+          const maxDuration = prev.sampleDurationFrames - prev.originalSourceStartSampleFrame;
+          newDurationSampleFrames = Math.min(newDurationSampleFrames, maxDuration);
+          newDurationSampleFrames = Math.max(1, newDurationSampleFrames);
 
-          return { ...prev, currentDuration: newDuration };
+          return { ...prev, currentDurationSampleFrames: newDurationSampleFrames };
         }
       });
     },
@@ -120,21 +120,21 @@ export function useKonvaClipTrim({
       setTrimState(null);
 
       try {
-        const deltaSamples = state.currentStartTime - state.originalStartTime;
-        const finalAudioStartTime = Math.max(0, state.originalAudioStartTime + deltaSamples);
+        const deltaSamples = state.currentStartSampleFrame - state.originalStartSampleFrame;
+        const finalSourceStartSampleFrame = Math.max(0, state.originalSourceStartSampleFrame + deltaSamples);
 
         const cmd = trimClipCommand(
           z,
           clipId,
           {
-            startTime: state.originalStartTime,
-            audioStartTime: state.originalAudioStartTime,
-            duration: state.originalDuration,
+            startSampleFrame: state.originalStartSampleFrame,
+            sourceStartSampleFrame: state.originalSourceStartSampleFrame,
+            durationSampleFrames: state.originalDurationSampleFrames,
           },
           {
-            startTime: state.currentStartTime,
-            audioStartTime: finalAudioStartTime,
-            duration: state.currentDuration,
+            startSampleFrame: state.currentStartSampleFrame,
+            sourceStartSampleFrame: finalSourceStartSampleFrame,
+            durationSampleFrames: state.currentDurationSampleFrames,
           },
         );
         await cmd.execute();

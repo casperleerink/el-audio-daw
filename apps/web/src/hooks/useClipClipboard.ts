@@ -4,17 +4,17 @@ import { useCallback, useRef } from "react";
  * Clipboard data for a single clip (FR-24)
  */
 export interface ClipboardClipData {
-  /** Audio file reference for storage */
-  audioFileId: string;
+  /** Sample reference for storage */
+  sampleId: string;
   /** Clip name */
   name: string;
-  /** Clip duration in samples */
-  duration: number;
+  /** Clip durationSampleFrames in samples */
+  durationSampleFrames: number;
   /** Offset into source audio in samples */
-  audioStartTime: number;
+  sourceStartSampleFrame: number;
   /** Clip gain in dB */
   gain: number;
-  /** Offset from first clip's start time (for maintaining relative positions) */
+  /** Offset from first Clip's start sample frame (for maintaining relative positions) */
   offsetFromFirst: number;
 }
 
@@ -35,11 +35,11 @@ interface UseClipClipboardReturn {
     clips: Array<{
       _id: string;
       trackId: string;
-      audioFileId: string;
+      sampleId: string;
       name: string;
-      startTime: number;
-      duration: number;
-      audioStartTime: number;
+      startSampleFrame: number;
+      durationSampleFrames: number;
+      sourceStartSampleFrame: number;
       gain: number;
     }>,
   ) => void;
@@ -54,11 +54,11 @@ interface UseClipClipboardReturn {
  *
  * Implements FR-23 through FR-30:
  * - FR-23: Cmd+C copies selected clips to internal clipboard (not system clipboard)
- * - FR-24: Clipboard stores clip data: audioFileId, duration, audioStartTime, gain, relative positions
+ * - FR-24: Clipboard stores clip data: sampleId, durationSampleFrames, sourceStartSampleFrame, gain, relative positions
  * - FR-25: Cmd+V pastes clipboard contents at current playhead position
  * - FR-26: First clip aligns to playhead; other clips maintain relative offsets
  * - FR-27: Pasted clips go to same track as source clips
- * - FR-28: Paste creates new clip records (new IDs, reuses same audioFileId)
+ * - FR-28: Paste creates new clip records (new IDs, reuses same sampleId)
  * - FR-29: Paste uses optimistic updates with pending state
  * - FR-30: If no clips in clipboard, Cmd+V does nothing
  *
@@ -74,11 +74,11 @@ export function useClipClipboard(): UseClipClipboardReturn {
       clips: Array<{
         _id: string;
         trackId: string;
-        audioFileId: string;
+        sampleId: string;
         name: string;
-        startTime: number;
-        duration: number;
-        audioStartTime: number;
+        startSampleFrame: number;
+        durationSampleFrames: number;
+        sourceStartSampleFrame: number;
         gain: number;
       }>,
     ) => {
@@ -86,28 +86,28 @@ export function useClipClipboard(): UseClipClipboardReturn {
         return;
       }
 
-      // Get selected clips, sorted by start time for consistent relative positioning
+      // Get selected Clips, sorted by start sample frame for consistent relative positioning
       const selectedClips = clips
         .filter((clip) => selectedClipIds.has(clip._id))
-        .sort((a, b) => a.startTime - b.startTime);
+        .sort((a, b) => a.startSampleFrame - b.startSampleFrame);
 
       if (selectedClips.length === 0) {
         return;
       }
 
-      // First clip's start time is the reference for relative positioning (FR-26)
-      const firstClipStartTime = selectedClips[0]!.startTime;
+      // First Clip's start sample frame is the reference for relative positioning (FR-26)
+      const firstClipStartSampleFrame = selectedClips[0]!.startSampleFrame;
       // All selected clips should be on the same track (enforced by selection hook)
       const sourceTrackId = selectedClips[0]!.trackId;
 
       // Build clipboard data with relative offsets
       const clipboardClips: ClipboardClipData[] = selectedClips.map((clip) => ({
-        audioFileId: clip.audioFileId,
+        sampleId: clip.sampleId,
         name: clip.name,
-        duration: clip.duration,
-        audioStartTime: clip.audioStartTime,
+        durationSampleFrames: clip.durationSampleFrames,
+        sourceStartSampleFrame: clip.sourceStartSampleFrame,
         gain: clip.gain,
-        offsetFromFirst: clip.startTime - firstClipStartTime,
+        offsetFromFirst: clip.startSampleFrame - firstClipStartSampleFrame,
       }));
 
       clipboardRef.current = {

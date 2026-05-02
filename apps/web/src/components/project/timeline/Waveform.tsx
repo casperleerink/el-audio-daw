@@ -9,7 +9,7 @@ interface WaveformProps {
   waveform: WaveformData;
   clipWidth: number;
   clipHeight: number;
-  audioStartTime: number; // in samples
+  sourceStartSampleFrame: number; // in samples
   clipDuration: number; // in samples
   sampleRate: number;
   pixelsPerSecond: number;
@@ -20,7 +20,7 @@ export const Waveform = memo(function Waveform({
   waveform,
   clipWidth,
   clipHeight,
-  audioStartTime,
+  sourceStartSampleFrame,
   clipDuration,
   sampleRate,
   pixelsPerSecond,
@@ -35,8 +35,8 @@ export const Waveform = memo(function Waveform({
         const samplesPerPixel = sampleRate / pixelsPerSecond;
         const level = selectMipmapLevel(waveform, samplesPerPixel);
 
-        const startBucket = Math.floor(audioStartTime / level.samplesPerBucket);
-        const endSample = audioStartTime + clipDuration;
+        const startBucket = Math.floor(sourceStartSampleFrame / level.samplesPerBucket);
+        const endSample = sourceStartSampleFrame + clipDuration;
         const endBucket = Math.ceil(endSample / level.samplesPerBucket);
 
         const firstBucket = Math.max(0, startBucket);
@@ -65,7 +65,7 @@ export const Waveform = memo(function Waveform({
 
           const [min, max] = bucket;
           const bucketStartSample = i * level.samplesPerBucket;
-          const sampleOffset = bucketStartSample - audioStartTime;
+          const sampleOffset = bucketStartSample - sourceStartSampleFrame;
           const x = (sampleOffset / sampleRate) * pixelsPerSecond;
 
           if (x + pixelsPerBucket < 0 || x > clipWidth) continue;

@@ -58,8 +58,8 @@ export const tracks = pgTable(
   ],
 );
 
-export const audioFiles = pgTable(
-  "audio_files",
+export const samples = pgTable(
+  "samples",
   {
     id: text("id").primaryKey(),
     projectId: text("project_id")
@@ -68,12 +68,12 @@ export const audioFiles = pgTable(
     storageUrl: text("storage_url").notNull(),
     waveformUrl: text("waveform_url"),
     name: text("name").notNull(),
-    duration: integer("duration").notNull(),
+    durationSampleFrames: integer("duration_sample_frames").notNull(),
     sampleRate: integer("sample_rate").notNull(),
     channels: integer("channels").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
-  (table) => [index("audio_files_project_id_idx").on(table.projectId)],
+  (table) => [index("samples_project_id_idx").on(table.projectId)],
 );
 
 export const clips = pgTable(
@@ -86,13 +86,13 @@ export const clips = pgTable(
     trackId: text("track_id")
       .notNull()
       .references(() => tracks.id, { onDelete: "cascade" }),
-    audioFileId: text("audio_file_id")
+    sampleId: text("sample_id")
       .notNull()
-      .references(() => audioFiles.id, { onDelete: "cascade" }),
+      .references(() => samples.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    startTime: integer("start_time").notNull(),
-    duration: integer("duration").notNull(),
-    audioStartTime: integer("audio_start_time").notNull(),
+    startSampleFrame: integer("start_sample_frame").notNull(),
+    durationSampleFrames: integer("duration_sample_frames").notNull(),
+    sourceStartSampleFrame: integer("source_start_sample_frame").notNull(),
     gain: real("gain").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
@@ -125,7 +125,7 @@ export const trackEffects = pgTable(
 export const projectRelations = relations(projects, ({ many }) => ({
   users: many(projectUsers),
   tracks: many(tracks),
-  audioFiles: many(audioFiles),
+  samples: many(samples),
   clips: many(clips),
 }));
 
@@ -149,9 +149,9 @@ export const trackRelations = relations(tracks, ({ one, many }) => ({
   effects: many(trackEffects),
 }));
 
-export const audioFileRelations = relations(audioFiles, ({ one, many }) => ({
+export const sampleRelations = relations(samples, ({ one, many }) => ({
   project: one(projects, {
-    fields: [audioFiles.projectId],
+    fields: [samples.projectId],
     references: [projects.id],
   }),
   clips: many(clips),
@@ -166,9 +166,9 @@ export const clipRelations = relations(clips, ({ one }) => ({
     fields: [clips.trackId],
     references: [tracks.id],
   }),
-  audioFile: one(audioFiles, {
-    fields: [clips.audioFileId],
-    references: [audioFiles.id],
+  sample: one(samples, {
+    fields: [clips.sampleId],
+    references: [samples.id],
   }),
 }));
 

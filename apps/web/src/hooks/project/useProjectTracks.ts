@@ -6,7 +6,6 @@ import { useUndoStore } from "@/stores/undoStore";
 import { createTrackCommand, reorderTracksCommand } from "@/commands/trackCommands";
 
 export const useGetTracks = () => {
-  const z = useZero();
   const projectId = useProjectId();
   const [tracks] = useQuery(
     zql.tracks.where("projectId", "=", projectId ?? "").orderBy("order", "asc"),

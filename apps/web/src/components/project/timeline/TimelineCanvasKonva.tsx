@@ -30,7 +30,7 @@ export interface TimelineCanvasKonvaProps {
   onSelectClip: (clipId: string, trackId: string) => void;
   onToggleClipSelection: (clipId: string, trackId: string) => void;
   onClearSelection: () => void;
-  getAudioFileDuration: (audioFileId: string) => number | undefined;
+  getSampleDuration: (sampleId: string) => number | undefined;
   waveformUrls: Record<string, string | null>;
 }
 
@@ -46,7 +46,7 @@ export function TimelineCanvasKonva({
   onSelectClip,
   onToggleClipSelection,
   onClearSelection,
-  getAudioFileDuration,
+  getSampleDuration,
   waveformUrls,
 }: TimelineCanvasKonvaProps) {
   const z = useZero();
@@ -99,7 +99,7 @@ export function TimelineCanvasKonva({
     pixelsPerSecond,
     sampleRate,
     z,
-    getAudioFileDuration,
+    getSampleDuration,
   });
 
   // Playhead animation
@@ -157,10 +157,10 @@ export function TimelineCanvasKonva({
   // Waveform fetching
   useEffect(() => {
     const fetchAll = async () => {
-      for (const [audioFileId, storageKey] of Object.entries(waveformUrls)) {
-        if (loadedWaveforms.has(audioFileId) || !storageKey) continue;
-        const waveform = await fetchWaveform(audioFileId, storageKey, projectId);
-        if (waveform) setLoadedWaveforms((prev) => new Map(prev).set(audioFileId, waveform));
+      for (const [sampleId, storageKey] of Object.entries(waveformUrls)) {
+        if (loadedWaveforms.has(sampleId) || !storageKey) continue;
+        const waveform = await fetchWaveform(sampleId, storageKey, projectId);
+        if (waveform) setLoadedWaveforms((prev) => new Map(prev).set(sampleId, waveform));
       }
     };
     fetchAll();

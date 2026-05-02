@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { useZero } from "@rocicorp/zero/react";
 import { useProjectId, useSampleRate } from "@/stores/projectStore";
 import { useClipClipboard } from "@/hooks/useClipClipboard";
@@ -16,7 +16,7 @@ export function useProjectClips() {
   const z = useZero();
   const projectId = useProjectId();
   const sampleRate = useSampleRate();
-  const { clips, audioFilesMap } = useProjectData();
+  const { clips, samplesMap } = useProjectData();
 
   const selectedClipIds = useEditorStore((s) => s.selectedClipIds);
   const { clearClipSelection } = useEditorStore();
@@ -25,26 +25,10 @@ export function useProjectClips() {
   // Clipboard for copy/paste (FR-23 through FR-30)
   const { copyClips, getClipboardData, hasClips } = useClipClipboard();
 
-  // Lookup function for audio file duration (used by clip trim constraints)
-  const getAudioFileDuration = useCallback(
-    (audioFileId: string) => audioFilesMap.get(audioFileId)?.duration,
-    [audioFilesMap],
-  );
-
-  // Transform clips for audio engine (map backend format to engine format)
-  const clipsForEngine = useMemo(
-    () =>
-      clips.map((clip) => ({
-        _id: clip.id,
-        trackId: clip.trackId,
-        audioFileId: clip.audioFileId,
-        name: clip.name,
-        startTime: clip.startTime,
-        duration: clip.duration,
-        audioStartTime: clip.audioStartTime,
-        gain: clip.gain ?? 0,
-      })),
-    [clips],
+  // Lookup function for Sample duration in sample frames (used by Clip trim constraints)
+  const getSampleDuration = useCallback(
+    (sampleId: string) => samplesMap.get(sampleId)?.durationSampleFrames,
+    [samplesMap],
   );
 
   // Copy selected clips handler (FR-23, FR-24)
@@ -55,11 +39,11 @@ export function useProjectClips() {
     const clipsWithData = clips.map((clip) => ({
       _id: clip.id,
       trackId: clip.trackId,
-      audioFileId: clip.audioFileId,
+      sampleId: clip.sampleId,
       name: clip.name,
-      startTime: clip.startTime,
-      duration: clip.duration,
-      audioStartTime: clip.audioStartTime,
+      startSampleFrame: clip.startSampleFrame,
+      durationSampleFrames: clip.durationSampleFrames,
+      sourceStartSampleFrame: clip.sourceStartSampleFrame,
       gain: clip.gain ?? 0,
     }));
 
@@ -85,11 +69,11 @@ export function useProjectClips() {
         id: crypto.randomUUID(),
         projectId,
         trackId: targetTrackId,
-        audioFileId: clip.audioFileId,
+        sampleId: clip.sampleId,
         name: clip.name,
-        startTime: playheadTimeInSamples + clip.offsetFromFirst,
-        duration: clip.duration,
-        audioStartTime: clip.audioStartTime,
+        startSampleFrame: playheadTimeInSamples + clip.offsetFromFirst,
+        durationSampleFrames: clip.durationSampleFrames,
+        sourceStartSampleFrame: clip.sourceStartSampleFrame,
         gain: clip.gain,
       }));
 
@@ -111,11 +95,11 @@ export function useProjectClips() {
         id: clip.id,
         projectId: clip.projectId,
         trackId: clip.trackId,
-        audioFileId: clip.audioFileId,
+        sampleId: clip.sampleId,
         name: clip.name,
-        startTime: clip.startTime,
-        duration: clip.duration,
-        audioStartTime: clip.audioStartTime,
+        startSampleFrame: clip.startSampleFrame,
+        durationSampleFrames: clip.durationSampleFrames,
+        sourceStartSampleFrame: clip.sourceStartSampleFrame,
         gain: clip.gain ?? 0,
       }));
 
@@ -138,8 +122,8 @@ export function useProjectClips() {
       // FR-39: Find selected clips that span the playhead
       const clipsToSplit = clips.filter((clip) => {
         if (!selectedClipIds.has(clip.id)) return false;
-        const clipEnd = clip.startTime + clip.duration;
-        return playheadTimeInSamples > clip.startTime && playheadTimeInSamples < clipEnd;
+        const clipEnd = clip.startSampleFrame + clip.durationSampleFrames;
+        return playheadTimeInSamples > clip.startSampleFrame && playheadTimeInSamples < clipEnd;
       });
 
       // FR-44: If playhead not intersecting any selected clips, do nothing
@@ -149,20 +133,20 @@ export function useProjectClips() {
       clearClipSelection();
 
       const splitCommands = clipsToSplit.map((clip) => {
-        const splitPoint = playheadTimeInSamples - clip.startTime;
+        const splitPoint = playheadTimeInSamples - clip.startSampleFrame;
         const newDuration = splitPoint;
-        const secondClipDuration = clip.duration - splitPoint;
-        const secondClipAudioStartTime = clip.audioStartTime + splitPoint;
+        const secondClipDuration = clip.durationSampleFrames - splitPoint;
+        const secondClipAudioStartTime = clip.sourceStartSampleFrame + splitPoint;
 
         const originalBefore = {
           id: clip.id,
           projectId: clip.projectId,
           trackId: clip.trackId,
-          audioFileId: clip.audioFileId,
+          sampleId: clip.sampleId,
           name: clip.name,
-          startTime: clip.startTime,
-          duration: clip.duration,
-          audioStartTime: clip.audioStartTime,
+          startSampleFrame: clip.startSampleFrame,
+          durationSampleFrames: clip.durationSampleFrames,
+          sourceStartSampleFrame: clip.sourceStartSampleFrame,
           gain: clip.gain ?? 0,
         };
 
@@ -170,11 +154,11 @@ export function useProjectClips() {
           id: crypto.randomUUID(),
           projectId,
           trackId: clip.trackId,
-          audioFileId: clip.audioFileId,
+          sampleId: clip.sampleId,
           name: clip.name,
-          startTime: playheadTimeInSamples,
-          duration: secondClipDuration,
-          audioStartTime: secondClipAudioStartTime,
+          startSampleFrame: playheadTimeInSamples,
+          durationSampleFrames: secondClipDuration,
+          sourceStartSampleFrame: secondClipAudioStartTime,
           gain: clip.gain ?? 0,
         };
 
@@ -194,8 +178,7 @@ export function useProjectClips() {
 
   return {
     clips,
-    clipsForEngine,
-    getAudioFileDuration,
+    getSampleDuration,
     handleCopyClips,
     handlePasteClips,
     handleDeleteSelectedClips,

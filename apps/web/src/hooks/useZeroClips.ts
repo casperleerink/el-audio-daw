@@ -7,45 +7,45 @@ import type { Clip } from "@el-audio-daw/zero/schema";
 type CreateClipArgs = {
   projectId: string;
   trackId: string;
-  audioFileId: string;
+  sampleId: string;
   name: string;
-  startTime: number;
-  duration: number;
-  audioStartTime?: number;
+  startSampleFrame: number;
+  durationSampleFrames: number;
+  sourceStartSampleFrame?: number;
   gain?: number;
 };
 
 type UpdateClipArgs = {
   id: string;
   name?: string;
-  startTime?: number;
-  duration?: number;
-  audioStartTime?: number;
+  startSampleFrame?: number;
+  durationSampleFrames?: number;
+  sourceStartSampleFrame?: number;
   gain?: number;
 };
 
 type MoveClipArgs = {
   id: string;
   trackId: string;
-  startTime: number;
+  startSampleFrame: number;
 };
 
 type PasteClipsArgs = {
   projectId: string;
   trackId: string;
   clips: Array<{
-    audioFileId: string;
+    sampleId: string;
     name: string;
-    startTime: number;
-    duration: number;
-    audioStartTime: number;
+    startSampleFrame: number;
+    durationSampleFrames: number;
+    sourceStartSampleFrame: number;
     gain: number;
   }>;
 };
 
 type SplitClipArgs = {
   clip: Clip;
-  splitTime: number;
+  splitSampleFrame: number;
 };
 
 /**
@@ -65,11 +65,11 @@ export function useZeroClips(projectId: string | undefined) {
           id,
           projectId: args.projectId,
           trackId: args.trackId,
-          audioFileId: args.audioFileId,
+          sampleId: args.sampleId,
           name: args.name,
-          startTime: args.startTime,
-          duration: args.duration,
-          audioStartTime: args.audioStartTime ?? 0,
+          startSampleFrame: args.startSampleFrame,
+          durationSampleFrames: args.durationSampleFrames,
+          sourceStartSampleFrame: args.sourceStartSampleFrame ?? 0,
           gain: args.gain ?? 0,
         }),
       ).client;
@@ -114,11 +114,11 @@ export function useZeroClips(projectId: string | undefined) {
             id,
             projectId: args.projectId,
             trackId: args.trackId,
-            audioFileId: clip.audioFileId,
+            sampleId: clip.sampleId,
             name: clip.name,
-            startTime: clip.startTime,
-            duration: clip.duration,
-            audioStartTime: clip.audioStartTime,
+            startSampleFrame: clip.startSampleFrame,
+            durationSampleFrames: clip.durationSampleFrames,
+            sourceStartSampleFrame: clip.sourceStartSampleFrame,
             gain: clip.gain ?? 0,
           }),
         ).client;
@@ -129,29 +129,29 @@ export function useZeroClips(projectId: string | undefined) {
   );
 
   /**
-   * Split a clip at the given time.
-   * Updates the original clip's duration and creates a new right clip.
+   * Split a Clip at the given sample frame.
+   * Updates the original clip's durationSampleFrames and creates a new right clip.
    */
   const splitClip = useCallback(
     async (args: SplitClipArgs) => {
-      const { clip, splitTime } = args;
-      const clipEnd = clip.startTime + clip.duration;
+      const { clip, splitSampleFrame } = args;
+      const clipEnd = clip.startSampleFrame + clip.durationSampleFrames;
 
-      // Only split if splitTime is within clip bounds
-      if (splitTime <= clip.startTime || splitTime >= clipEnd) {
+      // Only split if splitSampleFrame is within clip bounds
+      if (splitSampleFrame <= clip.startSampleFrame || splitSampleFrame >= clipEnd) {
         return null;
       }
 
-      const leftDuration = splitTime - clip.startTime;
-      const rightStartTime = splitTime;
-      const rightDuration = clipEnd - splitTime;
-      const rightAudioStartTime = clip.audioStartTime + leftDuration;
+      const leftDuration = splitSampleFrame - clip.startSampleFrame;
+      const rightStartSampleFrame = splitSampleFrame;
+      const rightDuration = clipEnd - splitSampleFrame;
+      const rightAudioStartTime = clip.sourceStartSampleFrame + leftDuration;
 
       // Update the left clip (original)
       await zero.mutate(
         mutators.clips.update({
           id: clip.id,
-          duration: leftDuration,
+          durationSampleFrames: leftDuration,
         }),
       ).client;
 
@@ -162,11 +162,11 @@ export function useZeroClips(projectId: string | undefined) {
           id: rightId,
           projectId: clip.projectId,
           trackId: clip.trackId,
-          audioFileId: clip.audioFileId,
+          sampleId: clip.sampleId,
           name: clip.name,
-          startTime: rightStartTime,
-          duration: rightDuration,
-          audioStartTime: rightAudioStartTime,
+          startSampleFrame: rightStartSampleFrame,
+          durationSampleFrames: rightDuration,
+          sourceStartSampleFrame: rightAudioStartTime,
           gain: clip.gain ?? 0,
         }),
       ).client;

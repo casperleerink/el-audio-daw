@@ -1,11 +1,11 @@
 export interface ClipData {
   _id: string;
   trackId: string;
-  audioFileId: string;
+  sampleId: string;
   name: string;
-  startTime: number; // in samples
-  duration: number; // in samples
-  audioStartTime: number; // offset into source audio in samples
+  startSampleFrame: number;
+  durationSampleFrames: number;
+  sourceStartSampleFrame: number;
   pending?: boolean;
 }
 

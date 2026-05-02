@@ -14,9 +14,9 @@ export interface ClipState {
   id: string;
   trackId: string;
   fileId: string;
-  startTime: number;
-  duration: number;
-  audioStartTime: number;
+  startSampleFrame: number;
+  durationSampleFrames: number;
+  sourceStartSampleFrame: number;
   gain: number;
 }
 
@@ -45,7 +45,7 @@ export interface AudioEngineState {
 
 export interface VFSEntry {
   channels: number;
-  duration: number;
+  durationSeconds: number;
   sampleRate: number;
 }
 
@@ -72,7 +72,8 @@ export class AudioEngine {
   async initialize(sampleRate?: number): Promise<void> {
     if (this.initialized) return;
     this.projectSampleRate = sampleRate ?? 44100;
-    const requestedRenderSampleRate = this.projectSampleRate <= 192_000 ? this.projectSampleRate : undefined;
+    const requestedRenderSampleRate =
+      this.projectSampleRate <= 192_000 ? this.projectSampleRate : undefined;
     await this.controller.initialize({ sampleRate: requestedRenderSampleRate });
 
     this.initialized = true;
@@ -177,7 +178,7 @@ export class AudioEngine {
     const decoded = await this.controller.loadAsset({ id: key, url });
     const entry = {
       channels: decoded.channels.length,
-      duration: decoded.lengthSamples / decoded.sampleRate,
+      durationSeconds: decoded.lengthSamples / decoded.sampleRate,
       sampleRate: decoded.sampleRate,
     };
     this.assets.set(key, entry);
@@ -221,9 +222,9 @@ function toProjectAudioState(state: AudioEngineState, sampleRate: number): Proje
     id: clip.id,
     trackId: clip.trackId,
     assetId: clip.fileId,
-    startSamples: Math.round(clip.startTime),
-    durationSamples: Math.round(clip.duration),
-    sourceStartSamples: Math.round(clip.audioStartTime),
+    startSamples: Math.round(clip.startSampleFrame),
+    durationSamples: Math.round(clip.durationSampleFrames),
+    sourceStartSamples: Math.round(clip.sourceStartSampleFrame),
     gainDb: clip.gain,
   }));
 

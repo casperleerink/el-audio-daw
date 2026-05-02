@@ -39,6 +39,7 @@ interface AudioStoreState {
   setClips: (clips: ClipState[]) => void;
   setEffects: (effects: TrackEffect[]) => void;
   loadAudioIntoVFS: (key: string, storageKey: string, projectId: string) => Promise<void>;
+  pruneSampleAssets: (activeAssetIds: string[]) => Promise<void>;
 
   // Direct parameter updates (for real-time control without graph rebuild)
   setTrackGain: (trackId: string, gainDb: number) => void;
@@ -208,6 +209,11 @@ export const useAudioStore = create<AudioStoreState>((set, get) => ({
     } catch (err) {
       console.error(`Failed to load audio ${key}:`, err);
     }
+  },
+
+  pruneSampleAssets: async (activeAssetIds: string[]) => {
+    if (!engineInstance?.isInitialized()) return;
+    await engineInstance.pruneVFS(activeAssetIds);
   },
 
   // Direct parameter updates - bypass React state for real-time responsiveness

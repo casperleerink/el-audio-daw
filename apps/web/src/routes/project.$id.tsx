@@ -27,7 +27,7 @@ export const Route = createFileRoute("/project/$id")({
     if (!zero) {
       return;
     }
-    // Preload project with all tracks, clips, effects and audio files for the project
+    // Preload project with all Tracks, Clips, Effects, and Samples for the Project
     await zero.preload(queries.projects.byId({ id: params.id })).complete;
   },
 });

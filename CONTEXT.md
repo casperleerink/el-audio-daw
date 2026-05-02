@@ -104,4 +104,4 @@ _Avoid_: Master output, main, stereo bus
 ## Flagged ambiguities
 
 - "sample" can mean reusable source audio material or one discrete DSP time step. Use **Sample** for source material and **sample frame** for DSP positions or counts.
-- The code currently uses `audioFile`/`audio_files` for what the domain calls **Sample**.
+- Historical code used `audioFile`/`audio_files` for what the domain calls **Sample**; new code should use **Sample** and **sample frame** names directly.

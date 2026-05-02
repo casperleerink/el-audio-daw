@@ -6,11 +6,14 @@ import { mutators } from "@el-audio-daw/zero/mutators";
 import { env } from "@el-audio-daw/env/web";
 import { useRouter } from "@tanstack/react-router";
 import type { Zero } from "@rocicorp/zero";
+import { useAuthRecovery } from "@/hooks/useAuthRecovery";
 
 export function ZeroProvider({ children }: PropsWithChildren) {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const userID = session?.user?.id ?? "anon";
+
+  useAuthRecovery();
 
   const init = useCallback(
     (zero: Zero) => {

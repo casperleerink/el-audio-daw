@@ -13,7 +13,7 @@ import { generateWaveformBinary } from "@/lib/waveformGenerator";
 import { useUndoStore } from "@/stores/undoStore";
 import { createClipCommand } from "@/commands/clipCommands";
 import { useSyncRef } from "./useSyncRef";
-import { useZeroAudioFiles } from "./useZeroAudioFiles";
+import { useZeroSamples } from "./useZeroSamples";
 import { env } from "@el-audio-daw/env/web";
 
 // Audio file constants
@@ -140,8 +140,8 @@ export function useTimelineFileDrop({
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Zero mutations for audio files and clips
-  const { createAudioFile, updateWaveform } = useZeroAudioFiles(projectId);
+  // Zero mutations for Samples and Clips
+  const { createSample, updateWaveform } = useZeroSamples(projectId);
   const z = useZero();
   const pushUndo = useUndoStore((s) => s.push);
 
@@ -189,12 +189,12 @@ export function useTimelineFileDrop({
   );
 
   // Check if file is a supported audio type
-  const isAudioFile = useCallback((file: File): boolean => {
+  const isSample = useCallback((file: File): boolean => {
     return isSupportedAudioType(file.type);
   }, []);
 
   // Decode audio file to get duration, channel count, and AudioBuffer for waveform generation
-  const decodeAudioFile = useCallback(
+  const decodeSample = useCallback(
     async (
       file: File,
     ): Promise<{
@@ -231,7 +231,7 @@ export function useTimelineFileDrop({
         return;
       }
 
-      if (!isAudioFile(file)) {
+      if (!isSample(file)) {
         toast.error("Unsupported audio format. Supported formats: WAV, MP3, AIFF, FLAC, OGG");
         return;
       }
@@ -246,7 +246,7 @@ export function useTimelineFileDrop({
       try {
         // Decode audio to get duration, channel count, and AudioBuffer for waveform
         const { durationInSamples, fileSampleRate, channels, audioBuffer } =
-          await decodeAudioFile(file);
+          await decodeSample(file);
 
         // Show warning if sample rates differ
         if (fileSampleRate !== sampleRate) {
@@ -280,37 +280,37 @@ export function useTimelineFileDrop({
           throw new Error("Upload failed");
         }
 
-        // Check if aborted after upload but before audioFile creation
+        // Check if aborted after upload but before sample creation
         if (abortController.signal.aborted) {
           return;
         }
 
-        // Create audio file record via Zero
+        // Create Sample record via Zero
         const clipName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
-        const audioFileId = await createAudioFile({
+        const sampleId = await createSample({
           projectId,
           storageUrl,
           name: clipName,
-          duration: durationInSamples,
+          durationSampleFrames: durationInSamples,
           sampleRate: fileSampleRate,
           channels,
         });
 
-        // Check if aborted after audioFile creation but before clip creation
+        // Check if aborted after sample creation but before clip creation
         if (abortController.signal.aborted) {
           return;
         }
 
-        // Create clip record referencing the audio file
+        // Create Clip record referencing the Sample
         const clipSnapshot = {
           id: crypto.randomUUID(),
           projectId,
           trackId,
-          audioFileId,
+          sampleId,
           name: clipName,
-          startTime: dropPosition.dropTimeInSamples,
-          duration: durationInSamples,
-          audioStartTime: 0,
+          startSampleFrame: dropPosition.dropTimeInSamples,
+          durationSampleFrames: durationInSamples,
+          sourceStartSampleFrame: 0,
           gain: 0,
         };
         const cmd = createClipCommand(z, clipSnapshot);
@@ -341,8 +341,8 @@ export function useTimelineFileDrop({
               throw new Error("Waveform upload failed");
             }
 
-            // Update audio file with waveform URL via Zero
-            await updateWaveform(audioFileId, waveformStorageUrl);
+            // Update Sample with waveform URL via Zero
+            await updateWaveform(sampleId, waveformStorageUrl);
           } catch (error) {
             console.warn("Waveform generation failed:", error);
             // Don't show error to user - waveform is optional
@@ -362,16 +362,7 @@ export function useTimelineFileDrop({
         setIsUploading(false);
       }
     },
-    [
-      isAudioFile,
-      decodeAudioFile,
-      createAudioFile,
-      z,
-      pushUndo,
-      updateWaveform,
-      projectId,
-      sampleRate,
-    ],
+    [isSample, decodeSample, createSample, z, pushUndo, updateWaveform, projectId, sampleRate],
   );
 
   // Drag event handlers
@@ -433,9 +424,9 @@ export function useTimelineFileDrop({
       setIsDraggingFile(false);
 
       const files = Array.from(e.dataTransfer.files);
-      const audioFile = files.find((f) => isAudioFile(f));
+      const sample = files.find((f) => isSample(f));
 
-      if (!audioFile) {
+      if (!sample) {
         toast.error("No supported audio file found. Supported formats: WAV, MP3, AIFF, FLAC, OGG");
         setDropTarget(null);
         return;
@@ -449,9 +440,9 @@ export function useTimelineFileDrop({
         return;
       }
 
-      await handleFileDrop(audioFile, target);
+      await handleFileDrop(sample, target);
     },
-    [isAudioFile, calculateDropPosition, handleFileDrop],
+    [isSample, calculateDropPosition, handleFileDrop],
   );
 
   return {

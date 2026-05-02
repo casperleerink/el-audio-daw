@@ -74,6 +74,5 @@ el-audio-daw/
 - `bun run dev:web`: Start only the web application
 - `bun run dev:api`: Start the API server
 - `bun run dev:db`: Start Drizzle Studio for database management
-- `bun run dev:zero`: Start the Zero cache server
 - `bun run check-types`: Check TypeScript types across all apps
 - `bun run check`: Run Oxlint and Oxfmt

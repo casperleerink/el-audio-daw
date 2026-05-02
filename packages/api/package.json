@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "db:seed": "bun run scripts/seed.ts",
+    "db:reset": "bun run scripts/reset.ts",
+    "db:generate-assets": "bun run scripts/generate-assets.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.980.0",
@@ -16,8 +19,10 @@
     "@el-audio-daw/zero": "workspace:*",
     "@hono/node-server": "^1.14.3",
     "@rocicorp/zero": "catalog:",
+    "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1",
-    "hono": "^4.7.10"
+    "hono": "^4.7.10",
+    "postgres": "^3.4.7"
   },
   "devDependencies": {
     "@el-audio-daw/config": "workspace:*",

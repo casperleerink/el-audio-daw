@@ -31,4 +31,14 @@ export type {
   InternalPluginState,
   ExternalPluginState,
 } from "./project-audio-state.js";
+export { createProjectAudioPlan } from "./project-audio-projection.js";
+export type {
+  ProjectAudioPlan,
+  ProjectAudioProjectionProject,
+  ProjectAudioProjectionTrack,
+  ProjectAudioProjectionClip,
+  ProjectAudioProjectionSample,
+  ProjectAudioProjectionEffect,
+  ProjectAudioAssetReference,
+} from "./project-audio-projection.js";
 export { dbToGain, gainToDb, clampDb } from "./utils.js";
