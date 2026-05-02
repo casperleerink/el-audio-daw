@@ -50,7 +50,8 @@ class DawAudioProcessor extends AudioWorkletProcessor {
           positionSamples: this.positionSamples,
           timeSeconds: this.positionSamples / sampleRate,
         });
-        const rms = this.meterSampleCount > 0 ? Math.sqrt(this.meterSquareSum / this.meterSampleCount) : 0;
+        const rms =
+          this.meterSampleCount > 0 ? Math.sqrt(this.meterSquareSum / this.meterSampleCount) : 0;
         this.port.postMessage({
           type: "Meters",
           meters: [{ id: "master", peak: this.meterPeak, rms }],
@@ -60,7 +61,6 @@ class DawAudioProcessor extends AudioWorkletProcessor {
         this.meterSampleCount = 0;
       }
     }
-
 
     return true;
   }
@@ -92,7 +92,10 @@ class DawAudioProcessor extends AudioWorkletProcessor {
 
   private handleCommand(command: EngineCommand): void {
     if (command.type === "Initialize") {
-      this.emitEverySamples = Math.max(1, Math.round((sampleRate * command.emitPlayheadIntervalMs) / 1000));
+      this.emitEverySamples = Math.max(
+        1,
+        Math.round((sampleRate * command.emitPlayheadIntervalMs) / 1000),
+      );
       return;
     }
 
@@ -102,7 +105,8 @@ class DawAudioProcessor extends AudioWorkletProcessor {
       this.playing = false;
       this.positionSamples = 0;
     }
-    if (command.type === "Seek") this.positionSamples = Math.max(0, Math.round(command.timeSeconds * sampleRate));
+    if (command.type === "Seek")
+      this.positionSamples = Math.max(0, Math.round(command.timeSeconds * sampleRate));
 
     if (this.ready) this.engine?.apply_command(command);
   }

@@ -1,4 +1,6 @@
 class TestProcessor extends AudioWorkletProcessor {
-  process() { return true; }
+  process() {
+    return true;
+  }
 }
-registerProcessor('daw-audio-processor', TestProcessor);
+registerProcessor("daw-audio-processor", TestProcessor);

@@ -100,6 +100,8 @@ export function TimelineCanvasKonva({
     sampleRate,
     z,
     getSampleDuration,
+    clips,
+    projectId,
   });
 
   // Playhead animation

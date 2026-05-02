@@ -5,7 +5,8 @@ import type { Zero } from "@rocicorp/zero";
 import { CLIP_PADDING, RULER_HEIGHT, TRACK_HEIGHT } from "@/lib/timelineConstants";
 import type { ClipData } from "@/components/project/timeline/types";
 import { useUndoStore } from "@/stores/undoStore";
-import { moveClipCommand, createClipsCommand } from "@/commands/clipCommands";
+import { timelineEditPlanCommand } from "@/commands/clipCommands";
+import { planDuplicateClips, planMoveClips, type TimelineEditClip } from "@/lib/timelineEditIntent";
 
 interface ClipDragState {
   clipId: string;
@@ -85,6 +86,9 @@ export function useKonvaClipDrag({
       );
       const targetTrackId = tracks[targetTrackIndex]?._id;
 
+      // Keep the dragged Clip visually snapped to the target Track lane.
+      node.y(RULER_HEIGHT + targetTrackIndex * TRACK_HEIGHT - scrollTop + CLIP_PADDING);
+
       if (targetTrackId) {
         setClipDragState((prev) =>
           prev && prev.clipId === clipId
@@ -112,8 +116,11 @@ export function useKonvaClipDrag({
 
       setClipDragState(null);
 
+      const timelineClips = toTimelineEditClips(clips, projectId);
+      const timelineTracks = tracks.map((track) => ({ id: track._id }));
+
       if (state.isDuplicating) {
-        // Reset Konva node to original position so the original clip stays put
+        // Reset Konva node to original position so the original Clip stays put.
         const node = e.target;
         const originalStartSeconds = state.originalStartSampleFrame / sampleRate;
         const viewStartTime = scrollLeft / pixelsPerSecond;
@@ -123,50 +130,22 @@ export function useKonvaClipDrag({
           RULER_HEIGHT + originalTrackIndex * TRACK_HEIGHT - scrollTop + CLIP_PADDING;
         node.position({ x: originalX, y: originalY });
 
-        const timeOffset = state.currentStartSampleFrame - state.originalStartSampleFrame;
-        const targetTrackId = state.currentTrackId;
-
-        const clipsToDuplicate = selectedClipIds.has(clipId)
-          ? clips.filter((c) => selectedClipIds.has(c._id))
-          : clips.filter((c) => c._id === clipId);
-
         try {
-          const clipSnapshots = clipsToDuplicate.map((clip) => {
-            let newStartSampleFrame: number;
-            let newTrackId: string;
-
-            if (clip._id === clipId) {
-              newStartSampleFrame = state.currentStartSampleFrame;
-              newTrackId = targetTrackId;
-            } else {
-              newStartSampleFrame = clip.startSampleFrame + timeOffset;
-              const draggedOriginalTrackIndex = tracks.findIndex(
-                (t) => t._id === state.originalTrackId,
-              );
-              const targetTrackIndex = tracks.findIndex((t) => t._id === targetTrackId);
-              const trackOffset = targetTrackIndex - draggedOriginalTrackIndex;
-              const clipTrackIndex = tracks.findIndex((t) => t._id === clip.trackId);
-              const newTrackIndex = Math.max(
-                0,
-                Math.min(tracks.length - 1, clipTrackIndex + trackOffset),
-              );
-              newTrackId = tracks[newTrackIndex]?._id ?? clip.trackId;
-            }
-
-            return {
-              id: crypto.randomUUID(),
-              projectId,
-              trackId: newTrackId,
-              sampleId: clip.sampleId,
-              name: clip.name,
-              startSampleFrame: Math.max(0, newStartSampleFrame),
-              durationSampleFrames: clip.durationSampleFrames,
-              sourceStartSampleFrame: clip.sourceStartSampleFrame,
-              gain: 0,
-            };
+          const plan = planDuplicateClips({
+            clips: timelineClips,
+            tracks: timelineTracks,
+            selectedClipIds,
+            draggedClipId: clipId,
+            requestedTrackId: state.currentTrackId,
+            requestedStartSampleFrame: state.currentStartSampleFrame,
+            projectId,
+            createId: () => crypto.randomUUID(),
           });
-
-          const cmd = createClipsCommand(z, clipSnapshots);
+          if (plan.status === "blocked") {
+            toast.error("No room to duplicate clip");
+            return;
+          }
+          const cmd = timelineEditPlanCommand(z, "Duplicate Clip", plan);
           await cmd.execute();
           useUndoStore.getState().push(cmd);
         } catch {
@@ -174,12 +153,19 @@ export function useKonvaClipDrag({
         }
       } else {
         try {
-          const cmd = moveClipCommand(
-            z,
-            clipId,
-            { trackId: state.originalTrackId, startSampleFrame: state.originalStartSampleFrame },
-            { trackId: state.currentTrackId, startSampleFrame: state.currentStartSampleFrame },
-          );
+          const plan = planMoveClips({
+            clips: timelineClips,
+            tracks: timelineTracks,
+            selectedClipIds,
+            draggedClipId: clipId,
+            requestedTrackId: state.currentTrackId,
+            requestedStartSampleFrame: state.currentStartSampleFrame,
+          });
+          if (plan.status === "blocked") {
+            toast.error("No room to move clip");
+            return;
+          }
+          const cmd = timelineEditPlanCommand(z, "Move Clip", plan);
           await cmd.execute();
           useUndoStore.getState().push(cmd);
         } catch {
@@ -208,4 +194,18 @@ export function useKonvaClipDrag({
     handleDragMove,
     handleDragEnd,
   };
+}
+
+function toTimelineEditClips(clips: ClipData[], projectId: string): TimelineEditClip[] {
+  return clips.map((clip) => ({
+    id: clip._id,
+    projectId,
+    trackId: clip.trackId,
+    sampleId: clip.sampleId,
+    name: clip.name,
+    startSampleFrame: clip.startSampleFrame,
+    durationSampleFrames: clip.durationSampleFrames,
+    sourceStartSampleFrame: clip.sourceStartSampleFrame,
+    gain: 0,
+  }));
 }

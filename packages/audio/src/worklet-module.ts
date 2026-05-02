@@ -8,7 +8,10 @@ export async function createAudioWorkletModuleUrl(urls: AudioWorkletModuleUrls):
   return `data:text/javascript;charset=utf-8,${encodeURIComponent(source)}`;
 }
 
-export async function createAudioWorkletModuleSource({ wasmJsUrl, wasmUrl }: AudioWorkletModuleUrls): Promise<string> {
+export async function createAudioWorkletModuleSource({
+  wasmJsUrl,
+  wasmUrl,
+}: AudioWorkletModuleUrls): Promise<string> {
   const response = await fetch(wasmJsUrl);
   if (!response.ok) throw new Error(`Failed to fetch WASM glue: ${response.statusText}`);
   const wasmGlue = toInlineWasmGlue(await response.text());
@@ -20,7 +23,10 @@ function toInlineWasmGlue(source: string): string {
     .replace("export class WasmEngine", "class WasmEngine")
     .replace("export function initSync", "function initSync")
     .replace("export default function __wbg_init", "async function __wbg_init")
-    .replace("module_or_path = new URL('audio_engine_bg.wasm', import.meta.url);", "throw new Error('WASM URL is required');")
+    .replace(
+      "module_or_path = new URL('audio_engine_bg.wasm', import.meta.url);",
+      "throw new Error('WASM URL is required');",
+    )
     .replace("export { initSync, __wbg_init as default };", "");
 }
 

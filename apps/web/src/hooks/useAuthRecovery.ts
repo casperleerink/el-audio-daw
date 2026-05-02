@@ -18,14 +18,12 @@ export function useAuthRecovery() {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    authClient
-      .getSession({ query: { disableCookieCache: true } })
-      .then((result) => {
-        if (cancelled) return;
-        if (!result.data?.user) {
-          authClient.signOut();
-        }
-      });
+    authClient.getSession({ query: { disableCookieCache: true } }).then((result) => {
+      if (cancelled) return;
+      if (!result.data?.user) {
+        authClient.signOut();
+      }
+    });
     return () => {
       cancelled = true;
     };

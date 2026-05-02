@@ -6,11 +6,11 @@ Local development uses Docker Compose for all external dependencies (Postgres, M
 
 `docker-compose.yml` at the repo root defines:
 
-| Service       | Port(s)         | Purpose                                                |
-| ------------- | --------------- | ------------------------------------------------------ |
-| `postgres`    | `5435 → 5432`   | Primary database (matches `DATABASE_URL`)              |
-| `minio`       | `9000`, `9001`  | S3-compatible object storage (`9001` is the web UI)    |
-| `minio-init`  | one-shot        | Creates the `el-audio-daw` bucket on first boot        |
+| Service      | Port(s)        | Purpose                                             |
+| ------------ | -------------- | --------------------------------------------------- |
+| `postgres`   | `5435 → 5432`  | Primary database (matches `DATABASE_URL`)           |
+| `minio`      | `9000`, `9001` | S3-compatible object storage (`9001` is the web UI) |
+| `minio-init` | one-shot       | Creates the `el-audio-daw` bucket on first boot     |
 
 ```bash
 bun db:up      # start postgres + minio

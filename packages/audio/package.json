@@ -10,7 +10,7 @@
     "build:wasm": "wasm-pack build rust --target web --out-dir ../pkg && node scripts/generate-worklet.mjs",
     "check-types": "tsc --noEmit"
   },
-  "dependencies": {}, 
+  "dependencies": {},
   "devDependencies": {
     "@el-audio-daw/config": "workspace:*",
     "typescript": "catalog:"

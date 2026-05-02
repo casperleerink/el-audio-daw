@@ -81,6 +81,7 @@ _Avoid_: Master output, main, stereo bus
 - A **Clip** references exactly one **Sample**
 - A **Sample** can be referenced by many **Clips**
 - A **Clip** occupies a time range on the **Timeline**
+- **Clips** on the same **Track** must not overlap on the **Timeline**
 - The **Playhead** points to one position on the **Timeline**
 - A **Track** has zero or more **Effects**
 - An **Effect Chain** belongs to exactly one **Track**

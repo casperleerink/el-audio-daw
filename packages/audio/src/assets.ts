@@ -11,8 +11,9 @@ export async function decodeAudioAsset(
 
   const arrayBuffer = await response.arrayBuffer();
   const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-  const channels = Array.from({ length: audioBuffer.numberOfChannels }, (_, index) =>
-    new Float32Array(audioBuffer.getChannelData(index)),
+  const channels = Array.from(
+    { length: audioBuffer.numberOfChannels },
+    (_, index) => new Float32Array(audioBuffer.getChannelData(index)),
   );
 
   return {

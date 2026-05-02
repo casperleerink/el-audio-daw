@@ -21,6 +21,8 @@ interface StaticLayerProps {
   selectedClipIds: Set<string>;
   clipDragState: {
     clipId: string;
+    originalStartSampleFrame: number;
+    originalTrackId: string;
     currentStartSampleFrame: number;
     currentTrackId: string;
   } | null;
@@ -147,18 +149,36 @@ export const StaticLayer = memo(function StaticLayer({
         if (trackIndex === undefined) return null;
 
         // Determine effective position
-        const isDragging = clipDragState?.clipId === clip._id;
+        const isDraggedClip = clipDragState?.clipId === clip._id;
+        const isDragging = clipDragState != null && selectedClipIds.has(clip._id);
         const isTrimming = trimState?.clipId === clip._id;
-
-        const effectiveStartTime = isDragging
-          ? clipDragState.currentStartSampleFrame
-          : isTrimming
-            ? trimState.currentStartSampleFrame
-            : undefined;
-        const effectiveDuration = isTrimming ? trimState.currentDurationSampleFrames : undefined;
-        const effectiveTrackIndex = isDragging
+        const draggedOriginalTrackIndex = clipDragState
+          ? trackIndexMap.get(clipDragState.originalTrackId)
+          : undefined;
+        const draggedCurrentTrackIndex = clipDragState
           ? trackIndexMap.get(clipDragState.currentTrackId)
           : undefined;
+        const dragStartOffset = clipDragState
+          ? clipDragState.currentStartSampleFrame - clipDragState.originalStartSampleFrame
+          : 0;
+        const dragTrackOffset =
+          draggedOriginalTrackIndex !== undefined && draggedCurrentTrackIndex !== undefined
+            ? draggedCurrentTrackIndex - draggedOriginalTrackIndex
+            : 0;
+
+        const effectiveStartTime = isDraggedClip
+          ? clipDragState.currentStartSampleFrame
+          : isDragging
+            ? Math.max(0, clip.startSampleFrame + dragStartOffset)
+            : isTrimming
+              ? trimState.currentStartSampleFrame
+              : undefined;
+        const effectiveDuration = isTrimming ? trimState.currentDurationSampleFrames : undefined;
+        const effectiveTrackIndex = isDraggedClip
+          ? trackIndexMap.get(clipDragState.currentTrackId)
+          : isDragging
+            ? Math.max(0, Math.min(tracks.length - 1, trackIndex + dragTrackOffset))
+            : undefined;
 
         // Viewport cull
         const clipStartSeconds = (effectiveStartTime ?? clip.startSampleFrame) / sampleRate;

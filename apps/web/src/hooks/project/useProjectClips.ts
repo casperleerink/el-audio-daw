@@ -5,8 +5,8 @@ import { useClipClipboard } from "@/hooks/useClipClipboard";
 import { useEditorStore } from "@/stores/editorStore";
 import { useProjectData } from "./useProjectData";
 import { useUndoStore } from "@/stores/undoStore";
-import { deleteClipsCommand, createClipsCommand, splitClipCommand } from "@/commands/clipCommands";
-import { compoundCommand } from "@/commands/compoundCommand";
+import { deleteClipsCommand, timelineEditPlanCommand } from "@/commands/clipCommands";
+import { planPasteClips, planSplitClips, type TimelineEditClip } from "@/lib/timelineEditIntent";
 
 /**
  * Hook for clip operations in the project editor.
@@ -65,23 +65,21 @@ export function useProjectClips() {
       // Convert playhead time (seconds) to samples
       const playheadTimeInSamples = Math.round(playheadTime * sampleRate);
 
-      const clipSnapshots = clipboardData.clips.map((clip) => ({
-        id: crypto.randomUUID(),
+      const plan = planPasteClips({
         projectId,
-        trackId: targetTrackId,
-        sampleId: clip.sampleId,
-        name: clip.name,
-        startSampleFrame: playheadTimeInSamples + clip.offsetFromFirst,
-        durationSampleFrames: clip.durationSampleFrames,
-        sourceStartSampleFrame: clip.sourceStartSampleFrame,
-        gain: clip.gain,
-      }));
+        clips: toTimelineEditClips(clips),
+        sourceTrackId: targetTrackId,
+        clipboardClips: clipboardData.clips,
+        playheadSampleFrame: playheadTimeInSamples,
+        createId: () => crypto.randomUUID(),
+      });
+      if (plan.status === "blocked") return;
 
-      const cmd = createClipsCommand(z, clipSnapshots);
+      const cmd = timelineEditPlanCommand(z, "Paste Clips", plan);
       await cmd.execute();
       pushUndo(cmd);
     },
-    [hasClips, getClipboardData, sampleRate, z, projectId, pushUndo],
+    [hasClips, getClipboardData, sampleRate, clips, z, projectId, pushUndo],
   );
 
   // Delete selected clips handler (FR-10 through FR-13)
@@ -119,57 +117,21 @@ export function useProjectClips() {
       // Convert playhead time (seconds) to samples
       const playheadTimeInSamples = Math.round(playheadTime * sampleRate);
 
-      // FR-39: Find selected clips that span the playhead
-      const clipsToSplit = clips.filter((clip) => {
-        if (!selectedClipIds.has(clip.id)) return false;
-        const clipEnd = clip.startSampleFrame + clip.durationSampleFrames;
-        return playheadTimeInSamples > clip.startSampleFrame && playheadTimeInSamples < clipEnd;
+      const plan = planSplitClips({
+        clips: toTimelineEditClips(clips),
+        selectedClipIds,
+        projectId,
+        playheadSampleFrame: playheadTimeInSamples,
+        createId: () => crypto.randomUUID(),
       });
 
       // FR-44: If playhead not intersecting any selected clips, do nothing
-      if (clipsToSplit.length === 0) return;
+      if (plan.status === "blocked") return;
 
       // FR-43: Clear selection (neither resulting clip will be selected)
       clearClipSelection();
 
-      const splitCommands = clipsToSplit.map((clip) => {
-        const splitPoint = playheadTimeInSamples - clip.startSampleFrame;
-        const newDuration = splitPoint;
-        const secondClipDuration = clip.durationSampleFrames - splitPoint;
-        const secondClipAudioStartTime = clip.sourceStartSampleFrame + splitPoint;
-
-        const originalBefore = {
-          id: clip.id,
-          projectId: clip.projectId,
-          trackId: clip.trackId,
-          sampleId: clip.sampleId,
-          name: clip.name,
-          startSampleFrame: clip.startSampleFrame,
-          durationSampleFrames: clip.durationSampleFrames,
-          sourceStartSampleFrame: clip.sourceStartSampleFrame,
-          gain: clip.gain ?? 0,
-        };
-
-        const newClip = {
-          id: crypto.randomUUID(),
-          projectId,
-          trackId: clip.trackId,
-          sampleId: clip.sampleId,
-          name: clip.name,
-          startSampleFrame: playheadTimeInSamples,
-          durationSampleFrames: secondClipDuration,
-          sourceStartSampleFrame: secondClipAudioStartTime,
-          gain: clip.gain ?? 0,
-        };
-
-        return splitClipCommand(z, originalBefore, newDuration, newClip);
-      });
-
-      const cmd =
-        splitCommands.length === 1
-          ? splitCommands[0]!
-          : compoundCommand(`Split ${splitCommands.length} Clips`, splitCommands);
-
+      const cmd = timelineEditPlanCommand(z, "Split Clips", plan);
       await cmd.execute();
       pushUndo(cmd);
     },
@@ -185,4 +147,30 @@ export function useProjectClips() {
     handleSplitClips,
     hasClips,
   };
+}
+
+function toTimelineEditClips(
+  clips: ReadonlyArray<{
+    id: string;
+    projectId: string;
+    trackId: string;
+    sampleId: string;
+    name: string;
+    startSampleFrame: number;
+    durationSampleFrames: number;
+    sourceStartSampleFrame: number;
+    gain: number | null;
+  }>,
+): TimelineEditClip[] {
+  return clips.map((clip) => ({
+    id: clip.id,
+    projectId: clip.projectId,
+    trackId: clip.trackId,
+    sampleId: clip.sampleId,
+    name: clip.name,
+    startSampleFrame: clip.startSampleFrame,
+    durationSampleFrames: clip.durationSampleFrames,
+    sourceStartSampleFrame: clip.sourceStartSampleFrame,
+    gain: clip.gain ?? 0,
+  }));
 }

@@ -27,7 +27,9 @@ export class AudioEngineController {
       options.sampleRate ? { sampleRate: options.sampleRate } : undefined,
     );
 
-    await audioContext.audioWorklet.addModule(new URL("./worklet/processor.generated.js", import.meta.url));
+    await audioContext.audioWorklet.addModule(
+      new URL("./worklet/processor.generated.js", import.meta.url),
+    );
 
     const node = new AudioWorkletNode(audioContext, "daw-audio-processor", {
       numberOfInputs: 0,
@@ -69,7 +71,10 @@ export class AudioEngineController {
   async loadAsset(asset: AudioAssetSource) {
     if (!this.audioContext) throw new Error("AudioEngineController not initialized");
     const decoded = await decodeAudioAsset(this.audioContext, asset);
-    this.post({ type: "LoadAsset", asset: decoded }, decoded.channels.map((channel) => channel.buffer));
+    this.post(
+      { type: "LoadAsset", asset: decoded },
+      decoded.channels.map((channel) => channel.buffer),
+    );
     return decoded;
   }
 

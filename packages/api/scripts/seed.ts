@@ -24,7 +24,11 @@ const SEED_PASSWORD = "password123";
 const SEED_NAME = "Dev User";
 
 async function ensureUser(): Promise<string> {
-  const existing = await db.select().from(userTable).where(eq(userTable.email, SEED_EMAIL)).limit(1);
+  const existing = await db
+    .select()
+    .from(userTable)
+    .where(eq(userTable.email, SEED_EMAIL))
+    .limit(1);
   if (existing.length > 0 && existing[0]) {
     return existing[0].id;
   }

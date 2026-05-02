@@ -2,7 +2,9 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Zero } from "@rocicorp/zero";
 import { useUndoStore } from "@/stores/undoStore";
-import { trimClipCommand } from "@/commands/clipCommands";
+import { timelineEditPlanCommand } from "@/commands/clipCommands";
+import type { ClipData } from "@/components/project/timeline/types";
+import { planTrimClip, type TimelineEditClip } from "@/lib/timelineEditIntent";
 
 interface TrimState {
   clipId: string;
@@ -20,6 +22,8 @@ interface UseKonvaClipTrimOptions {
   sampleRate: number;
   z: Zero;
   getSampleDuration?: (sampleId: string) => number | undefined;
+  clips: ClipData[];
+  projectId: string;
 }
 
 export function useKonvaClipTrim({
@@ -27,6 +31,8 @@ export function useKonvaClipTrim({
   sampleRate,
   z,
   getSampleDuration,
+  clips,
+  projectId,
 }: UseKonvaClipTrimOptions) {
   const [trimState, setTrimState] = useState<TrimState | null>(null);
   const justFinishedTrimRef = useRef(false);
@@ -120,30 +126,26 @@ export function useKonvaClipTrim({
       setTrimState(null);
 
       try {
-        const deltaSamples = state.currentStartSampleFrame - state.originalStartSampleFrame;
-        const finalSourceStartSampleFrame = Math.max(0, state.originalSourceStartSampleFrame + deltaSamples);
-
-        const cmd = trimClipCommand(
-          z,
+        const plan = planTrimClip({
+          clips: toTimelineEditClips(clips, projectId),
           clipId,
-          {
-            startSampleFrame: state.originalStartSampleFrame,
-            sourceStartSampleFrame: state.originalSourceStartSampleFrame,
-            durationSampleFrames: state.originalDurationSampleFrames,
-          },
-          {
-            startSampleFrame: state.currentStartSampleFrame,
-            sourceStartSampleFrame: finalSourceStartSampleFrame,
-            durationSampleFrames: state.currentDurationSampleFrames,
-          },
-        );
+          edge: state.edge,
+          requestedStartSampleFrame: state.currentStartSampleFrame,
+          requestedDurationSampleFrames: state.currentDurationSampleFrames,
+          sampleDurationSampleFrames: state.sampleDurationFrames,
+        });
+        if (plan.status === "blocked") {
+          toast.error("No room to trim clip");
+          return;
+        }
+        const cmd = timelineEditPlanCommand(z, "Trim Clip", plan);
         await cmd.execute();
         useUndoStore.getState().push(cmd);
       } catch {
         toast.error("Failed to trim clip");
       }
     },
-    [trimState, z],
+    [trimState, clips, projectId, z],
   );
 
   return {
@@ -153,4 +155,18 @@ export function useKonvaClipTrim({
     handleTrimMove,
     handleTrimEnd,
   };
+}
+
+function toTimelineEditClips(clips: ClipData[], projectId: string): TimelineEditClip[] {
+  return clips.map((clip) => ({
+    id: clip._id,
+    projectId,
+    trackId: clip.trackId,
+    sampleId: clip.sampleId,
+    name: clip.name,
+    startSampleFrame: clip.startSampleFrame,
+    durationSampleFrames: clip.durationSampleFrames,
+    sourceStartSampleFrame: clip.sourceStartSampleFrame,
+    gain: 0,
+  }));
 }

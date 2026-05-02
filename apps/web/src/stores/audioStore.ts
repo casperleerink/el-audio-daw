@@ -76,7 +76,8 @@ export const useAudioStore = create<AudioStoreState>((set, get) => ({
       return engineInstance;
     }
 
-    const { sampleRate, pendingTracks, pendingClips, pendingEffects, masterGain, playheadTime } = get();
+    const { sampleRate, pendingTracks, pendingClips, pendingEffects, masterGain, playheadTime } =
+      get();
     set({ isEngineInitializing: true });
 
     try {

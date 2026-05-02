@@ -45,7 +45,9 @@ async function runSmokeTest(): Promise<void> {
     project: {
       projectId: "smoke-project",
       sampleRate: 48_000,
-      tracks: [{ id: "track-1", kind: "audio", order: 0, muted: false, solo: false, gainDb: 0, pan: 0 }],
+      tracks: [
+        { id: "track-1", kind: "audio", order: 0, muted: false, solo: false, gainDb: 0, pan: 0 },
+      ],
       clips: [
         {
           id: "clip-1",
@@ -99,7 +101,9 @@ async function waitForEvent<T extends EngineEvent["type"]>(
 ): Promise<Extract<EngineEvent, { type: T }>> {
   const startedAt = performance.now();
   while (performance.now() - startedAt < timeoutMs) {
-    const found = events.find((event): event is Extract<EngineEvent, { type: T }> => event.type === type);
+    const found = events.find(
+      (event): event is Extract<EngineEvent, { type: T }> => event.type === type,
+    );
     if (found) return found;
     const error = events.find((event) => event.type === "Error");
     if (error?.type === "Error") throw new Error(error.message);
