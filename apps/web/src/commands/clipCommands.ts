@@ -2,7 +2,6 @@ import type { Zero } from "@rocicorp/zero";
 import { mutators } from "@el-audio-daw/zero/mutators";
 import type { UndoCommand } from "./types";
 import { compoundCommand } from "./compoundCommand";
-import type { TimelineEditPlan, TimelineEditOperation } from "@/lib/timelineEditIntent";
 
 interface ClipPosition {
   trackId: string;
@@ -169,69 +168,4 @@ export function createClipsCommand(z: Zero, clips: ClipSnapshot[]): UndoCommand 
     `Create ${clips.length} Clips`,
     clips.map((clip) => createClipCommand(z, clip)),
   );
-}
-
-export function timelineEditPlanCommand(
-  z: Zero,
-  label: string,
-  plan: Extract<TimelineEditPlan, { status: "ok" }>,
-): UndoCommand {
-  const commands = plan.operations.map((operation) => timelineEditOperationCommand(z, operation));
-  if (commands.length === 1) return { ...commands[0]!, label };
-  return compoundCommand(label, commands);
-}
-
-function timelineEditOperationCommand(z: Zero, operation: TimelineEditOperation): UndoCommand {
-  if (operation.type === "createClip") return createClipCommand(z, operation.clip);
-  if (operation.type === "deleteClip") return deleteClipCommand(z, operation.clip);
-
-  return {
-    label: "Update Clip",
-    execute: async () => {
-      await updateClipFromPlan(z, operation.clipId, operation.before, operation.after);
-    },
-    undo: async () => {
-      await updateClipFromPlan(
-        z,
-        operation.clipId,
-        { ...operation.before, ...operation.after },
-        operation.before,
-      );
-    },
-  };
-}
-
-async function updateClipFromPlan(
-  z: Zero,
-  clipId: string,
-  before: Pick<ClipSnapshot, "trackId" | "startSampleFrame">,
-  after: Partial<
-    Pick<
-      ClipSnapshot,
-      "trackId" | "startSampleFrame" | "sourceStartSampleFrame" | "durationSampleFrames" | "gain"
-    >
-  >,
-): Promise<void> {
-  const trackId = after.trackId ?? before.trackId;
-  const startSampleFrame = after.startSampleFrame ?? before.startSampleFrame;
-  const trackChanged = trackId !== before.trackId;
-
-  if (trackChanged) {
-    await z.mutate(mutators.clips.move({ id: clipId, trackId, startSampleFrame }));
-  }
-
-  const update = {
-    ...(trackChanged ? {} : after.startSampleFrame !== undefined ? { startSampleFrame } : {}),
-    ...(after.sourceStartSampleFrame !== undefined
-      ? { sourceStartSampleFrame: after.sourceStartSampleFrame }
-      : {}),
-    ...(after.durationSampleFrames !== undefined
-      ? { durationSampleFrames: after.durationSampleFrames }
-      : {}),
-    ...(after.gain !== undefined ? { gain: after.gain } : {}),
-  };
-
-  if (Object.keys(update).length > 0) {
-    await z.mutate(mutators.clips.update({ id: clipId, ...update }));
-  }
 }

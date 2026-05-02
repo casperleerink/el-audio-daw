@@ -150,7 +150,14 @@ export const StaticLayer = memo(function StaticLayer({
 
         // Determine effective position
         const isDraggedClip = clipDragState?.clipId === clip._id;
-        const isDragging = clipDragState != null && selectedClipIds.has(clip._id);
+        const draggedClipWasSelected =
+          clipDragState != null && selectedClipIds.has(clipDragState.clipId);
+        const isDragging =
+          clipDragState != null &&
+          (isDraggedClip ||
+            (draggedClipWasSelected &&
+              selectedClipIds.has(clip._id) &&
+              clip.trackId === clipDragState.originalTrackId));
         const isTrimming = trimState?.clipId === clip._id;
         const draggedOriginalTrackIndex = clipDragState
           ? trackIndexMap.get(clipDragState.originalTrackId)

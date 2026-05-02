@@ -2,9 +2,8 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Zero } from "@rocicorp/zero";
 import { useUndoStore } from "@/stores/undoStore";
-import { timelineEditPlanCommand } from "@/commands/clipCommands";
 import type { ClipData } from "@/components/project/timeline/types";
-import { planTrimClip, type TimelineEditClip } from "@/lib/timelineEditIntent";
+import { executeTimelineEdit } from "@/timeline-edit/executeTimelineEdit";
 
 interface TrimState {
   clipId: string;
@@ -126,21 +125,24 @@ export function useKonvaClipTrim({
       setTrimState(null);
 
       try {
-        const plan = planTrimClip({
-          clips: toTimelineEditClips(clips, projectId),
-          clipId,
-          edge: state.edge,
-          requestedStartSampleFrame: state.currentStartSampleFrame,
-          requestedDurationSampleFrames: state.currentDurationSampleFrames,
-          sampleDurationSampleFrames: state.sampleDurationFrames,
+        const result = await executeTimelineEdit({
+          z,
+          projectId,
+          clips,
+          pushUndo: useUndoStore.getState().push,
+          intent: {
+            type: "trim-clip",
+            clipId,
+            edge: state.edge,
+            requestedStartSampleFrame: state.currentStartSampleFrame,
+            requestedDurationSampleFrames: state.currentDurationSampleFrames,
+            sampleDurationSampleFrames: state.sampleDurationFrames,
+          },
         });
-        if (plan.status === "blocked") {
+        if (result.status === "blocked") {
           toast.error("No room to trim clip");
           return;
         }
-        const cmd = timelineEditPlanCommand(z, "Trim Clip", plan);
-        await cmd.execute();
-        useUndoStore.getState().push(cmd);
       } catch {
         toast.error("Failed to trim clip");
       }
@@ -155,18 +157,4 @@ export function useKonvaClipTrim({
     handleTrimMove,
     handleTrimEnd,
   };
-}
-
-function toTimelineEditClips(clips: ClipData[], projectId: string): TimelineEditClip[] {
-  return clips.map((clip) => ({
-    id: clip._id,
-    projectId,
-    trackId: clip.trackId,
-    sampleId: clip.sampleId,
-    name: clip.name,
-    startSampleFrame: clip.startSampleFrame,
-    durationSampleFrames: clip.durationSampleFrames,
-    sourceStartSampleFrame: clip.sourceStartSampleFrame,
-    gain: 0,
-  }));
 }

@@ -5,8 +5,7 @@ import { useClipClipboard } from "@/hooks/useClipClipboard";
 import { useEditorStore } from "@/stores/editorStore";
 import { useProjectData } from "./useProjectData";
 import { useUndoStore } from "@/stores/undoStore";
-import { deleteClipsCommand, timelineEditPlanCommand } from "@/commands/clipCommands";
-import { planPasteClips, planSplitClips, type TimelineEditClip } from "@/lib/timelineEditIntent";
+import { executeTimelineEdit } from "@/timeline-edit/executeTimelineEdit";
 
 /**
  * Hook for clip operations in the project editor.
@@ -62,51 +61,53 @@ export function useProjectClips() {
       // Target track is the same track as source (FR-27)
       const targetTrackId = clipboardData.sourceTrackId;
 
-      // Convert playhead time (seconds) to samples
-      const playheadTimeInSamples = Math.round(playheadTime * sampleRate);
-
-      const plan = planPasteClips({
+      const result = await executeTimelineEdit({
+        z,
         projectId,
-        clips: toTimelineEditClips(clips),
-        sourceTrackId: targetTrackId,
-        clipboardClips: clipboardData.clips,
-        playheadSampleFrame: playheadTimeInSamples,
-        createId: () => crypto.randomUUID(),
+        clips,
+        selectedClipIds,
+        pushUndo,
+        intent: {
+          type: "paste-clips-at-playhead",
+          sourceTrackId: targetTrackId,
+          clipboardClips: clipboardData.clips,
+          playheadTime,
+          sampleRate,
+        },
       });
-      if (plan.status === "blocked") return;
-
-      const cmd = timelineEditPlanCommand(z, "Paste Clips", plan);
-      await cmd.execute();
-      pushUndo(cmd);
+      if (result.status === "ok" && result.selectionEffect === "clear") {
+        clearClipSelection();
+      }
     },
-    [hasClips, getClipboardData, sampleRate, clips, z, projectId, pushUndo],
+    [
+      hasClips,
+      getClipboardData,
+      sampleRate,
+      clips,
+      selectedClipIds,
+      z,
+      projectId,
+      pushUndo,
+      clearClipSelection,
+    ],
   );
 
   // Delete selected clips handler (FR-10 through FR-13)
   const handleDeleteSelectedClips = useCallback(async () => {
-    if (selectedClipIds.size === 0) return;
+    if (selectedClipIds.size === 0 || !projectId) return;
 
-    // Snapshot full clip data before deletion (for undo)
-    const clipsToDelete = clips
-      .filter((clip) => selectedClipIds.has(clip.id))
-      .map((clip) => ({
-        id: clip.id,
-        projectId: clip.projectId,
-        trackId: clip.trackId,
-        sampleId: clip.sampleId,
-        name: clip.name,
-        startSampleFrame: clip.startSampleFrame,
-        durationSampleFrames: clip.durationSampleFrames,
-        sourceStartSampleFrame: clip.sourceStartSampleFrame,
-        gain: clip.gain ?? 0,
-      }));
-
-    clearClipSelection();
-
-    const cmd = deleteClipsCommand(z, clipsToDelete);
-    await cmd.execute();
-    pushUndo(cmd);
-  }, [selectedClipIds, clips, clearClipSelection, z, pushUndo]);
+    const result = await executeTimelineEdit({
+      z,
+      projectId,
+      clips,
+      selectedClipIds,
+      pushUndo,
+      intent: { type: "delete-selected-clips" },
+    });
+    if (result.status === "ok" && result.selectionEffect === "clear") {
+      clearClipSelection();
+    }
+  }, [selectedClipIds, clips, clearClipSelection, z, projectId, pushUndo]);
 
   // Split selected clips at playhead handler (FR-38 through FR-45)
   const handleSplitClips = useCallback(
@@ -114,26 +115,26 @@ export function useProjectClips() {
       // FR-38: Split all selected clips at playhead position
       if (selectedClipIds.size === 0 || clips.length === 0 || !projectId) return;
 
-      // Convert playhead time (seconds) to samples
-      const playheadTimeInSamples = Math.round(playheadTime * sampleRate);
-
-      const plan = planSplitClips({
-        clips: toTimelineEditClips(clips),
-        selectedClipIds,
+      const result = await executeTimelineEdit({
+        z,
         projectId,
-        playheadSampleFrame: playheadTimeInSamples,
-        createId: () => crypto.randomUUID(),
+        clips,
+        selectedClipIds,
+        pushUndo,
+        intent: {
+          type: "split-clips-at-playhead",
+          playheadTime,
+          sampleRate,
+        },
       });
 
       // FR-44: If playhead not intersecting any selected clips, do nothing
-      if (plan.status === "blocked") return;
+      if (result.status === "blocked") return;
 
       // FR-43: Clear selection (neither resulting clip will be selected)
-      clearClipSelection();
-
-      const cmd = timelineEditPlanCommand(z, "Split Clips", plan);
-      await cmd.execute();
-      pushUndo(cmd);
+      if (result.selectionEffect === "clear") {
+        clearClipSelection();
+      }
     },
     [selectedClipIds, clips, sampleRate, clearClipSelection, z, projectId, pushUndo],
   );
@@ -147,30 +148,4 @@ export function useProjectClips() {
     handleSplitClips,
     hasClips,
   };
-}
-
-function toTimelineEditClips(
-  clips: ReadonlyArray<{
-    id: string;
-    projectId: string;
-    trackId: string;
-    sampleId: string;
-    name: string;
-    startSampleFrame: number;
-    durationSampleFrames: number;
-    sourceStartSampleFrame: number;
-    gain: number | null;
-  }>,
-): TimelineEditClip[] {
-  return clips.map((clip) => ({
-    id: clip.id,
-    projectId: clip.projectId,
-    trackId: clip.trackId,
-    sampleId: clip.sampleId,
-    name: clip.name,
-    startSampleFrame: clip.startSampleFrame,
-    durationSampleFrames: clip.durationSampleFrames,
-    sourceStartSampleFrame: clip.sourceStartSampleFrame,
-    gain: clip.gain ?? 0,
-  }));
 }

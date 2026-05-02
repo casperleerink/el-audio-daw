@@ -28,6 +28,10 @@ _Avoid_: Region, item, event
 The time-based arrangement surface where clips are positioned across tracks.
 _Avoid_: Canvas, sequencer, editor
 
+**Timeline Edit**:
+A user-intended change to Clip placement or shape on the Timeline, such as moving, trimming, splitting, deleting, duplicating, or pasting Clips.
+_Avoid_: Clip operation, edit action, canvas mutation
+
 **Playhead**:
 The current playback position in the project timeline.
 _Avoid_: Cursor, transport position
@@ -81,6 +85,7 @@ _Avoid_: Master output, main, stereo bus
 - A **Clip** references exactly one **Sample**
 - A **Sample** can be referenced by many **Clips**
 - A **Clip** occupies a time range on the **Timeline**
+- **Timeline Edits** that operate on multiple **Clips** are scoped to one **Track**
 - **Clips** on the same **Track** must not overlap on the **Timeline**
 - The **Playhead** points to one position on the **Timeline**
 - A **Track** has zero or more **Effects**

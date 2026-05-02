@@ -327,8 +327,11 @@ function getEditGroup(
   selectedClipIds: ReadonlySet<string>,
   draggedClipId: string,
 ): TimelineEditClip[] {
+  const draggedClip = clips.find((clip) => clip.id === draggedClipId);
+  if (!draggedClip) return [];
+
   const activeIds = selectedClipIds.has(draggedClipId) ? selectedClipIds : new Set([draggedClipId]);
-  return clips.filter((clip) => activeIds.has(clip.id));
+  return clips.filter((clip) => activeIds.has(clip.id) && clip.trackId === draggedClip.trackId);
 }
 
 function planMovedRanges(

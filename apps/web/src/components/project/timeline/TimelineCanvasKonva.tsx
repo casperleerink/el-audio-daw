@@ -92,6 +92,7 @@ export function TimelineCanvasKonva({
     selectedClipIds,
     clips,
     projectId,
+    onSelectClip,
   });
 
   // Clip trim
